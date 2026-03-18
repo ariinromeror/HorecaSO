@@ -24,6 +24,7 @@ from config import settings
 from database import close_connection_pool, init_connection_pool, get_db
 from routers.auth import router as auth_router
 from routers.mesas import router as mesas_router
+from routers.tpv import router as tpv_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(mesas_router)
+    app.include_router(tpv_router)
 
     @app.get("/api/health")
     async def health_check():
