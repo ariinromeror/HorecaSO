@@ -14,7 +14,7 @@ from database import get_db
 
 logger = logging.getLogger(__name__)
 
-METODOS_PAGO = ("efectivo", "tarjeta", "bizum", "invitacion")
+METODOS_PAGO = ("efectivo", "tarjeta_credito", "tarjeta_debito", "bizum", "transferencia", "invitacion")
 
 router = APIRouter(
     prefix="/api/tpv",
