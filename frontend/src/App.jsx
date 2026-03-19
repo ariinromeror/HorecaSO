@@ -13,6 +13,7 @@ import LoginPage from './pages/LoginPage'
 import MesasPage from './pages/sala/MesasPage'
 import TPVPage from './pages/tpv/TPVPage'
 import DashboardPage from './pages/director/DashboardPage'
+import VentaLivePage from './pages/director/VentaLivePage'
 
 function PrivateRoute() {
   const { isLoading, isAuthenticated } = useAuth()
@@ -45,6 +46,7 @@ export default function App() {
                   element={<Navigate to="/mesas" replace />}
                 />
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/venta-live" element={<VentaLivePage />} />
               </Route>
               <Route path="/tpv/:mesaId" element={<TPVPage />} />
             </Route>

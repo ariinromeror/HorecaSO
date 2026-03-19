@@ -70,6 +70,11 @@ export function getTicketsAbiertos() {
   return api.get('/tpv/tickets/abiertos')
 }
 
+/** Venta Live: misma ruta que abiertos (contrato .cursorrules / spec). */
+export function getTicketsCobradosHoy() {
+  return api.get('/tpv/tickets/abiertos')
+}
+
 export function getTicket(ticket_id) {
   return api.get(`/tpv/tickets/${ticket_id}`)
 }
