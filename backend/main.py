@@ -22,7 +22,13 @@ from slowapi.util import get_remote_address
 
 from config import settings
 from database import close_connection_pool, init_connection_pool, get_db
+from routers.admin_carta import router as admin_carta_router
+from routers.admin_carta import router_alergenos as alergenos_router
+from routers.dashboard import router as dashboard_router
+from routers.admin_recetas import router as admin_recetas_router
 from routers.auth import router as auth_router
+from routers.carta import router_publica as carta_publica_router
+from routers.carta import router_tpv as carta_tpv_router
 from routers.mesas import router as mesas_router
 from routers.tpv import router as tpv_router
 from routers.verifactu import router as verifactu_router
@@ -98,6 +104,12 @@ def create_app() -> FastAPI:
     app.include_router(mesas_router)
     app.include_router(tpv_router)
     app.include_router(verifactu_router)
+    app.include_router(carta_tpv_router)
+    app.include_router(carta_publica_router)
+    app.include_router(admin_carta_router)
+    app.include_router(alergenos_router)
+    app.include_router(admin_recetas_router)
+    app.include_router(dashboard_router)
 
     @app.get("/api/health")
     async def health_check():
