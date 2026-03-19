@@ -2,6 +2,7 @@ import {
   LayoutGrid,
   Monitor,
   BarChart2,
+  Activity,
   Package,
   ChefHat,
   Users,
@@ -34,6 +35,12 @@ const NAV_ITEMS = [
     label: 'Dashboard',
     Icon: BarChart2,
     roles: ['admin', 'director'],
+  },
+  {
+    path: '/venta-live',
+    label: 'Venta Live',
+    Icon: Activity,
+    roles: ['admin', 'director', 'jefe_sala'],
   },
   {
     path: '/inventario',

@@ -1,11 +1,12 @@
-# PRD — HorecaSO
-## Product Requirements Document v1.0
+# PRD — HorecaSO v2.0
+## Product Requirements Document — Edición Premium
 
 **Proyecto:** HorecaSO  
 **Autor:** Arin Romero  
-**Fecha:** Marzo 2026  
+**Versión:** 2.0 — Marzo 2026  
 **Stack:** FastAPI · React 19 · PostgreSQL · Supabase · Render · Vercel  
-**Target:** Restaurantes medianos — 5 a 15 empleados — mercado español
+**Target:** Restaurantes medianos — 5 a 50 empleados — mercado español  
+**Posicionamiento:** ERP de hostelería premium — por encima de Revo, Agora e ICG
 
 ---
 
@@ -13,50 +14,42 @@
 
 ### El problema real
 
-Un restaurante mediano en España opera con información fragmentada. El dueño cierra el día sin saber si ganó o perdió dinero. Sabe cuánto vendió pero no cuánto le costó vender. Sus platos tienen precios basados en intuición, no en coste real. El inventario lo lleva en papel o en Excel. La facturación fiscal le consume tiempo que no tiene. Y desde 2025, Verifactu es obligatorio — y la mayoría de software barato no lo implementa correctamente.
+Un restaurante mediano en España opera con información fragmentada. El dueño cierra el día sin saber si ganó o perdió dinero. Sabe cuánto vendió pero no cuánto le costó vender. Sus platos tienen precios basados en intuición, no en coste real. El inventario lo lleva en papel o en Excel. La facturación fiscal le consume tiempo que no tiene. No sabe qué camarero rinde más, qué mesa genera más dinero por hora, ni qué platos debería retirar de la carta. Y desde 2025, Verifactu es obligatorio.
 
-**El dueño de un restaurante mediano necesita una sola pantalla que le diga: vendí esto, me costó esto, me quedé con esto.**
+**El dueño de un restaurante mediano necesita una sola pantalla que le diga: vendí esto, me costó esto, me quedé con esto, esto es lo que tengo que hacer mañana.**
 
 ### La solución
 
-HorecaSO es un ERP web para hostelería que conecta las ventas del día con el coste real de producirlas, el inventario que se consumió, y el cumplimiento fiscal automático. Todo en un sistema, sin Excel, sin papel, sin sorpresas al final del mes.
+HorecaSO es el ERP web más completo del mercado de hostelería español. Conecta las ventas del día con el coste real de producirlas, el inventario que se consumió, el rendimiento del personal, el cumplimiento fiscal automático, y la experiencia del cliente. Todo en un sistema, sin Excel, sin papel, sin sorpresas.
 
-### Diferenciadores clave
+### Diferenciadores clave vs competencia
 
-1. **Verifactu nativo** — no es un add-on, es parte del core desde el primer ticket
-2. **Semáforo de rentabilidad** — cada plato tiene un color según su margen real
-3. **Real vs Teórico** — lo que debería haberse consumido vs lo que realmente salió del almacén
-4. **Escaneo de facturas con IA** — fotografía la factura del proveedor, el sistema actualiza el stock automáticamente
+| Feature | HorecaSO | Revo | Agora | ICG |
+|---------|----------|------|-------|-----|
+| Verifactu nativo | ✅ | Parcial | ✅ | ✅ |
+| Semáforo rentabilidad | ✅ | ❌ | ❌ | ❌ |
+| IA escaneo facturas | ✅ | ❌ | ❌ | ❌ |
+| Previsión demanda IA | ✅ | ❌ | ❌ | ❌ |
+| Rentabilidad por mesa/hora | ✅ | ❌ | ❌ | ❌ |
+| Control horario legal | ✅ | ❌ | Parcial | ✅ |
+| Carta digital QR | ✅ | ✅ | ✅ | ❌ |
+| KDS cocina | ✅ | ✅ | ✅ | ✅ |
+| Alérgenos por ley | ✅ | ✅ | ✅ | ✅ |
+| Multi-tenant SaaS | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
 ## 2. USUARIOS Y ROLES
 
-### Usuario primario
-
-**Dueño / Gerente** — toma decisiones, quiere visibilidad financiera, no es técnico, accede desde móvil y desktop.
-
-### Usuarios operativos
-
 | Rol | Qué hace en el sistema |
 |-----|----------------------|
-| **Dueño / Director** | Dashboard financiero, configuración, reportes, Verifactu, proveedores |
-| **Jefe de Sala** | Gestión de mesas, reservas, asignación de pedidos |
-| **Camarero** | TPV — tomar pedidos, cerrar mesas, cobrar |
-| **Cocinero / Jefe de Cocina** | Consulta de pedidos, gestión de recetas, registro de mermas |
-| **Encargado de Almacén** | Entrada de stock, inventario, pedidos a proveedores |
+| **Director / Dueño** | Dashboard financiero completo, configuración, reportes, Verifactu, nóminas |
+| **Jefe de Sala** | Gestión de mesas, reservas, asignación de pedidos, control de camareros |
+| **Camarero** | TPV — tomar pedidos, cerrar mesas, cobrar, división de cuenta |
+| **Cocinero / Jefe de Cocina** | KDS — pedidos en tiempo real, gestión de recetas, registro de mermas |
+| **Encargado de Almacén** | Entrada de stock, inventario, pedidos a proveedores, APPCC |
+| **RRHH / Encargado** | Personal, turnos, control horario, vacaciones |
 | **Administrador** | Configuración del sistema, usuarios, permisos |
-
-### Roles técnicos en el sistema
-
-```
-director → acceso total
-jefe_sala → mesas, reservas, pedidos
-camarero → tpv, cobros
-cocina → recetas, mermas, pedidos entrantes
-almacen → inventario, proveedores, compras
-admin → configuración, usuarios
-```
 
 ---
 
@@ -71,85 +64,45 @@ admin → configuración, usuarios
 | Driver DB | asyncpg — raw async SQL, sin ORM |
 | Frontend | React 19 · Vite 7 · Tailwind CSS 4 |
 | Auth | JWT · bcrypt · RBAC |
-| IA | Groq API — escaneo y extracción de facturas |
-| PDF / Fiscal | ReportLab — tickets, facturas, QR Verifactu |
-| Criptografía | hashlib Python — SHA-256 para hash chaining |
+| IA | Groq API — escaneo facturas + previsión demanda |
+| PDF / Fiscal | ReportLab — tickets, facturas, QR Verifactu, nóminas |
+| Criptografía | hashlib Python — SHA-256 para hash chaining Verifactu |
+| Email/SMS | SendGrid — confirmaciones de reserva, alertas |
 | Deploy | Render (backend) · Vercel (frontend) · Supabase (DB) |
 
-### Estructura del proyecto
+---
 
-```
-horecaso/
-├── backend/
-│   ├── auth/
-│   │   ├── dependencies.py       # JWT, RBAC require_roles()
-│   │   └── jwt_handler.py
-│   ├── routers/
-│   │   ├── auth.py
-│   │   ├── tpv.py                # Ventas, tickets, cobros
-│   │   ├── mesas.py              # Plano, estados, asignaciones
-│   │   ├── reservas.py           # Calendario de reservas
-│   │   ├── inventario.py         # Stock, movimientos, alertas
-│   │   ├── recetas.py            # Escandallos, ingredientes, mermas
-│   │   ├── proveedores.py        # Compras, facturas, entrada de stock
-│   │   ├── empleados.py          # Personal, turnos, horas
-│   │   ├── verifactu.py          # Hash chaining, XML AEAT, QR
-│   │   ├── reportes.py           # PDF, cierres, financiero
-│   │   └── dashboard.py          # KPIs agregados por rol
-│   ├── services/
-│   │   ├── verifactu_engine.py   # SHA-256, encadenamiento, XML SOAP
-│   │   ├── food_cost.py          # Cálculo coste teórico vs real
-│   │   ├── inventario_fifo.py    # Lógica FIFO de lotes
-│   │   ├── pdf_generator.py      # Tickets, facturas, QR
-│   │   └── ia_facturas.py        # Extracción IA de facturas proveedor
-│   ├── config.py
-│   ├── database.py               # asyncpg pool, pgbouncer fix
-│   └── main.py
-│
-├── frontend/
-│   └── src/
-│       ├── components/
-│       │   ├── shared/           # StatCard, EmptyState, Loader, Toast
-│       │   ├── tpv/              # Teclado numérico, carrito, cobro
-│       │   └── mesas/            # Plano visual interactivo
-│       ├── constants/            # uiTokens, colores semáforo
-│       ├── context/              # AuthContext
-│       ├── pages/
-│       │   ├── director/         # Dashboard, reportes, config
-│       │   ├── sala/             # Mesas, reservas
-│       │   ├── tpv/              # Terminal de venta
-│       │   ├── cocina/           # Pedidos, recetas, mermas
-│       │   ├── almacen/          # Inventario, proveedores
-│       │   └── empleados/        # Personal, turnos
-│       └── services/             # api.js, domainServices
-│
-└── docs/
-    ├── PRD.md
-    └── DEPLOY.md
-```
-
-### Esquema de base de datos principal
+## 4. SCHEMA DE BASE DE DATOS COMPLETO
 
 ```sql
--- Multi-tenant base
+-- ============================================================
+-- CORE MULTI-TENANT
+-- ============================================================
+
 CREATE TABLE tenants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre VARCHAR(255) NOT NULL,
-    nif VARCHAR(20) NOT NULL,           -- Para Verifactu
+    nif VARCHAR(20) NOT NULL,
     direccion TEXT,
+    telefono VARCHAR(20),
+    email VARCHAR(255),
+    logo_url TEXT,
+    plan VARCHAR(20) DEFAULT 'basico', -- basico, profesional, premium
+    activo BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Locales / establecimientos
 CREATE TABLE outlets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     nombre VARCHAR(255) NOT NULL,
+    direccion TEXT,
+    telefono VARCHAR(20),
     num_mesas INTEGER DEFAULT 0,
+    capacidad_total INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Usuarios del sistema
 CREATE TABLE usuarios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
@@ -157,29 +110,46 @@ CREATE TABLE usuarios (
     nombre VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    rol VARCHAR(50) NOT NULL,           -- director, camarero, cocina, etc.
+    rol VARCHAR(50) NOT NULL,
+    pin VARCHAR(6),                     -- PIN rápido para TPV táctil
     activo BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Mesas
+-- ============================================================
+-- MESAS Y SALA
+-- ============================================================
+
 CREATE TABLE mesas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     outlet_id UUID REFERENCES outlets(id),
     numero INTEGER NOT NULL,
     capacidad INTEGER DEFAULT 4,
-    estado VARCHAR(20) DEFAULT 'libre', -- libre, ocupada, reservada
-    posicion_x NUMERIC,                 -- Para plano visual
+    estado VARCHAR(20) DEFAULT 'libre', -- libre, ocupada, reservada, bloqueada
+    posicion_x NUMERIC,
     posicion_y NUMERIC,
-    zona VARCHAR(100)                   -- terraza, interior, barra
+    zona VARCHAR(100),                  -- interior, terraza, barra, privado, jardín
+    forma VARCHAR(20) DEFAULT 'cuadrada' -- cuadrada, redonda, rectangular
 );
 
--- Carta / Menú
+-- ============================================================
+-- CARTA Y MENÚ
+-- ============================================================
+
 CREATE TABLE categorias_menu (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     nombre VARCHAR(100) NOT NULL,
-    orden INTEGER DEFAULT 0
+    icono VARCHAR(50),                  -- emoji o nombre de icono
+    color VARCHAR(7),                   -- hex color para TPV
+    orden INTEGER DEFAULT 0,
+    activo BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE alergenos (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,        -- gluten, lactosa, huevo, etc.
+    icono VARCHAR(10)                   -- emoji del alérgeno
 );
 
 CREATE TABLE productos (
@@ -187,23 +157,64 @@ CREATE TABLE productos (
     tenant_id UUID REFERENCES tenants(id),
     categoria_id UUID REFERENCES categorias_menu(id),
     nombre VARCHAR(255) NOT NULL,
+    descripcion TEXT,
     precio NUMERIC(10,2) NOT NULL,
+    precio_coste NUMERIC(10,2),         -- calculado desde receta
+    iva_porcentaje NUMERIC(5,2) DEFAULT 10.00, -- 10% hostelería, 21% alcohol
     tiene_receta BOOLEAN DEFAULT FALSE,
     activo BOOLEAN DEFAULT TRUE,
-    imagen_url TEXT
+    imagen_url TEXT,
+    es_bebida BOOLEAN DEFAULT FALSE,
+    es_menu BOOLEAN DEFAULT FALSE,      -- plato de menú del día
+    disponible_delivery BOOLEAN DEFAULT TRUE,
+    tiempo_preparacion INTEGER DEFAULT 0 -- minutos estimados
 );
 
--- Tickets / Comandas
+CREATE TABLE producto_alergenos (
+    producto_id UUID REFERENCES productos(id),
+    alergeno_id INTEGER REFERENCES alergenos(id),
+    PRIMARY KEY (producto_id, alergeno_id)
+);
+
+-- Menú del día
+CREATE TABLE menus_dia (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id),
+    outlet_id UUID REFERENCES outlets(id),
+    fecha DATE NOT NULL,
+    precio NUMERIC(10,2) NOT NULL,
+    descripcion TEXT
+);
+
+CREATE TABLE menu_dia_platos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    menu_id UUID REFERENCES menus_dia(id),
+    producto_id UUID REFERENCES productos(id),
+    tipo VARCHAR(20) NOT NULL           -- primero, segundo, postre, bebida
+);
+
+-- ============================================================
+-- TPV Y TICKETS
+-- ============================================================
+
 CREATE TABLE tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     outlet_id UUID REFERENCES outlets(id),
     mesa_id UUID REFERENCES mesas(id),
     camarero_id UUID REFERENCES usuarios(id),
-    estado VARCHAR(20) DEFAULT 'abierto', -- abierto, cobrado, anulado
+    estado VARCHAR(20) DEFAULT 'abierto', -- abierto, cobrado, anulado, dividido
     total NUMERIC(10,2) DEFAULT 0,
-    metodo_pago VARCHAR(20),              -- efectivo, tarjeta, bizum
+    total_iva NUMERIC(10,2) DEFAULT 0,
+    descuento_porcentaje NUMERIC(5,2) DEFAULT 0,
+    descuento_importe NUMERIC(10,2) DEFAULT 0,
+    metodo_pago VARCHAR(20),
+    num_comensales INTEGER DEFAULT 1,
+    notas TEXT,
+    es_delivery BOOLEAN DEFAULT FALSE,
+    plataforma_delivery VARCHAR(50),    -- glovo, ubereats, justeat
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    cobrado_at TIMESTAMPTZ
+    cobrado_at TIMESTAMPTZ,
+    tiempo_ocupacion INTEGER            -- minutos desde apertura a cobro
 );
 
 CREATE TABLE ticket_lineas (
@@ -213,41 +224,75 @@ CREATE TABLE ticket_lineas (
     cantidad INTEGER NOT NULL,
     precio_unitario NUMERIC(10,2) NOT NULL,
     subtotal NUMERIC(10,2) NOT NULL,
-    nota TEXT
+    descuento_porcentaje NUMERIC(5,2) DEFAULT 0,
+    nota TEXT,
+    enviado_cocina BOOLEAN DEFAULT FALSE,
+    enviado_cocina_at TIMESTAMPTZ,
+    estado_cocina VARCHAR(20) DEFAULT 'pendiente' -- pendiente, preparando, listo
 );
 
--- Verifactu — registros fiscales inmutables
+-- Cierre de caja diario
+CREATE TABLE cierres_caja (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    usuario_id UUID REFERENCES usuarios(id),
+    fecha DATE NOT NULL,
+    total_efectivo NUMERIC(10,2) DEFAULT 0,
+    total_tarjeta NUMERIC(10,2) DEFAULT 0,
+    total_bizum NUMERIC(10,2) DEFAULT 0,
+    total_transferencia NUMERIC(10,2) DEFAULT 0,
+    total_invitaciones NUMERIC(10,2) DEFAULT 0,
+    total_ventas NUMERIC(10,2) DEFAULT 0,
+    num_tickets INTEGER DEFAULT 0,
+    ticket_medio NUMERIC(10,2) DEFAULT 0,
+    notas TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- VERIFACTU
+-- ============================================================
+
 CREATE TABLE verifactu_registros (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     ticket_id UUID REFERENCES tickets(id),
-    numero_serie VARCHAR(50) NOT NULL,   -- SERIE-2025-000001
+    numero_serie VARCHAR(50) NOT NULL,
     fecha_expedicion DATE NOT NULL,
+    fecha_hora_generacion TIMESTAMPTZ,
     tipo_factura VARCHAR(5) DEFAULT 'F1',
     base_imponible NUMERIC(10,2) NOT NULL,
     cuota_iva NUMERIC(10,2) NOT NULL,
     importe_total NUMERIC(10,2) NOT NULL,
-    huella_anterior TEXT,               -- Hash del registro N-1
-    huella_actual TEXT NOT NULL,        -- SHA-256 de este registro
-    xml_generado TEXT,                  -- XML SOAP completo
+    huella_anterior TEXT,
+    huella_actual TEXT NOT NULL,
+    xml_generado TEXT,
     enviado_aeat BOOLEAN DEFAULT FALSE,
+    enviado_at TIMESTAMPTZ,
+    error_envio TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Inventario — artículos maestros
+-- ============================================================
+-- INVENTARIO
+-- ============================================================
+
 CREATE TABLE articulos (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     nombre VARCHAR(255) NOT NULL,
     sku VARCHAR(100),
-    unidad_medida VARCHAR(20) NOT NULL,  -- kg, l, ud, g
+    unidad_medida VARCHAR(20) NOT NULL, -- kg, l, ud, g, ml
     stock_actual NUMERIC(15,4) DEFAULT 0,
     stock_minimo NUMERIC(15,4) DEFAULT 0,
+    stock_maximo NUMERIC(15,4),
     coste_unitario NUMERIC(10,4) DEFAULT 0,
+    categoria_almacen VARCHAR(100),     -- carnes, pescados, bebidas, lácteos
+    proveedor_habitual_id UUID,
+    temperatura_almacen VARCHAR(20),    -- ambiente, refrigerado, congelado
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Lotes FIFO
 CREATE TABLE lotes_inventario (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     articulo_id UUID REFERENCES articulos(id),
@@ -255,45 +300,144 @@ CREATE TABLE lotes_inventario (
     cantidad NUMERIC(15,4) NOT NULL,
     coste_unitario NUMERIC(10,4) NOT NULL,
     fecha_caducidad DATE,
+    numero_lote VARCHAR(100),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Recetas / Escandallos
+-- Movimientos de stock — trazabilidad completa
+CREATE TABLE movimientos_stock (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    articulo_id UUID REFERENCES articulos(id),
+    outlet_id UUID REFERENCES outlets(id),
+    tipo VARCHAR(20) NOT NULL,          -- entrada, salida, ajuste, merma, traslado
+    cantidad NUMERIC(15,4) NOT NULL,
+    coste_unitario NUMERIC(10,4),
+    motivo TEXT,
+    usuario_id UUID REFERENCES usuarios(id),
+    ticket_id UUID REFERENCES tickets(id),
+    factura_id UUID,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- APPCC — registro de temperaturas obligatorio por sanidad
+CREATE TABLE registros_appcc (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    usuario_id UUID REFERENCES usuarios(id),
+    tipo_control VARCHAR(50) NOT NULL,  -- nevera, congelador, freidora, etc.
+    nombre_equipo VARCHAR(100) NOT NULL,
+    temperatura NUMERIC(5,2) NOT NULL,
+    temperatura_min NUMERIC(5,2),
+    temperatura_max NUMERIC(5,2),
+    conforme BOOLEAN,
+    observaciones TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- RECETAS Y ESCANDALLOS
+-- ============================================================
+
 CREATE TABLE recetas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     producto_id UUID REFERENCES productos(id),
-    rendimiento NUMERIC(10,4) DEFAULT 1,  -- Porciones que produce
-    instrucciones TEXT
+    rendimiento NUMERIC(10,4) DEFAULT 1,
+    tiempo_preparacion INTEGER,         -- minutos
+    instrucciones TEXT,
+    foto_url TEXT,
+    coste_calculado NUMERIC(10,4),      -- actualizado automáticamente
+    margen_porcentaje NUMERIC(5,2),     -- calculado: (precio-coste)/precio*100
+    semaforo VARCHAR(10),               -- verde, amarillo, rojo
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE receta_ingredientes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     receta_id UUID REFERENCES recetas(id),
     articulo_id UUID REFERENCES articulos(id),
-    cantidad_neta NUMERIC(15,4) NOT NULL,  -- Cantidad servida
-    porcentaje_merma NUMERIC(5,2) DEFAULT 0, -- % de pérdida
+    cantidad_neta NUMERIC(15,4) NOT NULL,
+    porcentaje_merma NUMERIC(5,2) DEFAULT 0,
     -- cantidad_bruta = cantidad_neta / (1 - porcentaje_merma/100)
-    unidad VARCHAR(20) NOT NULL
+    unidad VARCHAR(20) NOT NULL,
+    orden INTEGER DEFAULT 0
 );
 
--- Proveedores y compras
+-- Mermas registradas diariamente
+CREATE TABLE mermas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    articulo_id UUID REFERENCES articulos(id),
+    cantidad NUMERIC(15,4) NOT NULL,
+    motivo VARCHAR(50) NOT NULL,        -- caducidad, rotura, error_cocina, sobrante
+    coste_imputado NUMERIC(10,4),
+    usuario_id UUID REFERENCES usuarios(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Control real vs teórico por periodo
+CREATE TABLE control_real_teorico (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    articulo_id UUID REFERENCES articulos(id),
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE NOT NULL,
+    consumo_teorico NUMERIC(15,4),      -- según ventas y recetas
+    consumo_real NUMERIC(15,4),         -- según movimientos de stock
+    diferencia NUMERIC(15,4),           -- real - teorico (positivo = pérdida)
+    coste_diferencia NUMERIC(10,2),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- PROVEEDORES Y COMPRAS
+-- ============================================================
+
 CREATE TABLE proveedores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     nombre VARCHAR(255) NOT NULL,
     nif VARCHAR(20),
     email VARCHAR(255),
-    telefono VARCHAR(20)
+    telefono VARCHAR(20),
+    direccion TEXT,
+    condiciones_pago TEXT,
+    dias_entrega INTEGER DEFAULT 1,
+    activo BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE pedidos_proveedor (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id),
+    proveedor_id UUID REFERENCES proveedores(id),
+    outlet_id UUID REFERENCES outlets(id),
+    estado VARCHAR(20) DEFAULT 'pendiente', -- pendiente, enviado, recibido, cancelado
+    fecha_pedido DATE NOT NULL,
+    fecha_entrega_estimada DATE,
+    total_estimado NUMERIC(10,2),
+    notas TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE pedidos_proveedor_lineas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pedido_id UUID REFERENCES pedidos_proveedor(id),
+    articulo_id UUID REFERENCES articulos(id),
+    cantidad NUMERIC(15,4) NOT NULL,
+    precio_unitario_estimado NUMERIC(10,4)
 );
 
 CREATE TABLE facturas_proveedor (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     proveedor_id UUID REFERENCES proveedores(id),
+    pedido_id UUID REFERENCES pedidos_proveedor(id),
     numero_factura VARCHAR(100),
     fecha DATE NOT NULL,
+    fecha_vencimiento DATE,
     total NUMERIC(10,2) NOT NULL,
-    procesada_ia BOOLEAN DEFAULT FALSE,  -- Si fue escaneada con IA
+    pagada BOOLEAN DEFAULT FALSE,
+    pagada_at TIMESTAMPTZ,
+    procesada_ia BOOLEAN DEFAULT FALSE,
     imagen_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -307,15 +451,25 @@ CREATE TABLE facturas_proveedor_lineas (
     subtotal NUMERIC(10,2) NOT NULL
 );
 
--- Empleados y turnos
+-- ============================================================
+-- EMPLEADOS Y RRHH
+-- ============================================================
+
 CREATE TABLE empleados (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id),
     usuario_id UUID REFERENCES usuarios(id),
     dni VARCHAR(20),
+    nss VARCHAR(20),                    -- Número Seguridad Social
     cargo VARCHAR(100),
-    salario_mensual NUMERIC(10,2),
+    categoria_profesional VARCHAR(100),
+    contrato VARCHAR(50),               -- indefinido, temporal, parcial
+    jornada_horas NUMERIC(5,2) DEFAULT 40, -- horas semanales contrato
+    salario_bruto_mensual NUMERIC(10,2),
+    irpf_porcentaje NUMERIC(5,2),
     fecha_inicio DATE,
+    fecha_fin DATE,
+    iban VARCHAR(34),
     activo BOOLEAN DEFAULT TRUE
 );
 
@@ -324,482 +478,622 @@ CREATE TABLE turnos (
     empleado_id UUID REFERENCES empleados(id),
     outlet_id UUID REFERENCES outlets(id),
     fecha DATE NOT NULL,
-    hora_entrada TIME,
-    hora_salida TIME,
-    horas_trabajadas NUMERIC(5,2)
+    hora_inicio_planificada TIME,
+    hora_fin_planificada TIME,
+    hora_entrada TIME,                  -- fichaje real
+    hora_salida TIME,                   -- fichaje real
+    horas_trabajadas NUMERIC(5,2),
+    horas_extra NUMERIC(5,2) DEFAULT 0,
+    tipo VARCHAR(20) DEFAULT 'normal',  -- normal, festivo, nocturno
+    incidencia VARCHAR(50),             -- ausencia, retraso, etc.
+    firmado_empleado BOOLEAN DEFAULT FALSE
 );
 
--- Reservas
+-- Cuadrante semanal
+CREATE TABLE cuadrantes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    semana_inicio DATE NOT NULL,
+    semana_fin DATE NOT NULL,
+    publicado BOOLEAN DEFAULT FALSE,
+    created_by UUID REFERENCES usuarios(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE cuadrante_asignaciones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cuadrante_id UUID REFERENCES cuadrantes(id),
+    empleado_id UUID REFERENCES empleados(id),
+    fecha DATE NOT NULL,
+    hora_inicio TIME,
+    hora_fin TIME,
+    puesto VARCHAR(50)                  -- sala, barra, cocina, limpieza
+);
+
+-- Vacaciones y ausencias
+CREATE TABLE solicitudes_ausencia (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empleado_id UUID REFERENCES empleados(id),
+    tipo VARCHAR(30) NOT NULL,          -- vacaciones, enfermedad, personal, maternidad
+    fecha_inicio DATE NOT NULL,
+    fecha_fin DATE NOT NULL,
+    estado VARCHAR(20) DEFAULT 'pendiente', -- pendiente, aprobada, rechazada
+    motivo TEXT,
+    aprobada_por UUID REFERENCES usuarios(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Nóminas
+CREATE TABLE nominas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    empleado_id UUID REFERENCES empleados(id),
+    mes INTEGER NOT NULL,
+    anio INTEGER NOT NULL,
+    salario_bruto NUMERIC(10,2) NOT NULL,
+    horas_extra_importe NUMERIC(10,2) DEFAULT 0,
+    plus_festivos NUMERIC(10,2) DEFAULT 0,
+    otros_devengos NUMERIC(10,2) DEFAULT 0,
+    total_devengos NUMERIC(10,2) NOT NULL,
+    ss_empleado NUMERIC(10,2) NOT NULL, -- ~6.35% cotización SS
+    irpf NUMERIC(10,2) NOT NULL,
+    otras_deducciones NUMERIC(10,2) DEFAULT 0,
+    total_deducciones NUMERIC(10,2) NOT NULL,
+    liquido NUMERIC(10,2) NOT NULL,
+    ss_empresa NUMERIC(10,2) NOT NULL,  -- ~29.9% cuota patronal
+    coste_total_empresa NUMERIC(10,2) NOT NULL,
+    pagada BOOLEAN DEFAULT FALSE,
+    pdf_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- RESERVAS Y CLIENTES
+-- ============================================================
+
+CREATE TABLE clientes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id),
+    nombre VARCHAR(255) NOT NULL,
+    email VARCHAR(255),
+    telefono VARCHAR(20),
+    fecha_nacimiento DATE,
+    alergenos TEXT[],                   -- array de alérgenos del cliente
+    preferencias TEXT,
+    total_visitas INTEGER DEFAULT 0,
+    gasto_total NUMERIC(10,2) DEFAULT 0,
+    gasto_medio NUMERIC(10,2) DEFAULT 0,
+    ultima_visita DATE,
+    puntos_fidelidad INTEGER DEFAULT 0,
+    notas TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE reservas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     outlet_id UUID REFERENCES outlets(id),
     mesa_id UUID REFERENCES mesas(id),
+    cliente_id UUID REFERENCES clientes(id),
     nombre_cliente VARCHAR(255) NOT NULL,
     telefono VARCHAR(20),
+    email VARCHAR(255),
     fecha DATE NOT NULL,
     hora TIME NOT NULL,
     num_personas INTEGER NOT NULL,
-    estado VARCHAR(20) DEFAULT 'confirmada', -- confirmada, cancelada, sentada
-    notas TEXT
+    estado VARCHAR(20) DEFAULT 'confirmada', -- pendiente, confirmada, sentada, cancelada, no_show
+    origen VARCHAR(20) DEFAULT 'telefono',   -- telefono, web, app, walk_in
+    notas TEXT,
+    recordatorio_enviado BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Lista de espera
+CREATE TABLE lista_espera (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    nombre_cliente VARCHAR(255) NOT NULL,
+    telefono VARCHAR(20),
+    num_personas INTEGER NOT NULL,
+    hora_llegada TIMESTAMPTZ DEFAULT NOW(),
+    estado VARCHAR(20) DEFAULT 'esperando', -- esperando, sentado, cancelado
+    tiempo_estimado INTEGER              -- minutos estimados de espera
+);
+
+-- ============================================================
+-- DELIVERY E INTEGRACIONES
+-- ============================================================
+
+CREATE TABLE pedidos_delivery (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    plataforma VARCHAR(30) NOT NULL,    -- glovo, ubereats, justeat, propio
+    id_externo VARCHAR(100),            -- ID en la plataforma externa
+    estado VARCHAR(20) DEFAULT 'recibido',
+    nombre_cliente VARCHAR(255),
+    telefono VARCHAR(20),
+    direccion_entrega TEXT,
+    total NUMERIC(10,2) NOT NULL,
+    comision_plataforma NUMERIC(10,2),
+    ticket_id UUID REFERENCES tickets(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Carta digital QR
+CREATE TABLE carta_digital (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    activa BOOLEAN DEFAULT TRUE,
+    url_slug VARCHAR(100) UNIQUE,       -- horecaso.com/carta/restaurante-demo
+    idiomas TEXT[] DEFAULT '{es}',      -- es, en, fr, de
+    mostrar_precios BOOLEAN DEFAULT TRUE,
+    mostrar_alergenos BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- ANALYTICS Y KPIs
+-- ============================================================
+
+-- Rentabilidad por mesa por servicio
+CREATE TABLE rentabilidad_mesas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mesa_id UUID REFERENCES mesas(id),
+    outlet_id UUID REFERENCES outlets(id),
+    ticket_id UUID REFERENCES tickets(id),
+    fecha DATE NOT NULL,
+    num_comensales INTEGER,
+    tiempo_ocupacion_minutos INTEGER,
+    ingreso_total NUMERIC(10,2),
+    ingreso_por_hora NUMERIC(10,2),     -- ingreso_total / (tiempo/60)
+    ingreso_por_comensal NUMERIC(10,2)
+);
+
+-- Ingeniería de menú (Matriz BCG para platos)
+CREATE TABLE ingenieria_menu (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    producto_id UUID REFERENCES productos(id),
+    periodo_inicio DATE NOT NULL,
+    periodo_fin DATE NOT NULL,
+    unidades_vendidas INTEGER DEFAULT 0,
+    ingreso_total NUMERIC(10,2) DEFAULT 0,
+    coste_total NUMERIC(10,2) DEFAULT 0,
+    margen_total NUMERIC(10,2) DEFAULT 0,
+    popularidad VARCHAR(10),            -- alta, baja
+    rentabilidad VARCHAR(10),           -- alta, baja
+    clasificacion VARCHAR(20),          -- estrella, caballo_trabajo, puzzle, perro
+    -- estrella: popular + rentable → mantener
+    -- caballo: popular + poco rentable → subir precio
+    -- puzzle: poco popular + rentable → promocionar
+    -- perro: poco popular + poco rentable → retirar
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Previsión de demanda (generada por IA)
+CREATE TABLE previsiones_demanda (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    outlet_id UUID REFERENCES outlets(id),
+    articulo_id UUID REFERENCES articulos(id),
+    fecha DATE NOT NULL,
+    cantidad_prevista NUMERIC(15,4),
+    confianza NUMERIC(5,2),             -- % de confianza del modelo
+    generada_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================================
+-- CONFIGURACIÓN Y SISTEMA
+-- ============================================================
+
+CREATE TABLE configuracion (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id),
+    clave VARCHAR(100) NOT NULL,
+    valor TEXT NOT NULL,
+    descripcion TEXT,
+    UNIQUE(tenant_id, clave)
+);
+-- Claves ejemplo: iva_general, iva_reducido, moneda, zona_horaria,
+-- email_reservas, whatsapp_activo, delivery_activo, kds_activo
+
+CREATE TABLE notificaciones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id),
+    usuario_id UUID REFERENCES usuarios(id),
+    tipo VARCHAR(50) NOT NULL,          -- stock_minimo, reserva_nueva, nomina_pendiente
+    titulo VARCHAR(255) NOT NULL,
+    mensaje TEXT,
+    leida BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
 ---
 
-## 4. MÓDULOS DEL PRODUCTO
+## 5. MÓDULOS DEL PRODUCTO
 
 ---
 
-### MÓDULO 1 — TPV (Terminal Punto de Venta)
+### MÓDULO 1 — TPV (Terminal Punto de Venta) ✅ IMPLEMENTADO
 
-**El corazón operativo. Sin esto no hay nada.**
-
-#### Funcionalidades
-
-- Pantalla de venta táctil — optimizada para tablet y móvil
-- Selección de mesa → apertura de comanda
-- Carta organizada por categorías con búsqueda
-- Añadir, modificar, eliminar líneas de pedido
-- Notas por línea (sin gluten, sin sal, etc.)
-- División de cuenta — pagar por personas o por productos
-- Métodos de pago: efectivo, tarjeta, Bizum, invitación
-- Cierre de ticket → generación automática de registro Verifactu
-- Impresión de ticket con QR Verifactu
-- Cierre de caja al final del día con resumen
-
-#### Flujo principal
-
+**Flujo principal:**
 ```
-Camarero selecciona mesa
-→ Abre comanda nueva
-→ Añade productos de la carta
-→ Envía a cocina (opcional — pantalla de cocina)
-→ Cliente pide la cuenta
-→ Sistema calcula total + IVA
-→ Cobro (efectivo / tarjeta / Bizum)
-→ Genera registro Verifactu con hash SHA-256
-→ Imprime ticket con QR
-→ Mesa vuelve a estado libre
+Camarero selecciona mesa → Abre comanda → Añade productos → Envía a cocina
+→ Cliente pide cuenta → Cobro → Verifactu → Mesa libre
 ```
 
-#### API Endpoints
-
+**API Endpoints:**
 ```
-POST   /api/tpv/tickets              # Abrir ticket
-GET    /api/tpv/tickets/{id}         # Ver ticket
-POST   /api/tpv/tickets/{id}/lineas  # Añadir línea
+POST   /api/tpv/tickets
+GET    /api/tpv/tickets/{id}
+POST   /api/tpv/tickets/{id}/lineas
 DELETE /api/tpv/tickets/{id}/lineas/{linea_id}
-POST   /api/tpv/tickets/{id}/cobrar  # Cobrar → dispara Verifactu
-GET    /api/tpv/cierre-caja          # Resumen del día
+POST   /api/tpv/tickets/{id}/cobrar
+GET    /api/tpv/tickets/abiertos
+GET    /api/tpv/carta
+GET    /api/tpv/carta/productos
+POST   /api/tpv/cierre-caja
+GET    /api/tpv/cierre-caja/{fecha}
 ```
 
 ---
 
-### MÓDULO 2 — MESAS
+### MÓDULO 2 — MESAS ✅ IMPLEMENTADO
 
-**Visión en tiempo real de la sala.**
-
-#### Funcionalidades
-
-- Plano visual interactivo del local — drag & drop para configurar
-- Zonas: interior, terraza, barra, privado
-- Estado por colores: libre (verde), ocupada (rojo), reservada (amarillo)
-- Ver qué tiene pedida cada mesa sin abrir el ticket
-- Tiempo que lleva ocupada cada mesa
-- Combinar mesas para grupos grandes
-- Transferir mesa a otro camarero
-
-#### Estados de mesa
-
+**API Endpoints:**
 ```
-libre → ocupada (al abrir ticket)
-libre → reservada (al confirmar reserva)
-reservada → ocupada (al sentar al cliente)
-ocupada → libre (al cobrar y cerrar ticket)
+GET    /api/mesas
+POST   /api/mesas
+GET    /api/mesas/{id}
+PATCH  /api/mesas/{id}/estado
+GET    /api/mesas/{id}/rentabilidad    # tiempo ocupado, ingreso/hora
 ```
 
 ---
 
-### MÓDULO 3 — VERIFACTU
+### MÓDULO 3 — VERIFACTU ✅ IMPLEMENTADO
 
-**El diferenciador legal del producto.**
-
-#### Contexto
-
-Desde julio 2025 todo software de facturación en España debe implementar Verifactu según la Orden HAC/1177/2024. Cada ticket genera un registro fiscal encadenado criptográficamente con el anterior. La AEAT puede verificar en tiempo real que ningún registro ha sido alterado o eliminado.
-
-#### Funcionalidades
-
-- Generación automática de hash SHA-256 al cobrar cada ticket
-- Encadenamiento — cada registro incluye la huella del anterior
-- Numeración de serie automática y correlativa
-- Generación de XML SOAP según esquema XSD oficial de la AEAT
-- QR en cada ticket impreso con URL de cotejo AEAT
-- Registro de anulaciones y rectificaciones sin borrar datos
-- Log de envíos a AEAT con estado (enviado, pendiente, error)
-- Endpoint de consulta para inspecciones
-
-#### Algoritmo SHA-256 — campos en orden exacto
-
-```python
-# services/verifactu_engine.py
-
-import hashlib
-from datetime import datetime
-
-def generar_huella(registro: dict, huella_anterior: str) -> str:
-    """
-    Genera SHA-256 según Orden HAC/1177/2024.
-    Concatenación obligatoria en este orden exacto.
-    """
-    campos = [
-        registro["nif_emisor"],           # 1. NIF del emisor
-        registro["numero_serie"],          # 2. Número y serie
-        registro["fecha_expedicion"],      # 3. Fecha expedición (YYYY-MM-DD)
-        registro["tipo_factura"],          # 4. Tipo (F1, F2, R1...)
-        str(registro["cuota_iva"]),        # 5. Cuota total IVA
-        str(registro["importe_total"]),    # 6. Importe total
-        huella_anterior or "",             # 7. Huella registro N-1
-        registro["fecha_hora_generacion"], # 8. Timestamp generación
-    ]
-    
-    cadena = "&".join(campos)
-    # CRÍTICO: UTF-8 sin BOM antes del hash
-    return hashlib.sha256(cadena.encode("utf-8")).hexdigest().upper()
+**API Endpoints:**
 ```
-
-#### URL QR de cotejo
-
-```
-https://www.aeat.es/wlpl/TIKE-CONT/ValidarQR?
-  nif=B12345678
-  &numserie=SERIE-2025-000001
-  &fecha=2025-07-15
-  &importe=121.00
-```
-
-#### API Endpoints
-
-```
-GET    /api/verifactu/registros          # Listado de registros fiscales
-GET    /api/verifactu/registros/{id}     # Detalle con XML
-POST   /api/verifactu/anular/{id}        # Anulación (genera nuevo registro)
-GET    /api/verifactu/exportar           # Export CSV para inspección
-POST   /api/verifactu/enviar-aeat        # Envío batch a AEAT
-GET    /api/verifactu/verificar-cadena   # Auditoría de integridad del chain
+GET    /api/verifactu/registros
+GET    /api/verifactu/registros/{id}
+GET    /api/verifactu/verificar-cadena
+GET    /api/verifactu/exportar
+POST   /api/verifactu/enviar-aeat      # Fase 3
 ```
 
 ---
 
-### MÓDULO 4 — INVENTARIO
+### MÓDULO 4 — CARTA Y MENÚ
 
-**Saber en todo momento qué hay y qué vale.**
+**Funcionalidades:**
+- Gestión de categorías con color e icono para TPV
+- Productos con precio, IVA, alérgenos, foto
+- Carta digital QR — cliente escanea desde la mesa
+- Menú del día configurable
+- Multi-idioma: español, inglés, francés, alemán
+- Semáforo de rentabilidad por plato (verde/amarillo/rojo)
 
-#### Funcionalidades
+**API Endpoints:**
+```
+GET    /api/carta                      # Carta pública (sin auth) para QR
+GET    /api/tpv/carta                  # Carta para TPV interno
+GET    /api/productos
+POST   /api/productos
+PUT    /api/productos/{id}
+DELETE /api/productos/{id}
+GET    /api/categorias
+POST   /api/categorias
+PUT    /api/categorias/{id}
+GET    /api/alergenos
+POST   /api/menu-dia
+GET    /api/menu-dia/{fecha}
+```
 
-- Maestro de artículos con unidad de medida (kg, l, ud, g)
-- Stock actual en tiempo real por outlet
-- Movimientos de stock — entradas, salidas, ajustes manuales
+---
+
+### MÓDULO 5 — KDS (Kitchen Display System)
+
+**Pantalla de cocina en tiempo real — sin papel.**
+
+**Funcionalidades:**
+- Pantalla en cocina muestra comandas al instante
+- Colores por tiempo: verde (<5min), amarillo (5-10min), rojo (>10min)
+- Marcar plato como "en preparación" y "listo"
+- Agrupación por mesa y por producto
+- Estadísticas de tiempo medio de preparación por plato
+- Alertas de pedidos retrasados
+
+**API Endpoints:**
+```
+GET    /api/kds/comandas               # Pedidos pendientes en cocina
+PATCH  /api/kds/lineas/{id}/estado     # preparando | listo
+GET    /api/kds/estadisticas           # tiempos medios de prep
+```
+
+---
+
+### MÓDULO 6 — RESERVAS Y CLIENTES
+
+**Funcionalidades:**
+- Calendario de reservas con vista por día, semana, mes
+- Reservas online con widget embebible
+- Confirmación automática por SMS/email
+- Recordatorio automático 24h antes
+- Lista de espera digital con SMS cuando hay mesa
+- Historial de cliente — visitas, gasto, alérgenos, preferencias
+- Programa de fidelización con puntos
+- Detección de no-shows y cancelaciones
+
+**API Endpoints:**
+```
+GET    /api/reservas
+POST   /api/reservas
+GET    /api/reservas/{id}
+PATCH  /api/reservas/{id}/estado
+GET    /api/clientes
+POST   /api/clientes
+GET    /api/clientes/{id}
+GET    /api/clientes/{id}/historial
+GET    /api/lista-espera
+POST   /api/lista-espera
+```
+
+---
+
+### MÓDULO 7 — INVENTARIO Y ALMACÉN
+
+**Funcionalidades:**
+- Maestro de artículos con temperatura de almacenamiento
+- Stock en tiempo real — se descuenta automáticamente al vender
 - Lotes FIFO — el stock más antiguo se consume primero
-- Alertas de stock mínimo — notificación cuando baja del umbral
-- Alertas de caducidad — productos próximos a vencer
-- Inventario físico — comparativa sistema vs conteo real
-- Historial completo de movimientos con trazabilidad
+- Alertas de stock mínimo y caducidad próxima
+- Movimientos completos: entradas, salidas, ajustes, mermas, traslados
+- APPCC — registro digital de temperaturas de equipos
+- Pedidos a proveedor automáticos cuando baja del mínimo
+- Inventario físico — conteo real vs sistema
 
-#### Lógica FIFO
-
-```python
-# services/inventario_fifo.py
-
-async def descontar_stock_fifo(articulo_id, cantidad_necesaria, outlet_id, conn):
-    """
-    Descuenta stock consumiendo los lotes más antiguos primero.
-    Usado al vender un producto que tiene receta.
-    """
-    lotes = await conn.fetch("""
-        SELECT id, cantidad, coste_unitario 
-        FROM lotes_inventario 
-        WHERE articulo_id = $1 AND outlet_id = $2 AND cantidad > 0
-        ORDER BY created_at ASC
-    """, articulo_id, outlet_id)
-    
-    restante = cantidad_necesaria
-    coste_total = Decimal("0")
-    
-    for lote in lotes:
-        if restante <= 0:
-            break
-        consumir = min(lote["cantidad"], restante)
-        coste_total += consumir * lote["coste_unitario"]
-        restante -= consumir
-        # Actualizar lote...
-    
-    return coste_total
+**API Endpoints:**
+```
+GET    /api/inventario/articulos
+POST   /api/inventario/articulos
+GET    /api/inventario/articulos/{id}
+PUT    /api/inventario/articulos/{id}
+GET    /api/inventario/stock-alertas
+GET    /api/inventario/caducidades
+POST   /api/inventario/movimientos
+GET    /api/inventario/movimientos
+POST   /api/inventario/inventario-fisico
+GET    /api/appcc/registros
+POST   /api/appcc/registros
 ```
 
 ---
 
-### MÓDULO 5 — RECETAS Y ESCANDALLOS
+### MÓDULO 8 — RECETAS Y ESCANDALLOS
 
-**Saber exactamente cuánto cuesta cada plato.**
+**El corazón del control de costes.**
 
-#### Funcionalidades
-
-- Ficha técnica por producto — ingredientes, cantidades, mermas
-- Cálculo automático de coste teórico del plato
-- Fórmula de merma aplicada por ingrediente:
-  `Peso Bruto = Peso Neto / (1 - % Merma)`
-- Margen de contribución por plato — precio venta vs coste real
+**Funcionalidades:**
+- Ficha técnica por producto — ingredientes, cantidades brutas y netas
+- Fórmula de merma: `Cantidad Bruta = Cantidad Neta / (1 - % Merma)`
+- Coste teórico calculado automáticamente al cambiar precios de compra
 - **Semáforo de rentabilidad:**
-  - 🟢 Verde — margen > 65%
-  - 🟡 Amarillo — margen 40-65%
-  - 🔴 Rojo — margen < 40%
-- Recetas con sub-recetas (ingrediente que es a su vez una elaboración)
-- Control Real vs Teórico — lo consumido teóricamente según ventas vs lo que realmente bajó del almacén. La diferencia = merma real + posibles pérdidas
+  - 🟢 Verde — margen > 65% → mantener, promocionar
+  - 🟡 Amarillo — margen 40-65% → monitorizar
+  - 🔴 Rojo — margen < 40% → subir precio o revisar receta
+- Bebidas incluidas — no solo comida (cócteles, cafés, etc.)
+- Sub-recetas — elaboraciones base (ej: sofrito, bechamel)
+- Registro diario de mermas con causa
+- **Control Real vs Teórico por periodo:**
+  - Teórico: lo que debería haberse consumido según ventas
+  - Real: lo que realmente salió del almacén
+  - Diferencia = merma no registrada + posibles pérdidas
 
-#### API Endpoints
-
+**API Endpoints:**
 ```
-GET    /api/recetas                      # Listado con semáforo
-POST   /api/recetas                      # Crear escandallo
-PUT    /api/recetas/{id}                 # Actualizar
-GET    /api/recetas/{id}/coste           # Coste calculado en tiempo real
-GET    /api/recetas/real-vs-teorico      # Comparativa consumo
+GET    /api/recetas
+POST   /api/recetas
+GET    /api/recetas/{id}
+PUT    /api/recetas/{id}
+GET    /api/recetas/{id}/coste         # Coste calculado en tiempo real
+GET    /api/recetas/semaforo           # Todos los platos con color
+GET    /api/recetas/real-vs-teorico    # Comparativa consumo
+POST   /api/mermas
+GET    /api/mermas
+GET    /api/mermas/resumen-periodo
 ```
 
 ---
 
-### MÓDULO 6 — PROVEEDORES Y COMPRAS
+### MÓDULO 9 — PROVEEDORES Y COMPRAS
 
-**Controlar todo lo que entra y cuánto costó.**
-
-#### Funcionalidades
-
-- Maestro de proveedores con NIF y contacto
+**Funcionalidades:**
+- Maestro de proveedores con condiciones de pago
 - Registro de facturas de compra
-- **Escaneo de facturas con IA** — foto → extracción automática de líneas → entrada de stock
-- Entrada de mercancía — actualiza stock y crea lote FIFO con coste real
-- Comparativa precios — evolución del coste de cada artículo por proveedor
-- Gastos por proveedor en el período
+- **Escaneo de facturas con IA (Groq)** — foto → JSON automático
+- Control de pagos pendientes y vencimientos
+- Pedidos a proveedor — manual o sugerido por sistema
+- Comparativa de precios entre proveedores por artículo
+- Evolución de costes — historial de precio de cada artículo
 
-#### Flujo escaneo IA
-
+**Flujo escaneo IA:**
 ```
-Encargado fotografía factura del proveedor
-→ Frontend envía imagen en base64
-→ Backend llama a Groq con prompt de extracción
-→ IA devuelve JSON: [{articulo, cantidad, precio_unitario}]
-→ Sistema muestra resultado para validación
-→ Usuario confirma o corrige
-→ Se registra factura y se actualiza stock
+Foto factura proveedor → Base64 → Groq vision
+→ JSON: [{articulo, cantidad, precio_unitario}]
+→ Validación humana → Confirmar
+→ Actualizar stock + crear lote FIFO + registrar factura
 ```
 
----
-
-### MÓDULO 7 — DASHBOARD FINANCIERO
-
-**Una sola pantalla que dice si el negocio va bien.**
-
-#### KPIs principales
-
-| KPI | Descripción |
-|-----|-------------|
-| **Ventas del día** | Total cobrado hoy |
-| **Coste del día** | Coste teórico de lo vendido |
-| **Margen bruto del día** | Ventas - Coste en € y % |
-| **Food cost %** | Coste ingredientes / Ventas |
-| **Ticket medio** | Venta media por mesa |
-| **Mesas atendidas** | Número de servicios |
-| **Plato más vendido** | Top 5 del día |
-| **Plato más rentable** | Mejor margen del día |
-| **Stock en alerta** | Artículos bajo mínimo |
-| **Gastos del mes** | Proveedores + nóminas acumulado |
-
-#### Vistas temporales
-
-- Hoy / Esta semana / Este mes / Rango personalizado
-
-#### Vista móvil del dueño
-
-Una pantalla simplificada con los 4 números que importan:
-- Ventas hoy
-- Coste hoy
-- Margen hoy
-- Alertas activas
+**API Endpoints:**
+```
+GET    /api/proveedores
+POST   /api/proveedores
+GET    /api/proveedores/{id}
+POST   /api/facturas-proveedor
+GET    /api/facturas-proveedor
+POST   /api/facturas-proveedor/escanear-ia  # Groq vision
+GET    /api/facturas-proveedor/pendientes-pago
+POST   /api/pedidos-proveedor
+GET    /api/pedidos-proveedor
+GET    /api/proveedores/comparativa-precios/{articulo_id}
+```
 
 ---
 
-### MÓDULO 8 — RESERVAS
+### MÓDULO 10 — EMPLEADOS Y RRHH
 
-**Gestión del salón antes de que lleguen los clientes.**
+**Funcionalidades:**
+- Ficha de empleado con datos laborales y SS
+- Control horario con firma digital — obligatorio en España desde 2019
+- Cuadrante semanal visual — quién trabaja qué día
+- Solicitud y aprobación de vacaciones y ausencias
+- Horas extra acumuladas y compensación
+- **Cálculo de nóminas automático:**
+  - Salario bruto + horas extra + plus festivos + plus nocturnidad
+  - Deducciones: SS empleado (~6.35%) + IRPF
+  - Coste empresa: cuota patronal SS (~29.9%)
+  - Generación PDF nómina
 
-#### Funcionalidades
-
-- Calendario visual de reservas por día
-- Creación de reserva — nombre, teléfono, personas, mesa, hora, notas
-- Estados — confirmada, cancelada, llegó, no show
-- Vista de ocupación por franjas horarias
-- Bloqueo de mesas para eventos
-- Lista de espera
-
----
-
-### MÓDULO 9 — EMPLEADOS Y TURNOS
-
-**Control del equipo y sus costes.**
-
-#### Funcionalidades
-
-- Ficha de empleado — datos personales, cargo, salario, fecha inicio
-- Planificación de turnos semanal — quién trabaja cada día
-- Fichaje — registro de entrada y salida
-- Cálculo de horas trabajadas vs contratadas
-- Coste de personal por día / semana / mes
-- Visualización del coste de personal como % de ventas
-
----
-
-## 5. FASES DE DESARROLLO
-
-### Fase 1 — Core operativo (MVP real)
-**Objetivo: Un restaurante puede usarlo para operar el día a día.**
-
-- [ ] Autenticación JWT + RBAC (6 roles)
-- [ ] Gestión de mesas — plano visual, estados
-- [ ] TPV completo — comanda, cobro, cierre de caja
-- [ ] Carta — categorías, productos, precios
-- [ ] Verifactu — hash chaining, QR, registro fiscal
-- [ ] Dashboard básico del director
-
-**Criterio de éxito:** Un camarero puede abrir una mesa, tomar un pedido, cobrar y generar el registro Verifactu correcto.
+**API Endpoints:**
+```
+GET    /api/empleados
+POST   /api/empleados
+GET    /api/empleados/{id}
+POST   /api/turnos/fichaje-entrada
+POST   /api/turnos/fichaje-salida
+GET    /api/turnos
+GET    /api/turnos/horas-extra/{empleado_id}
+GET    /api/cuadrantes
+POST   /api/cuadrantes
+GET    /api/ausencias
+POST   /api/ausencias
+PATCH  /api/ausencias/{id}/estado
+GET    /api/nominas/{empleado_id}
+POST   /api/nominas/calcular
+GET    /api/nominas/{id}/pdf
+```
 
 ---
 
-### Fase 2 — Control de costes
-**Objetivo: El dueño sabe cuánto le cuesta cada venta.**
+### MÓDULO 11 — DASHBOARD Y ANALYTICS
 
-- [ ] Maestro de artículos e inventario
-- [ ] Lotes FIFO con descuento automático al vender
-- [ ] Recetas y escandallos con fórmula de merma
-- [ ] Semáforo de rentabilidad por plato
-- [ ] Alertas de stock mínimo
+**Funcionalidades:**
+- KPIs del día en tiempo real: ventas, coste, margen, tickets, ticket medio
+- **Rentabilidad por mesa por hora:**
+  - Ingreso total / horas ocupada = €/hora
+  - Qué mesa genera más dinero
+  - Comparativa entre zonas (terraza vs interior)
+- **Ingeniería de menú (Matriz BCG):**
+  - Estrella: popular + rentable → potenciar
+  - Caballo de trabajo: popular + poco rentable → subir precio
+  - Puzzle: poco popular + rentable → promocionar
+  - Perro: poco popular + poco rentable → retirar
+- **Previsión de demanda con IA:**
+  - "Este viernes necesitas X kg de merluza"
+  - Basado en histórico, clima, festivos
+- Coste de personal por turno vs ingresos
+- Comparativa semana a semana y mes a mes
+- Resumen para gestor (modelo 303, 130)
 
-**Criterio de éxito:** Al vender un plato, el sistema descuenta automáticamente los ingredientes del stock y calcula el margen.
-
----
-
-### Fase 3 — Proveedores e IA
-**Objetivo: Las entradas de mercancía son automáticas.**
-
-- [ ] Gestión de proveedores
-- [ ] Registro manual de facturas de compra
-- [ ] Escaneo de facturas con IA (Groq)
-- [ ] Comparativa Real vs Teórico
-- [ ] Reporte de gastos por proveedor
-
-**Criterio de éxito:** El encargado fotografía una factura y el stock se actualiza sin escribir nada.
-
----
-
-### Fase 4 — Dashboard financiero completo
-**Objetivo: El dueño tiene visibilidad total del negocio.**
-
-- [ ] Dashboard con todos los KPIs
-- [ ] Vista móvil simplificada
-- [ ] Cierre mensual — P&L básico
-- [ ] Exportación de reportes PDF
-- [ ] Comparativa períodos (este mes vs mes anterior)
+**API Endpoints:**
+```
+GET    /api/dashboard/director         # KPIs completos
+GET    /api/dashboard/cierre-dia       # Resumen del día
+GET    /api/dashboard/rentabilidad-mesas
+GET    /api/dashboard/ingenieria-menu
+GET    /api/dashboard/coste-personal
+GET    /api/ia/prevision-demanda       # Groq IA
+GET    /api/ia/sugerencias-menu        # Recomendaciones IA
+```
 
 ---
 
-### Fase 5 — Reservas y RRHH
-**Objetivo: Gestión completa del establecimiento.**
+### MÓDULO 12 — DELIVERY E INTEGRACIONES
 
-- [ ] Calendario de reservas
-- [ ] Planificación de turnos
-- [ ] Fichaje de empleados
-- [ ] Coste de personal como % de ventas
+**Funcionalidades:**
+- Integración Glovo, Uber Eats, Just Eat — pedidos entran al TPV automáticamente
+- Carta propia de delivery configurable
+- Control de comisiones por plataforma
+- Comparativa rentabilidad: mesa vs delivery
 
----
-
-### Fase 6 — SaaS y escala
-**Objetivo: Múltiples restaurantes en el mismo sistema.**
-
-- [ ] Multi-tenant con RLS en PostgreSQL
-- [ ] Panel de administración del sistema
-- [ ] Onboarding de nuevos tenants
-- [ ] Facturación de suscripciones
-- [ ] Gestión de múltiples outlets por tenant
+**API Endpoints:**
+```
+POST   /api/delivery/webhook/{plataforma}
+GET    /api/delivery/pedidos
+GET    /api/delivery/estadisticas
+GET    /api/delivery/comisiones
+```
 
 ---
 
-## 6. FUERA DEL MVP
+### MÓDULO 13 — REPORTES Y PDF
 
-Lo siguiente está identificado y documentado pero no entra en las primeras fases:
+**Funcionalidades:**
+- Ticket de venta con QR Verifactu
+- Cierre de caja diario en PDF
+- Informe de ventas por periodo
+- Informe de coste de materia prima
+- Nóminas en PDF
+- Resumen fiscal para gestor (datos modelo 303)
+- Exportación CSV para inspección AEAT
 
-- Integración con TPV físico / hardware (impresoras fiscales)
-- App móvil nativa (iOS / Android)
-- Integración con plataformas de delivery (Glovo, Uber Eats)
-- Predicción de demanda con IA para compras automáticas
-- RevPash analytics (Revenue Per Available Seat Hour)
-- Módulo de fidelización de clientes
-- Integración con software de contabilidad (A3, Sage)
-- Facturación B2B (Facturae 3.2.2)
-
----
-
-## 7. LO QUE HACE A HORECASO TÉCNICAMENTE IMPRESIONANTE
-
-Para portfolio, este proyecto demuestra capacidades que InfoCampus no tiene:
-
-| Capacidad | Descripción |
-|-----------|-------------|
-| **Criptografía aplicada** | SHA-256 hash chaining para cumplimiento fiscal real |
-| **Integración con organismo público** | XML SOAP a AEAT según esquema XSD oficial |
-| **IA aplicada a proceso real** | Extracción de datos de facturas — no es un chatbot |
-| **Lógica FIFO** | Gestión de lotes de inventario con valoración por coste real |
-| **Regulación legal** | Implementación de normativa fiscal vigente en España |
-| **Multi-tenant** | Aislamiento de datos entre clientes en base de datos |
-| **Dominio complejo** | Hostelería — mermas, escandallos, food cost, RevPash |
+**API Endpoints:**
+```
+GET    /api/reportes/ticket/{id}
+GET    /api/reportes/cierre-caja/{fecha}
+GET    /api/reportes/ventas
+GET    /api/reportes/costes
+GET    /api/reportes/nomina/{id}
+GET    /api/reportes/fiscal-trimestre
+```
 
 ---
 
-## 8. DECISIONES TÉCNICAS CLAVE
+## 6. PLAN DE FASES
 
-### ¿Por qué FastAPI y no NestJS?
-El stack de InfoCampus ya está dominado. FastAPI puede implementar todo lo que requiere HorecaSO — Verifactu, FIFO, multi-tenant, IA. Cambiar a NestJS/TypeScript no agrega capacidades técnicas, solo agrega semanas de curva de aprendizaje.
+### FASE 1 — Core operativo (Semana 1-2)
+Backend: Auth ✅ · Mesas ✅ · TPV ✅ · Verifactu ✅ · Carta
+Frontend: Login · Mesas visual · TPV táctil · Dashboard básico
+Deploy: Render + Vercel
 
-### ¿Por qué raw SQL y no ORM?
-Mismo criterio que InfoCampus. Las queries de food cost, FIFO, y Real vs Teórico son complejas — un ORM las haría más difíciles de optimizar y depurar, no más fáciles.
+### FASE 2 — Control de negocio (Semana 3-4)
+Inventario · Recetas + Semáforo · Proveedores + IA facturas · Cierre de caja · KDS cocina · Reservas básicas
 
-### ¿Por qué Decimal y no float?
-Toda operación financiera usa Python's `Decimal` con precisión fija. Un error de redondeo en IVA puede invalidar un registro Verifactu ante la AEAT.
+### FASE 3 — RRHH y analytics (Mes 2)
+Empleados · Control horario · Nóminas · Dashboard analytics · Rentabilidad mesas · Ingeniería menú
 
-### ¿Por qué Verifactu en Fase 1 y no después?
-Porque el TPV sin Verifactu no es legalmente usable en España desde julio 2025. No tiene sentido construir el TPV y añadir el cumplimiento fiscal después — van juntos desde el primer ticket.
+### FASE 4 — Premium y diferenciadores (Mes 3)
+Reservas online widget · Clientes + fidelización · Carta digital QR · Delivery integración · Previsión demanda IA · APPCC
 
----
-
-## 9. MÉTRICAS DE ÉXITO DEL MVP
-
-| Métrica | Criterio |
-|---------|---------|
-| Velocidad del TPV | Cobrar una mesa en menos de 30 segundos |
-| Verifactu | 100% de tickets con hash válido y verificable en AEAT |
-| Inventario | Stock actualizado en tiempo real tras cada venta |
-| Dashboard | Carga en menos de 2 segundos |
-| Disponibilidad | 99% uptime en horario de servicio |
+### FASE 5 — Enterprise (Mes 4+)
+Multi-idioma · WhatsApp automático · Datáfono integrado · Declaraciones fiscales · Certificación Verifactu AEAT
 
 ---
 
-## 10. NOTAS PARA EL DESARROLLO
+## 7. PRECIOS SUGERIDOS
 
-- Usar el mismo patrón de `database.py` de InfoCampus — asyncpg pool con `statement_cache_size=0` para Supabase
-- El `verifactu_engine.py` debe tener tests desde el principio — un hash incorrecto es un problema legal
-- El plano de mesas usa coordenadas X/Y en la DB — el frontend renderiza con posicionamiento absoluto
-- Las mermas se calculan en el backend, nunca en el frontend — el frontend solo muestra resultados
-- El semáforo de rentabilidad se recalcula al cambiar el coste de cualquier ingrediente
+| Plan | Precio/mes | Incluye |
+|------|-----------|---------|
+| **Básico** | 79€ | TPV + Mesas + Verifactu + Carta |
+| **Profesional** | 149€ | Todo Básico + Inventario + Recetas + Reservas + KDS |
+| **Premium** | 249€ | Todo Profesional + RRHH + Nóminas + Analytics + IA |
+| **Enterprise** | 399€ | Todo + Delivery + Multi-outlet + API + Soporte prioritario |
 
 ---
 
-*PRD v1.0 — HorecaSO — Arin Romero — Marzo 2026*
+## 8. NOTAS TÉCNICAS
+
+- DATABASE_URL usa pooler Supabase: aws-1-eu-west-1.pooler.supabase.com:6543
+- statement_cache_size=0 obligatorio en asyncpg (pgbouncer)
+- Patrón de conexión: async with get_db() as conn
+- SECRET_KEY_AUTH en .env
+- bcrypt==4.0.1 requiere shim en main.py
+- email-validator==2.2.0 para EmailStr de pydantic
+- IVA hostelería: 10% general, 21% alcohol
+- Verifactu: SHA-256 MAYÚSCULAS, campos con &, UTF-8 sin BOM
+- fecha_hora_generacion guardada en verifactu_registros — crítico para verificar-cadena
+- Nóminas España: SS empleado 6.35%, SS empresa 29.9%, IRPF según tabla AEAT
+- Control horario obligatorio desde RDL 8/2019
+
+---
+
+*PRD v2.0 — HorecaSO — Arin Romero — Marzo 2026*
+*Próxima revisión: al iniciar Fase 2*
