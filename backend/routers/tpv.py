@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from auth.dependencies import get_current_user
 from database import get_db
+from services.verifactu_engine import crear_registro_verifactu
 
 logger = logging.getLogger(__name__)
 
@@ -419,6 +420,20 @@ async def cobrar_ticket(
             "UPDATE mesas SET estado = 'libre' WHERE id = $1",
             ticket_row["mesa_id"],
         )
+
+        tenant_id, _ = await _get_user_tenant_outlet(conn, current_user["sub"])
+        if not tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Usuario sin tenant asignado",
+            )
+        try:
+            await crear_registro_verifactu(str(ticket_id), str(tenant_id), conn)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
 
         ticket_row = await conn.fetchrow(
             "SELECT * FROM tickets WHERE id = $1",
