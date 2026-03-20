@@ -1,8 +1,10 @@
+import { useCallback } from 'react'
 import {
   LayoutGrid,
-  Monitor,
+  Settings,
   BarChart2,
   Activity,
+  ClipboardList,
   Package,
   ChefHat,
   Users,
@@ -12,11 +14,18 @@ import {
   Sun,
   Moon,
   X,
+  Trash2,
+  Truck,
+  FileText,
+  Clock,
+  CalendarDays,
+  Receipt,
 } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 
+/** Lista plana: todas las rutas de navegación (sin grupo colapsable). */
 const NAV_ITEMS = [
   {
     path: '/mesas',
@@ -25,15 +34,21 @@ const NAV_ITEMS = [
     roles: ['admin', 'director', 'jefe_sala', 'camarero'],
   },
   {
-    path: '/tpv',
-    label: 'TPV',
-    Icon: Monitor,
-    roles: ['admin', 'camarero', 'jefe_sala'],
+    path: '/admin/sala',
+    label: 'Gestión Sala',
+    Icon: Settings,
+    roles: ['admin', 'director', 'jefe_sala'],
   },
   {
     path: '/dashboard',
     label: 'Dashboard',
     Icon: BarChart2,
+    roles: ['admin', 'director'],
+  },
+  {
+    path: '/admin/carta',
+    label: 'Carta',
+    Icon: ClipboardList,
     roles: ['admin', 'director'],
   },
   {
@@ -46,10 +61,28 @@ const NAV_ITEMS = [
     path: '/inventario',
     label: 'Inventario',
     Icon: Package,
-    roles: ['admin', 'director', 'almacen'],
+    roles: ['admin', 'director', 'almacen', 'cocina'],
   },
   {
-    path: '/recetas',
+    path: '/inventario/mermas',
+    label: 'Mermas',
+    Icon: Trash2,
+    roles: ['admin', 'director', 'almacen', 'cocina'],
+  },
+  {
+    path: '/proveedores',
+    label: 'Proveedores',
+    Icon: Truck,
+    roles: ['admin', 'director', 'almacen', 'cocina'],
+  },
+  {
+    path: '/proveedores/facturas',
+    label: 'Facturas compra',
+    Icon: FileText,
+    roles: ['admin', 'director', 'almacen', 'cocina'],
+  },
+  {
+    path: '/admin/recetas',
     label: 'Recetas',
     Icon: ChefHat,
     roles: ['admin', 'director', 'cocina'],
@@ -58,6 +91,31 @@ const NAV_ITEMS = [
     path: '/empleados',
     label: 'Empleados',
     Icon: Users,
+    roles: ['admin', 'director'],
+  },
+  {
+    path: '/fichajes',
+    label: 'Control Horario',
+    Icon: Clock,
+    roles: [
+      'admin',
+      'director',
+      'jefe_sala',
+      'camarero',
+      'cocina',
+      'almacen',
+    ],
+  },
+  {
+    path: '/cuadrante',
+    label: 'Cuadrante',
+    Icon: CalendarDays,
+    roles: ['admin', 'director', 'jefe_sala'],
+  },
+  {
+    path: '/nominas',
+    label: 'Nóminas',
+    Icon: Receipt,
     roles: ['admin', 'director'],
   },
   {
@@ -74,13 +132,36 @@ const NAV_ITEMS = [
   },
 ]
 
-function isNavActive(pathname, itemPath) {
-  if (itemPath === '/tpv') {
-    return pathname.startsWith('/tpv')
+function isNavActive(pathname, item) {
+  const itemPath = item.path
+  if (itemPath === '/mesas') {
+    return pathname === '/mesas' || pathname.startsWith('/tpv')
   }
-  return (
-    pathname === itemPath || pathname.startsWith(`${itemPath}/`)
-  )
+  if (itemPath === '/inventario') {
+    return pathname === '/inventario'
+  }
+  if (itemPath === '/inventario/mermas') {
+    return (
+      pathname === '/inventario/mermas' ||
+      pathname.startsWith('/inventario/mermas/')
+    )
+  }
+  if (itemPath === '/proveedores') {
+    return pathname === '/proveedores'
+  }
+  if (itemPath === '/proveedores/facturas') {
+    return (
+      pathname === '/proveedores/facturas' ||
+      pathname.startsWith('/proveedores/facturas/')
+    )
+  }
+  return pathname === itemPath || pathname.startsWith(`${itemPath}/`)
+}
+
+const navScrollStyle = {
+  overflowY: 'auto',
+  scrollbarWidth: 'thin',
+  scrollbarColor: '#2e3347 transparent',
 }
 
 function SidebarContent({ onClose }) {
@@ -97,11 +178,11 @@ function SidebarContent({ onClose }) {
   const inicial =
     user?.nombre?.trim()?.charAt(0)?.toUpperCase() || '?'
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     logout()
     navigate('/login')
     onClose?.()
-  }
+  }, [logout, navigate, onClose])
 
   return (
     <>
@@ -116,36 +197,44 @@ function SidebarContent({ onClose }) {
         </button>
       ) : null}
 
-      <div className="flex flex-col p-6">
-        <h1 className="text-xl font-bold text-amber-500">HorecaSO</h1>
-        <p className="text-xs text-[#6b7280] dark:text-[#8b90a7]">
-          ERP Hostelería
-        </p>
+      <div className="relative flex shrink-0 items-center justify-between gap-2 border-b border-[#e2e5ed] p-4 dark:border-[#2e3347]">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-bold text-amber-500">HorecaSO</h1>
+          <p className="text-xs text-[#6b7280] dark:text-[#8b90a7]">
+            ERP Hostelería
+          </p>
+        </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-2 pb-4">
-        {visibleItems.map(({ path, label, Icon }) => (
-          <NavLink
-            key={path}
-            to={path}
-            onClick={() => onClose?.()}
-            isActive={() => isNavActive(location.pathname, path)}
-            className={({ isActive }) =>
-              [
-                'flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[15px] font-medium',
-                isActive
-                  ? 'border-l-[3px] border-amber-500 bg-amber-500/10 pl-[13px] text-amber-500'
-                  : 'border-l-[3px] border-transparent pl-4 text-[#6b7280] hover:bg-[#f0f2f5] dark:text-[#8b90a7] dark:hover:bg-[#222536]',
-              ].join(' ')
-            }
-          >
-            <Icon size={20} strokeWidth={1.5} />
-            {label}
-          </NavLink>
-        ))}
+      <nav
+        className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 py-4"
+        style={navScrollStyle}
+      >
+        {visibleItems.map((item) => {
+          const { path, label, Icon } = item
+          return (
+            <NavLink
+              key={path}
+              to={path}
+              onClick={() => onClose?.()}
+              isActive={() => isNavActive(location.pathname, item)}
+              className={({ isActive }) =>
+                [
+                  'flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[15px] font-medium transition-colors',
+                  isActive
+                    ? 'border-l-[3px] border-amber-500 bg-amber-500/10 pl-[13px] text-amber-500'
+                    : 'border-l-[3px] border-transparent pl-4 text-[#6b7280] hover:bg-[#f0f2f5] dark:text-[#8b90a7] dark:hover:bg-[#222536]',
+                ].join(' ')
+              }
+            >
+              <Icon size={20} strokeWidth={1.5} className="shrink-0" />
+              <span>{label}</span>
+            </NavLink>
+          )
+        })}
       </nav>
 
-      <div className="mt-auto space-y-1 border-t border-[#e2e5ed] p-4 dark:border-[#2e3347]">
+      <div className="shrink-0 space-y-1 border-t border-[#e2e5ed] p-3 dark:border-[#2e3347]">
         <div className="flex items-center gap-3 px-1 py-2">
           <div
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-sm font-bold text-amber-500"
@@ -166,12 +255,12 @@ function SidebarContent({ onClose }) {
         <button
           type="button"
           onClick={toggleTheme}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[#6b7280] hover:bg-[#f0f2f5] dark:text-[#8b90a7] dark:hover:bg-[#222536]"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[#6b7280] transition-colors hover:bg-[#f0f2f5] dark:text-[#8b90a7] dark:hover:bg-[#222536]"
         >
           {isDark ? (
-            <Sun size={20} strokeWidth={1.5} />
+            <Sun size={20} strokeWidth={1.5} className="shrink-0" />
           ) : (
-            <Moon size={20} strokeWidth={1.5} />
+            <Moon size={20} strokeWidth={1.5} className="shrink-0" />
           )}
           <span>{isDark ? 'Modo diurno' : 'Modo nocturno'}</span>
         </button>
@@ -179,9 +268,9 @@ function SidebarContent({ onClose }) {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-red-400 hover:bg-red-500/10"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
         >
-          <LogOut size={20} strokeWidth={1.5} />
+          <LogOut size={20} strokeWidth={1.5} className="shrink-0" />
           <span>Cerrar sesión</span>
         </button>
       </div>
@@ -207,7 +296,7 @@ export default function Sidebar({ isOpen, onClose }) {
   }
 
   return (
-    <aside className="flex h-screen w-64 flex-shrink-0 flex-col border-r border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27]">
+    <aside className="fixed left-0 top-0 z-40 hidden h-full w-64 flex-col border-r border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27] md:flex">
       <SidebarContent />
     </aside>
   )
