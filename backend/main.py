@@ -35,6 +35,8 @@ from routers.verifactu import router as verifactu_router
 from routers.inventario import router as inventario_router
 from routers.kds import router as kds_router
 from routers.proveedores import router as proveedores_router
+from routers.empleados import router as empleados_router
+from routers.nominas import router as nominas_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -116,6 +118,8 @@ def create_app() -> FastAPI:
     app.include_router(kds_router, prefix="/api")
     app.include_router(dashboard_router)
     app.include_router(proveedores_router, prefix="/api")
+    app.include_router(empleados_router, prefix="/api")
+    app.include_router(nominas_router, prefix="/api")
 
     @app.get("/api/health")
     async def health_check():
