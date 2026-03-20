@@ -37,6 +37,9 @@ from routers.kds import router as kds_router
 from routers.proveedores import router as proveedores_router
 from routers.empleados import router as empleados_router
 from routers.nominas import router as nominas_router
+from routers.reservas import router as reservas_router
+from routers.reservas import lista_espera_router
+from routers.clientes import router as clientes_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -120,6 +123,9 @@ def create_app() -> FastAPI:
     app.include_router(proveedores_router, prefix="/api")
     app.include_router(empleados_router, prefix="/api")
     app.include_router(nominas_router, prefix="/api")
+    app.include_router(reservas_router, prefix="/api")
+    app.include_router(lista_espera_router, prefix="/api")
+    app.include_router(clientes_router, prefix="/api")
 
     @app.get("/api/health")
     async def health_check():
