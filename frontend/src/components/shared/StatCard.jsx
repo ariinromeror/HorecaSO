@@ -1,6 +1,7 @@
 const valueColorClass = {
   amber: 'text-amber-500',
   green: 'text-emerald-500',
+  red: 'text-red-500',
   white: 'text-[#111827] dark:text-[#e8eaf0]',
 }
 
@@ -12,13 +13,13 @@ export default function StatCard({ label, value, Icon, color = 'white', trend })
     const s = String(trend)
     if (s.startsWith('+')) {
       trendContent = (
-        <p className="mt-1 text-sm font-medium text-emerald-500">
+        <p className="mt-1 text-sm font-medium text-emerald-500 dark:text-emerald-400">
           ↑ {trend}
         </p>
       )
     } else if (s.startsWith('-')) {
       trendContent = (
-        <p className="mt-1 text-sm font-medium text-red-400">
+        <p className="mt-1 text-sm font-medium text-red-400 dark:text-red-400">
           ↓ {trend}
         </p>
       )

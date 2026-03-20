@@ -8,9 +8,7 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f4f6f9] dark:bg-[#0f1117]">
-      <div className="hidden md:flex md:flex-shrink-0">
-        <Sidebar />
-      </div>
+      <Sidebar />
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -23,7 +21,7 @@ export default function AppLayout() {
           onKeyDown={(e) => e.key === 'Escape' && setSidebarOpen(false)}
         />
       ) : null}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden md:ml-64">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[#e2e5ed] bg-white px-4 dark:border-[#2e3347] dark:bg-[#1a1d27] md:hidden">
           <button
             type="button"
