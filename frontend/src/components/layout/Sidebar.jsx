@@ -125,6 +125,12 @@ const NAV_ITEMS = [
     roles: ['admin', 'director', 'jefe_sala'],
   },
   {
+    path: '/clientes',
+    label: 'Clientes',
+    Icon: Users,
+    roles: ['admin', 'director', 'jefe_sala'],
+  },
+  {
     path: '/kds',
     label: 'Cocina KDS',
     Icon: Bell,

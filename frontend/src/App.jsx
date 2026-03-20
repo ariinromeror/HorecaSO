@@ -26,6 +26,8 @@ import EmpleadosPage from './pages/empleados/EmpleadosPage'
 import FichajesPage from './pages/empleados/FichajesPage'
 import CuadrantePage from './pages/empleados/CuadrantePage'
 import NominasPage from './pages/empleados/NominasPage'
+import ReservasPage from './pages/reservas/ReservasPage'
+import ClientesPage from './pages/clientes/ClientesPage'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { isLoading, isAuthenticated, user } = useAuth()
@@ -222,14 +224,8 @@ export default function App() {
                 <Route path="/fichajes" element={<FichajesPage />} />
                 <Route path="/cuadrante" element={<CuadrantePage />} />
                 <Route path="/nominas" element={<NominasPage />} />
-                <Route
-                  path="/reservas"
-                  element={<ModulePlaceholder name="Reservas" />}
-                />
-                <Route
-                  path="/clientes"
-                  element={<ModulePlaceholder name="Clientes" />}
-                />
+                <Route path="/reservas" element={<ReservasPage />} />
+                <Route path="/clientes" element={<ClientesPage />} />
                 <Route
                   path="/reportes"
                   element={<ModulePlaceholder name="Reportes" />}
