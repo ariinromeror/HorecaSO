@@ -1,14 +1,15 @@
-# HorecaSO — Cursor Rules
-# Este archivo define el contexto permanente del proyecto.
-# Cursor lo lee en cada conversación automáticamente.
+# HorecaSO — Cursor Rules v2.1
+# Cubre todo el proyecto completo — todas las fases.
+# No modificar salvo cambio de stack o decisión arquitectónica mayor.
 
 ---
 
 ## PROYECTO
 
-**HorecaSO** — ERP web para hostelería española (restaurantes medianos, 5-15 empleados).
+**HorecaSO** — ERP web para hostelería española (restaurantes medianos, 5-50 empleados).
 **Desarrollador:** Arin Romero — autodidacta, usa IA como herramienta de desarrollo.
-**Estado:** Fase 1 completada — TPV + Mesas + Verifactu + Dashboard + Venta Live
+**Target:** Mercado español — por encima de Revo, Agora e ICG en funcionalidad.
+**Modelo:** SaaS multi-tenant — planes Básico / Profesional / Premium / Enterprise.
 
 ---
 
@@ -23,185 +24,307 @@
 | Build | Vite | 7 |
 | Estilos | Tailwind CSS | 4 |
 | Iconos | lucide-react | strokeWidth={1.5} siempre |
-| Animaciones | Framer Motion | — |
+| Animaciones | Framer Motion | cuando sea necesario |
 | Base de datos | PostgreSQL 15 | vía Supabase |
 | Auth | JWT python-jose + bcrypt 4.0.1 + passlib 1.7.4 | — |
 | Deploy | Render (backend) + Vercel (frontend) + Supabase (DB) | — |
-| IA | Groq API | llama3 |
+| IA | Groq API | llama3 / vision |
 | PDF | ReportLab | — |
 | Rate limiting | SlowAPI | — |
+| Email | SendGrid | confirmaciones reservas, alertas |
 
-**No sugerir nunca:** NestJS, Django, SQLAlchemy, Prisma, TypeScript en backend, Express, Next.js.
+**No sugerir nunca:** NestJS, Django, SQLAlchemy, Prisma,
+TypeScript en backend, Express, Next.js, Mongoose, Firebase.
 **Nunca usar emojis como iconos de interfaz** — siempre lucide-react strokeWidth={1.5}.
 
 ---
 
-## TIEMPO REAL — POLLING VS WEBSOCKET
+## ROLES DEL SISTEMA
 
-### Decisión actual: Polling cada 30 segundos
-HorecaSO usa polling para las pantallas en tiempo real (Venta Live, KDS).
-**Motivo:** Render plan gratuito no soporta WebSockets de forma estable.
-
-### Patrón de polling en React
-```jsx
-useEffect(() => {
-  const fetchData = async () => { /* llamada api */ }
-  fetchData() // carga inicial inmediata
-  const interval = setInterval(fetchData, 30000) // cada 30s
-  return () => clearInterval(interval) // cleanup al desmontar
-}, [])
-```
-
-### Migración futura a WebSocket (cuando se pague Render Starter $7/mes)
-- Backend: añadir endpoint `GET /api/ws/ventas` con FastAPI WebSocket
-- Frontend: reemplazar `setInterval` por `useEffect` con `new WebSocket(url)`
-- El contrato de datos es idéntico — solo cambia el transporte
-- Tiempo estimado de migración: 1-2 horas
-- **NO implementar WebSocket ahora** — usar polling hasta migrar a plan de pago
+| Rol | Acceso principal |
+|-----|-----------------|
+| admin | Todo |
+| director | Dashboard, analytics, configuración, reportes, nóminas |
+| jefe_sala | Mesas, reservas, TPV, venta live, KDS |
+| camarero | TPV, mesas |
+| cocina | KDS, recetas, inventario (lectura) |
+| almacen | Inventario completo, proveedores, mermas |
 
 ---
 
-## REGLAS DE CÓDIGO — BACKEND
+## TIEMPO REAL — POLLING (NO WEBSOCKET)
+
+Usar polling cada 30 segundos en todas las pantallas live.
+**Motivo:** Render plan gratuito no soporta WebSockets estables.
+Migrar a WebSocket cuando se contrate Render Starter ($7/mes).
+
+```jsx
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const res = await api.get('/endpoint')
+      setData(res.data)
+      setLastUpdate(new Date())
+    } catch (e) {
+      console.error('Polling error:', e) // NO resetear datos en error
+    }
+  }
+  fetchData()
+  const interval = setInterval(fetchData, 30000)
+  return () => clearInterval(interval)
+}, [])
+```
+
+Pantallas con polling: Venta Live, KDS.
+Mostrar siempre indicador "Actualizado hace X segundos".
+
+---
+
+## REGLAS CRÍTICAS — BACKEND
 
 ### Base de datos
-- SIEMPRE usar asyncpg con `async with get_db() as conn`
-- SIEMPRE usar placeholders `$1, $2, $3` — nunca f-strings en SQL
-- NUNCA usar cursor() — usar `conn.fetch()`, `conn.fetchrow()`, `conn.execute()`
-- NUNCA usar ORM ni SQLAlchemy
-- Todas las transacciones dentro del mismo `get_db()` context manager
-- `statement_cache_size=0` en el pool — obligatorio para Supabase pgbouncer
+- SIEMPRE async with get_db() as conn
+- SIEMPRE placeholders $1, $2, $3 — NUNCA f-strings con valores en SQL
+- NUNCA cursor() — usar conn.fetch(), conn.fetchrow(), conn.execute()
+- NUNCA ORM ni SQLAlchemy
+- Transacciones dentro del mismo get_db() context manager
+- statement_cache_size=0 en el pool — obligatorio Supabase pgbouncer
+- SIEMPRE filtrar por tenant_id (datos) y outlet_id (operaciones)
 
-### Dinero y cálculos financieros
-- SIEMPRE usar `Decimal` de Python, NUNCA `float` para dinero
-- Importar: `from decimal import Decimal, ROUND_HALF_UP`
-- Redondear siempre a 2 decimales con `ROUND_HALF_UP`
+### Dinero y cálculos
+- SIEMPRE Decimal de Python — NUNCA float para dinero
+- from decimal import Decimal, ROUND_HALF_UP
+- Redondear a 2 decimales con ROUND_HALF_UP
+- Cantidades de stock: Decimal también (NUMERIC(15,4) en BD)
+- float() solo permitido en dicts de respuesta JSON final — nunca en cálculos
 
-### Autenticación y RBAC
-- SIEMPRE usar `Depends(require_roles([...]))` en endpoints protegidos
-- Roles del sistema: `director`, `jefe_sala`, `camarero`, `cocina`, `almacen`, `admin`
-- Filtrar SIEMPRE por `tenant_id` y `outlet_id` del usuario autenticado
-- NUNCA devolver `password_hash` en ninguna respuesta
+### Auth y seguridad
+- SIEMPRE Depends(require_roles([...])) en endpoints protegidos
+- NUNCA devolver password_hash en ninguna respuesta
+- SIEMPRE filtrar por tenant_id del usuario autenticado
+- KDS y operaciones de sala: filtrar por outlet_id
 
-### Estructura de archivos
+### Manejo de errores — patrón obligatorio en TODOS los endpoints
+```python
+try:
+    async with get_db() as conn:
+        ...
+    return resultado
+except HTTPException:
+    raise
+except Exception as e:
+    logger.error("Error en [nombre_endpoint]: %s", e)
+    raise HTTPException(status_code=500, detail="Error interno")
 ```
-backend/
-├── auth/
-│   ├── dependencies.py
-│   └── jwt_handler.py
-├── routers/
-│   ├── auth.py          ✅
-│   ├── mesas.py         ✅
-│   ├── tpv.py           ✅
-│   ├── verifactu.py     ✅
-│   ├── carta.py         ✅
-│   ├── admin_carta.py   ✅
-│   ├── admin_recetas.py ✅
-│   ├── dashboard.py     ✅
-│   └── ...resto fases futuras
-├── services/
-│   ├── verifactu_engine.py ✅
-│   ├── food_cost.py
-│   └── inventario_fifo.py
-├── config.py
-├── database.py
-└── main.py
+
+### Verifactu — reglas inamovibles
+- NUNCA UPDATE ni DELETE en verifactu_registros
+- Cobro + registro Verifactu en la MISMA transacción
+- SHA-256 en MAYÚSCULAS, campos con &, UTF-8 sin BOM
+- fecha_hora_generacion guardada en el registro — crítico
+- IVA hostelería: 10% general, 21% alcohol y tabaco
+
+### Nóminas España
+- SS empleado: 6.35%
+- SS empresa (cuota patronal): 29.9%
+- IRPF: según tabla AEAT
+- Control horario obligatorio desde RDL 8/2019
+
+### SQL dinámico — patrón correcto
+```python
+where_clauses = ["tenant_id = $1"]
+args = [tenant_id]
+if buscar:
+    args.append(f"%{buscar}%")
+    where_clauses.append("nombre ILIKE $" + str(len(args)))
+sql = "SELECT * FROM tabla WHERE " + " AND ".join(where_clauses)
+rows = await conn.fetch(sql, *args)
 ```
 
 ### Patrón de router
 ```python
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from auth.dependencies import require_roles, get_current_user
 from database import get_db
-import logging
+from decimal import Decimal, ROUND_HALF_UP
+import logging, uuid
+from datetime import date, datetime
+from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(
-    prefix="/nombre-modulo",
-    tags=["NombreModulo"],
-    responses={401: {"description": "No autorizado"}, 403: {"description": "Prohibido"}}
+    prefix="/modulo",
+    tags=["Modulo"],
+    responses={401: {"description": "No autorizado"},
+               403: {"description": "Prohibido"}}
 )
 ```
 
 ### Patrón de endpoint
 ```python
 @router.get("/items")
-async def get_items(current_user = Depends(require_roles(['director', 'admin']))):
-    async with get_db() as conn:
-        rows = await conn.fetch(
-            "SELECT * FROM tabla WHERE tenant_id = $1",
-            current_user["tenant_id"]
-        )
-    return [dict(r) for r in rows]
-```
-
-### Manejo de errores
-```python
-try:
-    async with get_db() as conn:
-        result = await conn.fetchrow("SELECT ...", param)
-        if not result:
-            raise HTTPException(status_code=404, detail="No encontrado")
-        return dict(result)
-except HTTPException:
-    raise
-except Exception as e:
-    logger.error(f"Error en operación: {e}")
-    raise HTTPException(status_code=500, detail="Error interno")
+async def get_items(
+    current_user = Depends(require_roles(['director', 'admin']))
+):
+    try:
+        async with get_db() as conn:
+            rows = await conn.fetch(
+                "SELECT * FROM tabla WHERE tenant_id = $1",
+                current_user["tenant_id"]
+            )
+        return [dict(r) for r in rows]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en get_items: %s", e)
+        raise HTTPException(status_code=500, detail="Error interno")
 ```
 
 ---
 
-## REGLAS DE CÓDIGO — FRONTEND
+## REGLAS CRÍTICAS — FRONTEND
 
-### Estructura de archivos
-```
-frontend/src/
-├── components/
-│   ├── shared/
-│   │   ├── StatCard.jsx       ✅
-│   │   ├── Loader.jsx         ✅
-│   │   ├── EmptyState.jsx     ✅
-│   │   └── Toast.jsx
-│   └── layout/
-│       ├── Sidebar.jsx        ✅
-│       ├── AppLayout.jsx      ✅
-│       └── Header.jsx
-├── constants/
-│   └── uiTokens.js            ✅
-├── context/
-│   ├── AuthContext.jsx        ✅
-│   └── ThemeContext.jsx       ✅
-├── pages/
-│   ├── director/
-│   │   ├── DashboardPage.jsx  ✅
-│   │   └── VentaLivePage.jsx  ⏰ PRÓXIMO
-│   ├── sala/
-│   │   └── MesasPage.jsx      ✅
-│   ├── tpv/
-│   │   └── TPVPage.jsx        ✅
-│   ├── cocina/
-│   └── almacen/
-└── services/
-    └── api.js                 ✅
-```
+### Mobile First — OBLIGATORIO EN TODO
+- Diseñar siempre base (móvil) → sm: → md: → lg:
+- NUNCA ancho fijo en px para layouts
+- Tablas en desktop (md+) → cards apiladas en móvil
+- Sidebar: drawer en móvil, fijo en md+
+- Botones mínimo h-12 (48px) para uso táctil
+- Fuente mínima 15px en contenido (no badges)
 
 ### Iconos — LUCIDE REACT OBLIGATORIO
 ```jsx
 // NUNCA emojis como iconos de UI
-// SIEMPRE lucide-react con strokeWidth={1.5}
-import { LayoutGrid, Monitor, BarChart2, Package, ChefHat,
-         Users, Calendar, Bell, LogOut, Sun, Moon, Menu, X,
-         Plus, Minus, Trash2, Edit, AlertTriangle, CheckCircle,
-         DollarSign, TrendingUp, ShoppingCart, Activity,
-         Clock, ArrowLeft, Printer, Download } from 'lucide-react'
-
+// SIEMPRE lucide-react strokeWidth={1.5}
 // Tamaños:
-// size={24} → hero icons
+// size={24} → hero icons, headers principales
 // size={20} → sidebar nav, botones principales
-// size={18} → botones secundarios
+// size={18} → botones secundarios, acciones en tabla
 // size={16} → inline con texto, badges
+// NUNCA iconos solos en navegación principal — siempre icono + texto
 ```
+
+### Dark / Light mode — OBLIGATORIO EN TODO
+```jsx
+// ThemeContext: 'horecaso_theme' en localStorage, default: 'dark'
+// Clase 'dark' en document.documentElement
+
+// Clases obligatorias en TODOS los componentes:
+"bg-white dark:bg-[#1a1d27]"                          // surface
+"bg-[#f4f6f9] dark:bg-[#0f1117]"                      // page bg
+"bg-[#f0f2f5] dark:bg-[#222536]"                      // raised
+"border border-[#e2e5ed] dark:border-[#2e3347]"       // borders
+"text-[#111827] dark:text-[#e8eaf0]"                  // text primary
+"text-[#6b7280] dark:text-[#8b90a7]"                  // text secondary
+```
+
+### Design system — clases reutilizables
+```jsx
+// Card estándar:
+"bg-white dark:bg-[#1a1d27] border border-[#e2e5ed]
+ dark:border-[#2e3347] rounded-xl p-6 shadow-sm"
+
+// Input:
+"w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed]
+ dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px]
+ text-[#111827] dark:text-[#e8eaf0]
+ focus:outline-none focus:border-amber-500"
+
+// Botón primario:
+"h-12 px-6 bg-amber-500 hover:bg-amber-600 text-black
+ font-semibold rounded-lg transition-colors disabled:opacity-40"
+
+// Botón secundario:
+"h-10 px-4 bg-[#f0f2f5] dark:bg-[#222536] text-[#111827]
+ dark:text-[#e8eaf0] border border-[#e2e5ed]
+ dark:border-[#2e3347] rounded-lg"
+
+// Botón peligro:
+"h-10 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-500
+ border border-red-500/20 rounded-lg"
+
+// Modal overlay:
+"fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+
+// Modal contenido:
+"bg-white dark:bg-[#1a1d27] rounded-xl w-full max-w-lg
+ border border-[#e2e5ed] dark:border-[#2e3347] shadow-xl"
+
+// Badge semáforo verde:
+"bg-emerald-500/10 text-emerald-500 border border-emerald-500/20
+ px-2 py-0.5 rounded-full text-xs"
+
+// Badge semáforo amarillo:
+"bg-amber-500/10 text-amber-500 border border-amber-500/20
+ px-2 py-0.5 rounded-full text-xs"
+
+// Badge semáforo rojo:
+"bg-red-500/10 text-red-500 border border-red-500/20
+ px-2 py-0.5 rounded-full text-xs"
+```
+
+### Cards de productos — TPV y listas operativas
+Cuando se listen productos, artículos, platos o cualquier elemento
+que el usuario selecciona en una interfaz operativa (TPV, KDS,
+carta, inventario), usar SIEMPRE cards compactas:
+
+```jsx
+// Grid obligatorio para listas de productos:
+"grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4
+ lg:grid-cols-4 xl:grid-cols-5 gap-2"
+
+// Card compacta — estructura obligatoria:
+"bg-white dark:bg-[#1a1d27]
+ border border-[#e2e5ed] dark:border-[#2e3347]
+ rounded-xl p-3 cursor-pointer
+ hover:border-amber-500 hover:shadow-md
+ transition-all duration-150 active:scale-95
+ flex flex-col gap-2"
+
+// Nombre del producto:
+"text-[14px] font-medium leading-tight line-clamp-2
+ min-h-[2.5rem] text-[#111827] dark:text-[#e8eaf0]"
+
+// Precio:
+"text-base font-bold text-amber-500"
+
+// Botón acción dentro de card:
+// h-9 permitido (excepción al h-12) porque la card entera es clickable
+"w-full h-9 bg-amber-500 hover:bg-amber-600 text-black
+ text-sm font-semibold rounded-lg
+ flex items-center justify-center gap-1"
+```
+
+Scroll interno obligatorio en listas operativas:
+- Área de productos: overflow-y-auto flex-1
+- Tabs/filtros de categoría: sticky top-0 fuera del área scrollable
+- NUNCA scroll de página completa cuando hay tabs de categoría
+
+❌ NUNCA cards de producto con altura fija grande
+❌ NUNCA grid de 1 o 2 columnas para listas de productos en desktop
+❌ NUNCA scroll de página completa en pantallas operativas con tabs
+
+### División de cuenta — TPV
+La división de cuenta usa la tabla ticket_pagos en BD:
+  ticket_pagos: id, ticket_id, importe, metodo_pago, created_at
+Un ticket puede tener múltiples pagos parciales.
+El ticket se marca como cobrado cuando suma(pagos) >= total.
+Métodos válidos: efectivo | tarjeta_credito | tarjeta_debito |
+                 bizum | transferencia | invitacion
+El frontend calcula el pendiente: total - suma(pagos registrados).
+Verifactu se genera cuando el ticket queda completamente pagado.
+
+### Acento único
+- amber-500 (#f59e0b) — igual en dark y light
+- NUNCA otro color como acento principal
+
+### Semáforo rentabilidad recetas
+- Verde:    margen > 65%    → mantener
+- Amarillo: margen 40-65%  → monitorizar
+- Rojo:     margen < 40%   → revisar precio o receta
+
+### Fórmula merma
+- cantidad_bruta = cantidad_neta / (1 - porcentaje_merma / 100)
 
 ### API calls — patrón estándar
 ```jsx
@@ -210,243 +333,297 @@ const [loading, setLoading] = useState(true)
 const [error, setError] = useState(null)
 
 useEffect(() => {
-    api.get('/endpoint')
-        .then(r => setData(r.data))
-        .catch(e => setError(e.response?.data?.detail || 'Error'))
-        .finally(() => setLoading(false))
+  api.get('/endpoint')
+    .then(r => setData(r.data))
+    .catch(e => setError(e.response?.data?.detail || 'Error'))
+    .finally(() => setLoading(false))
 }, [])
 ```
 
-### Patrón polling — para pantallas en tiempo real
-```jsx
-// Usar este patrón para Venta Live, KDS, y cualquier pantalla live
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const res = await api.get('/endpoint')
-      setData(res.data)
-      setLastUpdate(new Date())
-    } catch (e) {
-      // no resetear datos en error de polling — mantener últimos datos
-      console.error('Polling error:', e)
-    }
-  }
-  fetchData() // carga inmediata al montar
-  const interval = setInterval(fetchData, 30000) // cada 30s
-  return () => clearInterval(interval) // cleanup
-}, [])
-// Mostrar siempre: "Actualizado hace X segundos" con lastUpdate
-```
+### Formularios
+- NUNCA <form> con submit — usar onClick handlers
+- Feedback inline tras mutaciones — desaparece en 3 segundos
+- Mostrar loading en botón durante la llamada (disabled + texto)
 
 ---
 
-## SISTEMA DE TEMAS — MODO OSCURO Y MODO CLARO
+## SIDEBAR — ESPECIFICACIÓN COMPLETA
 
-### ThemeContext ✅
 ```jsx
-// 'horecaso_theme' en localStorage — default: 'dark'
-// Añade/quita clase 'dark' en document.documentElement
-// useTheme() → { isDark, toggleTheme }
-```
-
-### index.css ✅
-```css
-@import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
-```
-
-### Paleta de colores — DOS TEMAS
-```js
-// dark:  bg #0f1117 / surface #1a1d27 / raised #222536
-// light: bg #f4f6f9 / surface #ffffff / raised #f0f2f5
-// borders dark: #2e3347 | light: #e2e5ed
-// text dark primary: #e8eaf0 | light: #111827
-// text secondary dark: #8b90a7 | light: #6b7280
-// acento: amber-500 #f59e0b — igual en ambos temas
-```
-
-### Clases con dark: — PATRÓN OBLIGATORIO
-```jsx
-// Todos los componentes incluyen variante dark:
-"bg-white dark:bg-[#1a1d27]"
-"border border-[#e2e5ed] dark:border-[#2e3347]"
-"text-[#111827] dark:text-[#e8eaf0]"
-"text-[#6b7280] dark:text-[#8b90a7]"
-"bg-[#f0f2f5] dark:bg-[#222536]"
-"bg-[#f4f6f9] dark:bg-[#0f1117]"
-```
-
----
-
-## SISTEMA DE DISEÑO
-
-### Filosofía
-Usuario: profesional hostelería 30-60 años, estrés, luz variable, vista cansada.
-- Contraste WCAG AA mínimo en ambos temas
-- Fuente mínima 15px en contenido
-- rounded-xl cards, rounded-lg botones/inputs — NUNCA rounded-none
-- Iconos lucide strokeWidth={1.5} + texto siempre juntos en nav
-- Botones mínimo h-12 (48px) táctiles
-
-### Sidebar — NAV_ITEMS con Venta Live añadido
-```jsx
-import { LayoutGrid, Monitor, BarChart2, Activity, Package,
-         ChefHat, Users, Calendar, Bell } from 'lucide-react'
+// Sidebar fijo en md+, drawer en móvil
+// Un solo sidebar — roles filtran qué ítems son visibles
+// NUNCA sidebars distintos por rol
+// Scroll interno: overflow-y-auto en área de nav
+// Iconos SIEMPRE con texto — nunca solo iconos en nav principal
+// NUNCA modo colapsado — sidebar siempre expandido w-64
 
 const NAV_ITEMS = [
-  { path:'/mesas',      label:'Sala',        Icon:LayoutGrid, roles:['admin','director','jefe_sala','camarero'] },
-  { path:'/tpv',        label:'TPV',          Icon:Monitor,    roles:['admin','camarero','jefe_sala'] },
-  { path:'/dashboard',  label:'Dashboard',    Icon:BarChart2,  roles:['admin','director'] },
-  { path:'/venta-live', label:'Venta Live',   Icon:Activity,   roles:['admin','director','jefe_sala'] },
-  { path:'/inventario', label:'Inventario',   Icon:Package,    roles:['admin','director','almacen'] },
-  { path:'/recetas',    label:'Recetas',      Icon:ChefHat,    roles:['admin','director','cocina'] },
-  { path:'/empleados',  label:'Empleados',    Icon:Users,      roles:['admin','director'] },
-  { path:'/reservas',   label:'Reservas',     Icon:Calendar,   roles:['admin','director','jefe_sala'] },
-  { path:'/kds',        label:'Cocina KDS',   Icon:Bell,       roles:['admin','cocina','jefe_sala'] },
+  // Operaciones diarias
+  { path:'/mesas',                label:'Sala',          Icon:LayoutGrid,   roles:['admin','director','jefe_sala','camarero'] },
+  { path:'/admin/sala',           label:'Gestión Sala',  Icon:Settings,     roles:['admin','director','jefe_sala'] },
+  { path:'/kds',                  label:'Cocina KDS',    Icon:ChefHat,      roles:['admin','cocina','jefe_sala'] },
+  // Dirección
+  { path:'/dashboard',            label:'Dashboard',     Icon:BarChart2,    roles:['admin','director'] },
+  { path:'/venta-live',           label:'Venta Live',    Icon:Activity,     roles:['admin','director','jefe_sala'] },
+  // Carta y recetas
+  { path:'/admin/carta',          label:'Carta',         Icon:BookOpen,     roles:['admin','director'] },
+  { path:'/admin/recetas',        label:'Escandallos',   Icon:FlaskConical, roles:['admin','director','cocina'] },
+  // Inventario
+  { path:'/inventario',           label:'Inventario',    Icon:Package,      roles:['admin','director','almacen','cocina'] },
+  { path:'/inventario/mermas',    label:'Mermas',        Icon:Trash2,       roles:['admin','director','almacen','cocina'] },
+  // Proveedores
+  { path:'/proveedores',          label:'Proveedores',   Icon:Truck,        roles:['admin','director','almacen'] },
+  { path:'/proveedores/facturas', label:'Facturas',      Icon:FileText,     roles:['admin','director','almacen'] },
+  // RRHH
+  { path:'/empleados',            label:'Empleados',     Icon:Users,        roles:['admin','director'] },
+  { path:'/empleados/cuadrante',  label:'Cuadrante',     Icon:CalendarDays, roles:['admin','director','jefe_sala'] },
+  { path:'/empleados/fichajes',   label:'Fichajes',      Icon:Clock,        roles:['admin','director','jefe_sala'] },
+  { path:'/empleados/nominas',    label:'Nóminas',       Icon:Wallet,       roles:['admin','director'] },
+  // Clientes
+  { path:'/reservas',             label:'Reservas',      Icon:Calendar,     roles:['admin','director','jefe_sala'] },
+  { path:'/clientes',             label:'Clientes',      Icon:UserCheck,    roles:['admin','director','jefe_sala'] },
+  // Reportes
+  { path:'/reportes',             label:'Reportes',      Icon:Download,     roles:['admin','director'] },
 ]
-// Venta Live visible para admin, director y jefe_sala
-// Icono Activity (pulso/actividad) de lucide-react
 ```
-
-### Venta Live — especificación completa
-```jsx
-// src/pages/director/VentaLivePage.jsx
-// Ruta: /venta-live
-// Roles: admin, director, jefe_sala
-// Polling: cada 30 segundos (ver patrón arriba)
-
-// Datos que muestra (del endpoint GET /api/dashboard/director):
-// 1. TOTAL ACUMULADO — número hero enorme, prominente
-//    text-6xl font-bold text-amber-500 centrado arriba
-//    "Ventas de hoy" label debajo
-//
-// 2. MESAS ACTIVAS AHORA — grid de mesas con estado en tiempo real
-//    Llama a GET /api/mesas para estado actual
-//    Mismas tarjetas visuales que MesasPage (con sillas)
-//    Solo muestra mesas ocupadas + libres (no bloqueadas)
-//
-// 3. TOP PRODUCTOS DEL DÍA — lista con barras de progreso
-//    top_5_productos_hoy del dashboard
-//
-// 4. TICKETS DEL DÍA — lista de últimos tickets cobrados
-//    Llama a GET /api/tpv/tickets/abiertos + datos del dashboard
-//    Cada ticket: hora, mesa, total, método de pago
-//    Los más recientes arriba
-//
-// 5. INDICADOR DE ACTUALIZACIÓN
-//    "Actualizado hace X segundos" — se incrementa cada segundo
-//    Punto verde parpadeante (animate-pulse) cuando está actualizando
-//    Punto gris cuando está en espera
-
-// Layout:
-// Header: "Venta Live" + Activity icon + indicador tiempo real
-// Grid principal:
-//   - Total acumulado: card grande centrada arriba (col-span-full)
-//   - Fila: Mesas activas (2/3) | Top productos (1/3)
-//   - Tickets recientes: tabla full width abajo
-
-// Calls necesarios (Promise.all cada 30s):
-// 1. getDashboardDirector() → ventas, top productos, alertas
-// 2. getMesas() → estado actual de mesas
-// Combinar resultados en el estado local
-```
-
-### StatCard ✅
-```jsx
-// bg-white dark:bg-[#1a1d27] border rounded-xl p-6
-// label text-sm + value text-4xl font-bold + Icon opacity-40 + trend opcional
-// color: amber→text-amber-500, green→text-emerald-500, white→text-[#111827] dark:text-[#e8eaf0]
-```
-
-### Clases reutilizables
-```jsx
-// Botón primario: "h-12 px-6 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors disabled:opacity-40"
-// Botón secundario: "h-10 px-4 bg-[#f0f2f5] dark:bg-[#222536] text-[#111827] dark:text-[#e8eaf0] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg"
-// Botón peligro: "h-10 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-lg"
-// Card: "bg-white dark:bg-[#1a1d27] border border-[#e2e5ed] dark:border-[#2e3347] rounded-xl p-6 shadow-sm"
-// Input: "w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500"
-```
-
-### Responsivo — Mobile First OBLIGATORIO
-- base (móvil) → sm: → md: → lg:
-- Botones h-12 mínimo táctiles
-- Sidebar drawer en móvil, fijo en md+
-- NUNCA ancho fijo en px
 
 ---
 
-## ESQUEMA DE BASE DE DATOS
+## ESTRUCTURA DE ARCHIVOS COMPLETA
+
+```
+HorecaSO/
+├── backend/
+│   ├── auth/
+│   │   ├── __init__.py
+│   │   ├── schemas.py
+│   │   ├── jwt_handler.py
+│   │   └── dependencies.py          ✅ require_roles factory
+│   ├── routers/
+│   │   ├── auth.py                  ✅
+│   │   ├── mesas.py                 ✅ PUT y DELETE añadidos
+│   │   ├── tpv.py                   ✅ enviado_cocina=true al añadir líneas
+│   │   ├── verifactu.py             ✅
+│   │   ├── carta.py                 ✅
+│   │   ├── admin_carta.py           ✅ require_roles, Decimal, try/except
+│   │   ├── admin_recetas.py         ✅ require_roles, Decimal, try/except
+│   │   ├── dashboard.py             ✅
+│   │   ├── inventario.py            ✅ SQL sin f-strings, Decimal, try/except
+│   │   ├── kds.py                   ✅
+│   │   ├── proveedores.py           PENDIENTE
+│   │   ├── reservas.py              PENDIENTE
+│   │   ├── clientes.py              PENDIENTE
+│   │   ├── empleados.py             PENDIENTE
+│   │   ├── nominas.py               PENDIENTE
+│   │   └── reportes.py              PENDIENTE
+│   ├── services/
+│   │   ├── verifactu_engine.py      ✅
+│   │   ├── food_cost.py             PENDIENTE
+│   │   ├── inventario_fifo.py       PENDIENTE
+│   │   ├── ia_facturas.py           PENDIENTE
+│   │   └── pdf_generator.py         PENDIENTE
+│   ├── config.py                    ✅
+│   ├── database.py                  ✅
+│   ├── main.py                      ✅
+│   └── requirements.txt             ✅
+├── frontend/
+│   └── src/
+│       ├── components/
+│       │   ├── shared/
+│       │   │   ├── StatCard.jsx         ✅
+│       │   │   ├── Loader.jsx           ✅
+│       │   │   └── EmptyState.jsx       ✅
+│       │   └── layout/
+│       │       ├── Sidebar.jsx          ✅ sin modo colapsado, overflow-y-auto
+│       │       └── AppLayout.jsx        ✅ ml-64 fijo
+│       ├── constants/
+│       │   └── uiTokens.js              ✅
+│       ├── context/
+│       │   ├── AuthContext.jsx          ✅
+│       │   └── ThemeContext.jsx         ✅
+│       ├── pages/
+│       │   ├── LoginPage.jsx            ✅
+│       │   ├── sala/
+│       │   │   └── MesasPage.jsx        ✅
+│       │   ├── tpv/
+│       │   │   └── TPVPage.jsx          ✅ cards compactas, scroll interno
+│       │   ├── director/
+│       │   │   ├── DashboardPage.jsx    ✅
+│       │   │   └── VentaLivePage.jsx    ✅
+│       │   ├── admin/
+│       │   │   ├── CartaPage.jsx        ✅
+│       │   │   ├── RecetasPage.jsx      ✅
+│       │   │   └── GestionSalaPage.jsx  ✅
+│       │   ├── inventario/
+│       │   │   ├── InventarioPage.jsx   ✅
+│       │   │   └── MermasPage.jsx       ✅
+│       │   ├── cocina/
+│       │   │   └── KDSPage.jsx          ✅ polling 30s, sin sidebar
+│       │   ├── proveedores/
+│       │   │   ├── ProveedoresPage.jsx  PENDIENTE
+│       │   │   └── FacturasPage.jsx     PENDIENTE
+│       │   ├── empleados/
+│       │   │   ├── EmpleadosPage.jsx    PENDIENTE
+│       │   │   ├── CuadrantePage.jsx    PENDIENTE
+│       │   │   ├── FichajesPage.jsx     PENDIENTE
+│       │   │   └── NominasPage.jsx      PENDIENTE
+│       │   ├── reservas/
+│       │   │   └── ReservasPage.jsx     PENDIENTE
+│       │   ├── clientes/
+│       │   │   └── ClientesPage.jsx     PENDIENTE
+│       │   └── reportes/
+│       │       └── ReportesPage.jsx     PENDIENTE
+│       ├── services/
+│       │   └── api.js                   ✅
+│       ├── App.jsx                      ✅
+│       └── index.css                    ✅
+├── .cursorrules                         ✅ v2.1
+└── .gitignore                           ✅
+```
+
+---
+
+## SCHEMA DE BASE DE DATOS
 
 ```sql
-tenants: id, nombre, nif, created_at
-outlets: id, tenant_id, nombre, num_mesas
-usuarios: id, tenant_id, outlet_id, nombre, email, password_hash, rol, activo
-mesas: id, outlet_id, numero, capacidad, estado, posicion_x, posicion_y, zona
-categorias_menu: id, tenant_id, nombre, orden
-productos: id, tenant_id, categoria_id, nombre, precio, tiene_receta, activo
-tickets: id, outlet_id, mesa_id, camarero_id, estado, total, metodo_pago, created_at, cobrado_at
-ticket_lineas: id, ticket_id, producto_id, cantidad, precio_unitario, subtotal, nota
+-- CORE
+tenants: id, nombre, nif, direccion, telefono, email, plan, activo, created_at
+outlets: id, tenant_id, nombre, direccion, num_mesas, capacidad_total, created_at
+usuarios: id, tenant_id, outlet_id, nombre, email, password_hash, rol, pin, activo, created_at
+
+-- SALA
+mesas: id, outlet_id, numero, capacidad, estado, posicion_x, posicion_y, zona, forma
+
+-- CARTA
+categorias_menu: id, tenant_id, nombre, icono, color, orden, activo
+alergenos: id, nombre, icono
+productos: id, tenant_id, categoria_id, nombre, descripcion, precio, precio_coste,
+           iva_porcentaje, tiene_receta, activo, imagen_url, es_bebida,
+           tiempo_preparacion
+producto_alergenos: producto_id, alergeno_id
+
+-- TPV
+tickets: id, outlet_id, mesa_id, camarero_id, estado, total, total_iva,
+         descuento_porcentaje, metodo_pago, num_comensales, notas,
+         created_at, cobrado_at, tiempo_ocupacion
+ticket_lineas: id, ticket_id, producto_id, cantidad, precio_unitario, subtotal,
+               nota, enviado_cocina, enviado_cocina_at, estado_cocina
+ticket_pagos: id, ticket_id, importe, metodo_pago, created_at
+              -- Division de cuenta: multiples pagos por ticket
+              -- ticket cobrado cuando suma(importe) >= tickets.total
+cierres_caja: id, outlet_id, usuario_id, fecha, total_efectivo, total_tarjeta,
+              total_bizum, total_transferencia, total_invitaciones,
+              total_ventas, num_tickets, ticket_medio, created_at
+
+-- VERIFACTU
 verifactu_registros: id, tenant_id, ticket_id, numero_serie, fecha_expedicion,
-                     tipo_factura, base_imponible, cuota_iva, importe_total,
-                     huella_anterior, huella_actual, enviado_aeat, created_at
-articulos: id, tenant_id, nombre, sku, unidad_medida, stock_actual, stock_minimo, coste_unitario
-recetas: id, producto_id, rendimiento, instrucciones
-receta_ingredientes: id, receta_id, articulo_id, cantidad_neta, porcentaje_merma, unidad
-proveedores: id, tenant_id, nombre, nif, email, telefono
-empleados: id, tenant_id, usuario_id, dni, cargo, salario_mensual, activo
-turnos: id, empleado_id, outlet_id, fecha, hora_entrada, hora_salida, horas_trabajadas
-reservas: id, outlet_id, mesa_id, nombre_cliente, telefono, fecha, hora, num_personas, estado
+                     fecha_hora_generacion, tipo_factura, base_imponible,
+                     cuota_iva, importe_total, huella_anterior, huella_actual,
+                     enviado_aeat, created_at
+
+-- INVENTARIO
+articulos: id, tenant_id, nombre, sku, unidad_medida, stock_actual, stock_minimo,
+           stock_maximo, coste_unitario, categoria_almacen, created_at
+lotes_inventario: id, articulo_id, outlet_id, cantidad, coste_unitario,
+                  fecha_caducidad, numero_lote, created_at
+movimientos_stock: id, articulo_id, outlet_id, tipo, cantidad, coste_unitario,
+                   motivo, usuario_id, ticket_id, created_at
+mermas: id, outlet_id, articulo_id, cantidad, motivo, coste_imputado,
+        usuario_id, created_at
+registros_appcc: id, outlet_id, usuario_id, tipo_control, nombre_equipo,
+                 temperatura, conforme, observaciones, created_at
+
+-- RECETAS
+recetas: id, producto_id, rendimiento, tiempo_preparacion, instrucciones,
+         coste_calculado, margen_porcentaje, semaforo, updated_at
+receta_ingredientes: id, receta_id, articulo_id, cantidad_neta,
+                     porcentaje_merma, unidad, orden
+
+-- PROVEEDORES
+proveedores: id, tenant_id, nombre, nif, email, telefono, direccion,
+             condiciones_pago, dias_entrega, activo
+pedidos_proveedor: id, tenant_id, proveedor_id, outlet_id, estado,
+                   fecha_pedido, fecha_entrega_estimada, total_estimado
+facturas_proveedor: id, tenant_id, proveedor_id, pedido_id, numero_factura,
+                    fecha, fecha_vencimiento, total, pagada, procesada_ia,
+                    imagen_url, created_at
+facturas_proveedor_lineas: id, factura_id, articulo_id, cantidad,
+                           coste_unitario, subtotal
+
+-- RRHH
+empleados: id, tenant_id, usuario_id, dni, nss, cargo, contrato,
+           jornada_horas, salario_bruto_mensual, irpf_porcentaje,
+           fecha_inicio, iban, activo
+turnos: id, empleado_id, outlet_id, fecha, hora_inicio_planificada,
+        hora_fin_planificada, hora_entrada, hora_salida,
+        horas_trabajadas, horas_extra, tipo, incidencia
+cuadrantes: id, outlet_id, semana_inicio, semana_fin, publicado, created_by
+nominas: id, empleado_id, mes, anio, salario_bruto, total_devengos,
+         ss_empleado, irpf, total_deducciones, liquido,
+         ss_empresa, coste_total_empresa, pagada, created_at
+
+-- CLIENTES Y RESERVAS
+clientes: id, tenant_id, nombre, email, telefono, total_visitas,
+          gasto_total, puntos_fidelidad, created_at
+reservas: id, outlet_id, mesa_id, cliente_id, nombre_cliente, telefono,
+          fecha, hora, num_personas, estado, origen, notas, created_at
+
+-- ANALYTICS
+rentabilidad_mesas: id, mesa_id, outlet_id, ticket_id, fecha,
+                    num_comensales, tiempo_ocupacion_minutos,
+                    ingreso_total, ingreso_por_hora
+ingenieria_menu: id, producto_id, periodo_inicio, periodo_fin,
+                 unidades_vendidas, margen_total, clasificacion
 ```
 
 ---
 
-## VERIFACTU — REGLAS CRÍTICAS
+## MÉTODOS DE PAGO
 
-```python
-campos = [registro["nif_emisor"], registro["numero_serie"], registro["fecha_expedicion"],
-          registro["tipo_factura"], str(registro["cuota_iva"]), str(registro["importe_total"]),
-          huella_anterior or "", registro["fecha_hora_generacion"]]
-cadena = "&".join(campos)
-huella = hashlib.sha256(cadena.encode("utf-8")).hexdigest().upper()
-```
-- NUNCA UPDATE/DELETE en verifactu_registros
-- Cobro + Verifactu en la MISMA transacción → rollback si falla
-- Decimal para importes, UTF-8 sin BOM
+efectivo | tarjeta_credito | tarjeta_debito | bizum | transferencia | invitacion
 
 ---
 
-## FASES DEL PROYECTO
+## DATOS DE PRUEBA (tenant demo)
 
-```
-Fase 1 (ACTUAL): Auth + Mesas + TPV + Verifactu + Dashboard + Venta Live
-Fase 2: Inventario + Lotes FIFO + Recetas + Semáforo rentabilidad
-Fase 3: Proveedores + Escaneo facturas IA + Real vs Teórico
-Fase 4: Dashboard financiero completo + PDF reports
-Fase 5: Reservas + Empleados + Turnos
-Fase 6: Multi-tenant SaaS + Panel admin
-```
-
-**Solo implementar lo de la Fase actual.**
+- tenant_id: 00000000-0000-0000-0000-000000000001 (NIF: B12345678)
+- outlet_id: 00000000-0000-0000-0000-000000000002 (Sala Principal)
+- usuario: admin@test.com / admin123 (rol: admin)
 
 ---
 
 ## LO QUE NUNCA DEBES HACER
 
-- ❌ Usar float para dinero
-- ❌ Usar ORM o SQLAlchemy
-- ❌ UPDATE/DELETE en verifactu_registros
-- ❌ Devolver password_hash en responses
+### Backend
+- ❌ Float para dinero — siempre Decimal
+- ❌ Float en cálculos — float() solo en dict de respuesta JSON final
+- ❌ ORM o SQLAlchemy
+- ❌ f-strings con valores de usuario en SQL
+- ❌ cursor() de asyncpg
 - ❌ SQL sin filtrar por tenant_id
-- ❌ f-strings para construir SQL
-- ❌ NestJS, TypeScript en backend, cambios de stack
-- ❌ Código de Fases 2-6 cuando estamos en Fase 1
-- ❌ `<form>` con submit — usar onClick handlers
+- ❌ UPDATE o DELETE en verifactu_registros
+- ❌ Devolver password_hash en responses
+- ❌ NestJS, TypeScript en backend, Django, Express
+- ❌ WebSocket hasta migrar a Render de pago
+- ❌ Endpoints sin require_roles
+- ❌ Endpoints sin try/except + logger.error + 500
+
+### Frontend
+- ❌ Float para dinero — usar toFixed(2) solo para mostrar
+- ❌ Emojis como iconos de UI — lucide-react strokeWidth={1.5}
+- ❌ Iconos sin texto en navegación principal
 - ❌ Solo desktop — siempre Mobile First
-- ❌ Sidebars distintos por rol
+- ❌ Sidebars distintos por rol — un solo sidebar con filtro de roles
+- ❌ Sidebar colapsado a solo iconos — siempre expandido con texto
 - ❌ Componentes sin variante dark:
 - ❌ rounded-none en elementos visibles
 - ❌ Texto body menor de 15px
-- ❌ Emojis como iconos de UI — usar lucide-react strokeWidth={1.5}
-- ❌ Iconos sin texto en navegación principal
-- ❌ Botones táctiles menores de h-12
-- ❌ WebSocket ahora — usar polling hasta migrar a Render de pago
+- ❌ Botones táctiles menores de h-12 (48px) — excepción: h-9 en cards de producto
+- ❌ <form> con submit — usar onClick handlers
+- ❌ Ancho fijo en px para layouts
+- ❌ Tablas sin versión mobile (cards apiladas)
+- ❌ Modales sin overlay bg-black/60
+- ❌ Colores fuera de la paleta del design system
+- ❌ WebSocket hasta migrar a Render de pago
+- ❌ Cards de producto grandes en listas operativas — usar grid compacto
+- ❌ Scroll de página completa en pantallas con tabs de categoría
