@@ -32,6 +32,9 @@ from routers.carta import router_tpv as carta_tpv_router
 from routers.mesas import router as mesas_router
 from routers.tpv import router as tpv_router
 from routers.verifactu import router as verifactu_router
+from routers.inventario import router as inventario_router
+from routers.kds import router as kds_router
+from routers.proveedores import router as proveedores_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -109,7 +112,10 @@ def create_app() -> FastAPI:
     app.include_router(admin_carta_router)
     app.include_router(alergenos_router)
     app.include_router(admin_recetas_router)
+    app.include_router(inventario_router, prefix="/api")
+    app.include_router(kds_router, prefix="/api")
     app.include_router(dashboard_router)
+    app.include_router(proveedores_router, prefix="/api")
 
     @app.get("/api/health")
     async def health_check():
