@@ -13,12 +13,15 @@ import LoginPage from './pages/LoginPage'
 import MesasPage from './pages/sala/MesasPage'
 import TPVPage from './pages/tpv/TPVPage'
 import DashboardPage from './pages/director/DashboardPage'
+import AnalyticsPage from './pages/analytics/AnalyticsPage'
 import VentaLivePage from './pages/director/VentaLivePage'
 import CartaPage from './pages/admin/CartaPage'
 import RecetasPage from './pages/admin/RecetasPage'
 import GestionSalaPage from './pages/admin/GestionSalaPage'
 import InventarioPage from './pages/inventario/InventarioPage'
 import MermasPage from './pages/inventario/MermasPage'
+import APPCCPage from './pages/inventario/APPCCPage'
+import FIFOPage from './pages/inventario/FIFOPage'
 import KDSPage from './pages/cocina/KDSPage'
 import ProveedoresPage from './pages/proveedores/ProveedoresPage'
 import FacturasProveedorPage from './pages/proveedores/FacturasPage'
@@ -202,11 +205,14 @@ export default function App() {
                   />
                 </Route>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/venta-live" element={<VentaLivePage />} />
                 <Route element={<InventarioRoute />}>
                   <Route path="/inventario" element={<InventarioPage />} />
                   <Route path="/inventario/mermas" element={<MermasPage />} />
                 </Route>
+                <Route path="/appcc" element={<APPCCPage />} />
+                <Route path="/fifo" element={<FIFOPage />} />
                 <Route element={<ProveedoresRoute />}>
                   <Route path="/proveedores" element={<ProveedoresPage />} />
                   <Route
