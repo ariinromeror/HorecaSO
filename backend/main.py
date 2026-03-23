@@ -24,9 +24,13 @@ from config import settings
 from database import close_connection_pool, init_connection_pool, get_db
 from routers.admin_carta import router as admin_carta_router
 from routers.admin_carta import router_alergenos as alergenos_router
+from routers.admin_productos import router as admin_productos_router
 from routers.dashboard import router as dashboard_router
-from routers.analytics import router as analytics_router
+from routers.analytics_mesas import router as analytics_mesas_router
+from routers.analytics_menu import router as analytics_menu_router
+from routers.analytics_personal import router as analytics_personal_router
 from routers.admin_recetas import router as admin_recetas_router
+from routers.admin_recetas_ingredientes import router as admin_recetas_ingredientes_router
 from routers.auth import router as auth_router
 from routers.carta import router_publica as carta_publica_router
 from routers.carta import router_tpv as carta_tpv_router
@@ -35,7 +39,9 @@ from routers.tpv import router as tpv_router
 from routers.tpv_cobro import router as tpv_cobro_router
 from routers.verifactu import router as verifactu_router
 from routers.inventario import router as inventario_router
+from routers.inventario_movimientos import router as inventario_movimientos_router
 from routers.kds import router as kds_router
+from routers.kds_estados import router as kds_estados_router
 from routers.proveedores import router as proveedores_router
 from routers.facturas_proveedor import router as facturas_proveedor_router
 from routers.empleados import router as empleados_router
@@ -44,10 +50,12 @@ from routers.cuadrantes import router as cuadrantes_router
 from routers.ausencias import router as ausencias_router
 from routers.nominas import router as nominas_router
 from routers.reservas import router as reservas_router
-from routers.reservas import lista_espera_router
+from routers.lista_espera import lista_espera_router
 from routers.clientes import router as clientes_router
+from routers.clientes_historial import router as clientes_historial_router
 from routers.appcc import router as appcc_router
 from routers.fifo import router as fifo_router
+from routers.fifo_consumo import router as fifo_consumo_router
 from routers.reportes import router as reportes_router
 
 logging.basicConfig(
@@ -125,12 +133,18 @@ def create_app() -> FastAPI:
     app.include_router(carta_tpv_router)
     app.include_router(carta_publica_router)
     app.include_router(admin_carta_router)
+    app.include_router(admin_productos_router)
     app.include_router(alergenos_router)
     app.include_router(admin_recetas_router)
+    app.include_router(admin_recetas_ingredientes_router)
     app.include_router(inventario_router, prefix="/api")
+    app.include_router(inventario_movimientos_router, prefix="/api")
     app.include_router(kds_router, prefix="/api")
+    app.include_router(kds_estados_router, prefix="/api")
     app.include_router(dashboard_router)
-    app.include_router(analytics_router, prefix="/api")
+    app.include_router(analytics_mesas_router, prefix="/api")
+    app.include_router(analytics_menu_router, prefix="/api")
+    app.include_router(analytics_personal_router, prefix="/api")
     app.include_router(proveedores_router, prefix="/api")
     app.include_router(facturas_proveedor_router, prefix="/api")
     app.include_router(empleados_router, prefix="/api")
@@ -141,8 +155,10 @@ def create_app() -> FastAPI:
     app.include_router(reservas_router, prefix="/api")
     app.include_router(lista_espera_router, prefix="/api")
     app.include_router(clientes_router, prefix="/api")
+    app.include_router(clientes_historial_router, prefix="/api")
     app.include_router(appcc_router, prefix="/api")
     app.include_router(fifo_router, prefix="/api")
+    app.include_router(fifo_consumo_router, prefix="/api")
     app.include_router(reportes_router, prefix="/api")
 
     @app.get("/api/health")
