@@ -32,11 +32,16 @@ from routers.carta import router_publica as carta_publica_router
 from routers.carta import router_tpv as carta_tpv_router
 from routers.mesas import router as mesas_router
 from routers.tpv import router as tpv_router
+from routers.tpv_cobro import router as tpv_cobro_router
 from routers.verifactu import router as verifactu_router
 from routers.inventario import router as inventario_router
 from routers.kds import router as kds_router
 from routers.proveedores import router as proveedores_router
+from routers.facturas_proveedor import router as facturas_proveedor_router
 from routers.empleados import router as empleados_router
+from routers.fichajes import router as fichajes_router
+from routers.cuadrantes import router as cuadrantes_router
+from routers.ausencias import router as ausencias_router
 from routers.nominas import router as nominas_router
 from routers.reservas import router as reservas_router
 from routers.reservas import lista_espera_router
@@ -115,6 +120,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(mesas_router)
     app.include_router(tpv_router)
+    app.include_router(tpv_cobro_router)
     app.include_router(verifactu_router)
     app.include_router(carta_tpv_router)
     app.include_router(carta_publica_router)
@@ -126,7 +132,11 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_router)
     app.include_router(analytics_router, prefix="/api")
     app.include_router(proveedores_router, prefix="/api")
+    app.include_router(facturas_proveedor_router, prefix="/api")
     app.include_router(empleados_router, prefix="/api")
+    app.include_router(fichajes_router, prefix="/api")
+    app.include_router(cuadrantes_router, prefix="/api")
+    app.include_router(ausencias_router, prefix="/api")
     app.include_router(nominas_router, prefix="/api")
     app.include_router(reservas_router, prefix="/api")
     app.include_router(lista_espera_router, prefix="/api")
