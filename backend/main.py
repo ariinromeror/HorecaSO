@@ -25,6 +25,7 @@ from database import close_connection_pool, init_connection_pool, get_db
 from routers.admin_carta import router as admin_carta_router
 from routers.admin_carta import router_alergenos as alergenos_router
 from routers.dashboard import router as dashboard_router
+from routers.analytics import router as analytics_router
 from routers.admin_recetas import router as admin_recetas_router
 from routers.auth import router as auth_router
 from routers.carta import router_publica as carta_publica_router
@@ -40,6 +41,8 @@ from routers.nominas import router as nominas_router
 from routers.reservas import router as reservas_router
 from routers.reservas import lista_espera_router
 from routers.clientes import router as clientes_router
+from routers.appcc import router as appcc_router
+from routers.fifo import router as fifo_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -120,12 +123,15 @@ def create_app() -> FastAPI:
     app.include_router(inventario_router, prefix="/api")
     app.include_router(kds_router, prefix="/api")
     app.include_router(dashboard_router)
+    app.include_router(analytics_router, prefix="/api")
     app.include_router(proveedores_router, prefix="/api")
     app.include_router(empleados_router, prefix="/api")
     app.include_router(nominas_router, prefix="/api")
     app.include_router(reservas_router, prefix="/api")
     app.include_router(lista_espera_router, prefix="/api")
     app.include_router(clientes_router, prefix="/api")
+    app.include_router(appcc_router, prefix="/api")
+    app.include_router(fifo_router, prefix="/api")
 
     @app.get("/api/health")
     async def health_check():

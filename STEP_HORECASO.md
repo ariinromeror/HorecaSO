@@ -1,6 +1,6 @@
-# HorecaSO — STEP v2.1
+# HorecaSO — STEP v3.0
 ## State of The Entire Project
-### Última actualización: 20/03/2026 — Día 3 tarde
+### Última actualización: 20/03/2026 — Fin Fase 3 / Inicio Fase 4
 
 ---
 
@@ -8,10 +8,10 @@
 
 **Producto:** HorecaSO — ERP web SaaS para hostelería española
 **Desarrollador:** Arin Romero — autodidacta, 2 meses de experiencia, usa IA como herramienta principal
-**Herramientas:** Claude (arquitectura, diseño y prompts) + Cursor (escritura de código)
+**Herramientas:** Claude (arquitectura, diseño, prompts) + Cursor (escritura de código)
 **Target:** Restaurantes medianos, 5-50 empleados, mercado español
 **Posicionamiento:** Por encima de Revo, Agora e ICG en funcionalidad
-**Modelo de negocio:** SaaS multi-tenant con planes Básico / Profesional / Premium / Enterprise
+**Modelo de negocio:** SaaS multi-tenant — planes Básico / Profesional / Premium / Enterprise
 
 ---
 
@@ -28,11 +28,11 @@
 | Iconos | lucide-react strokeWidth={1.5} | — | ✅ |
 | Base de datos | PostgreSQL 15 vía Supabase | — | ✅ |
 | Auth | JWT + bcrypt 4.0.1 + passlib 1.7.4 | — | ✅ |
-| Deploy | Render (backend) + Vercel (frontend) | — | PENDIENTE |
-| IA | Groq API (llama3 + vision) | — | PENDIENTE |
-| PDF | ReportLab | — | PENDIENTE |
+| Deploy | Render (backend) + Vercel (frontend) | — | ⏳ AL FINAL |
+| IA | Groq API (llama3 + vision) | — | ⏳ Fase 4 |
+| PDF | ReportLab | — | ⏳ Fase 4 |
 | Rate limiting | SlowAPI | — | ✅ |
-| Email | SendGrid | — | PENDIENTE |
+| Email | SendGrid | — | ⏳ Fase 4 |
 
 **Prohibido siempre:** NestJS · Django · SQLAlchemy · TypeScript en backend · Express · Next.js
 
@@ -70,6 +70,8 @@
 - Fuente mínima 15px en contenido (no badges)
 - Sidebar: un solo componente, filtra por rol, siempre expandido con scroll
 - Cards de productos: grid compacto 2/3/4/5 cols, scroll interno, tabs sticky
+- nombre_completo en empleados es fallback cuando no hay usuario_id vinculado
+- asyncpg espera datetime.time para columnas TIME — nunca string 'HH:MM'
 
 ---
 
@@ -84,6 +86,10 @@
 - Coca Cola ID: `666291da-ddab-409b-85fb-d682962bee71`
 - Receta Coca Cola ID: `7ffa8a21-3019-46ff-943c-512b402880a7`
 - Articulo Refresco Lata ID: `a9ab9052-d89d-470d-b723-c368f2c87b09`
+- Empleado demo: `b19dc957-d31e-4008-a0ad-bed3029adc46` (María García López, Camarera)
+- Cliente demo: `94f058b1-5d36-4834-8fd7-f23dc7955ad8` (Ana López)
+- Reserva demo: `99ec00d4-50b5-4617-8936-3d00b94a6f82` (Carlos Martínez, 25/03/2026)
+- Nómina demo: `a984535c-ec9f-457a-80fc-2c6342bebe4e` (María García, marzo 2026)
 
 ---
 
@@ -100,39 +106,40 @@ HorecaSO/
 │   ├── routers/
 │   │   ├── auth.py                  ✅ testeado
 │   │   ├── mesas.py                 ✅ GET/POST/PUT/DELETE/PATCH estado
-│   │   ├── tpv.py                   ✅ enviado_cocina=true — PENDIENTE división cuenta
+│   │   ├── tpv.py                   ✅ cobro simple — PENDIENTE división cuenta
 │   │   ├── verifactu.py             ✅ testeado
 │   │   ├── carta.py                 ✅ testeado
 │   │   ├── admin_carta.py           ✅ require_roles, Decimal, try/except
 │   │   ├── admin_recetas.py         ✅ require_roles, Decimal, try/except
 │   │   ├── dashboard.py             ✅ testeado
 │   │   ├── inventario.py            ✅ SQL sin f-strings, Decimal, try/except
-│   │   ├── kds.py                   ✅ implementado — pendiente testeo completo
-│   │   ├── proveedores.py           PENDIENTE Fase 3
-│   │   ├── reservas.py              PENDIENTE Fase 3
-│   │   ├── clientes.py              PENDIENTE Fase 3
-│   │   ├── empleados.py             PENDIENTE Fase 3
-│   │   ├── nominas.py               PENDIENTE Fase 3
-│   │   └── reportes.py              PENDIENTE Fase 4
+│   │   ├── kds.py                   ✅ implementado
+│   │   ├── proveedores.py           ✅ CRUD + facturas + IA escaneo
+│   │   ├── reservas.py              ✅ CRUD + estados + lista espera
+│   │   ├── clientes.py              ✅ CRUD + historial + puntos fidelidad
+│   │   ├── empleados.py             ✅ CRUD + fichajes + turnos + cuadrantes + ausencias
+│   │   ├── nominas.py               ✅ cálculo automático SS + IRPF
+│   │   ├── analytics.py             ⏳ PENDIENTE Fase 4
+│   │   └── reportes.py              ⏳ PENDIENTE Fase 4
 │   ├── services/
 │   │   ├── verifactu_engine.py      ✅ testeado
-│   │   ├── food_cost.py             PENDIENTE Fase 4
-│   │   ├── inventario_fifo.py       PENDIENTE Fase 4
-│   │   ├── ia_facturas.py           PENDIENTE Fase 3
-│   │   └── pdf_generator.py         PENDIENTE Fase 4
+│   │   ├── food_cost.py             ⏳ PENDIENTE Fase 4
+│   │   ├── inventario_fifo.py       ⏳ PENDIENTE Fase 4
+│   │   ├── ia_facturas.py           ✅ Groq vision implementado
+│   │   └── pdf_generator.py         ⏳ PENDIENTE Fase 4
 │   ├── config.py                    ✅
 │   ├── database.py                  ✅
-│   ├── main.py                      ✅
+│   ├── main.py                      ✅ todos los routers registrados
 │   └── requirements.txt             ✅
 ├── frontend/
 │   └── src/
 │       ├── components/
 │       │   ├── shared/
-│       │   │   ├── StatCard.jsx         ✅ dark: en trend corregido
+│       │   │   ├── StatCard.jsx         ✅
 │       │   │   ├── Loader.jsx           ✅
 │       │   │   └── EmptyState.jsx       ✅
 │       │   └── layout/
-│       │       ├── Sidebar.jsx          ✅ sin modo colapsado, overflow-y-auto
+│       │       ├── Sidebar.jsx          ✅ todos los módulos, filtrado por rol
 │       │       └── AppLayout.jsx        ✅ ml-64 fijo
 │       ├── constants/
 │       │   └── uiTokens.js              ✅
@@ -144,7 +151,7 @@ HorecaSO/
 │       │   ├── sala/
 │       │   │   └── MesasPage.jsx        ✅
 │       │   ├── tpv/
-│       │   │   └── TPVPage.jsx          ✅ — PENDIENTE cards compactas + división
+│       │   │   └── TPVPage.jsx          ✅ PENDIENTE cards compactas + división cuenta
 │       │   ├── director/
 │       │   │   ├── DashboardPage.jsx    ✅
 │       │   │   └── VentaLivePage.jsx    ✅ polling 30s
@@ -158,24 +165,27 @@ HorecaSO/
 │       │   ├── cocina/
 │       │   │   └── KDSPage.jsx          ✅ polling 30s, sin sidebar
 │       │   ├── proveedores/
-│       │   │   ├── ProveedoresPage.jsx  PENDIENTE
-│       │   │   └── FacturasPage.jsx     PENDIENTE
+│       │   │   ├── ProveedoresPage.jsx  ✅
+│       │   │   └── FacturasPage.jsx     ✅ IA escaneo implementado
 │       │   ├── empleados/
-│       │   │   ├── EmpleadosPage.jsx    PENDIENTE
-│       │   │   ├── CuadrantePage.jsx    PENDIENTE
-│       │   │   ├── FichajesPage.jsx     PENDIENTE
-│       │   │   └── NominasPage.jsx      PENDIENTE
+│       │   │   ├── EmpleadosPage.jsx    ✅
+│       │   │   ├── CuadrantePage.jsx    ✅
+│       │   │   ├── FichajesPage.jsx     ✅ RDL 8/2019
+│       │   │   └── NominasPage.jsx      ✅
 │       │   ├── reservas/
-│       │   │   └── ReservasPage.jsx     PENDIENTE
+│       │   │   └── ReservasPage.jsx     ✅ tabs Reservas + Lista espera
 │       │   ├── clientes/
-│       │   │   └── ClientesPage.jsx     PENDIENTE
+│       │   │   └── ClientesPage.jsx     ✅ historial + puntos fidelidad
+│       │   ├── analytics/
+│       │   │   └── AnalyticsPage.jsx    ⏳ PENDIENTE Fase 4
 │       │   └── reportes/
-│       │       └── ReportesPage.jsx     PENDIENTE
+│       │       └── ReportesPage.jsx     ⏳ PENDIENTE Fase 4
 │       ├── services/
-│       │   └── api.js                   ✅ todas las funciones hasta KDS y mesas
-│       ├── App.jsx                      ✅ rutas placeholder para módulos pendientes
+│       │   └── api.js                   ✅
+│       ├── App.jsx                      ✅ todas las rutas registradas
 │       └── index.css                    ✅
-├── .cursorrules                         ⚠️ v2.1 generado — PENDIENTE aplicar al proyecto
+├── Penientes.md                         ✅ actualizado con deuda técnica
+├── .cursorrules                         ✅ v2.1
 └── .gitignore                           ✅
 ```
 
@@ -183,19 +193,19 @@ HorecaSO/
 
 ## ESTADO DETALLADO POR MÓDULO
 
-### MÓDULO 1 — TPV ✅ COMPLETO (parcial — pendiente mejoras UI)
-- Backend: tickets, líneas, cobro, cierre de caja ✅
+### MÓDULO 1 — TPV ✅ COMPLETO (mejoras UI pendientes)
+- Backend: tickets, líneas, cobro simple, cierre de caja ✅
 - Frontend: TPVPage dos columnas desktop / tabs móvil ✅
 - Verifactu integrado en cobro (misma transacción) ✅
 - enviado_cocina=true al añadir líneas (para KDS) ✅
-- **PENDIENTE:** Cards compactas (grid 2/3/4/5 cols, scroll interno)
-- **PENDIENTE:** División de cuenta (múltiples métodos de pago por ticket)
+- **PENDIENTE refactor final:** Cards compactas (grid 2/3/4/5 cols)
+- **PENDIENTE refactor final:** División de cuenta (ticket_pagos ya existe en BD)
 
 ### MÓDULO 2 — MESAS ✅ COMPLETO
 - Backend: GET/POST/PUT/DELETE + PATCH estado ✅
 - Frontend: MesasPage tarjetas visuales con sillas y colores ✅
-- GestionSalaPage: configuración del local (crear/editar/eliminar mesas) ✅
-- Pendiente Fase 4: mapa de calor de rentabilidad por mesa
+- GestionSalaPage: crear/editar/eliminar mesas ✅
+- Pendiente Fase 4: mapa de calor rentabilidad por mesa
 
 ### MÓDULO 3 — VERIFACTU ✅ COMPLETO
 - Hash chain SHA-256 implementado ✅
@@ -211,12 +221,11 @@ HorecaSO/
 - Toggle activo/inactivo por producto ✅
 - IVA 10%/21% configurable por producto ✅
 
-### MÓDULO 5 — KDS (Kitchen Display System) ✅ COMPLETO
+### MÓDULO 5 — KDS ✅ COMPLETO
 - Backend: GET comandas agrupadas, PATCH estado línea, GET estadísticas ✅
 - Frontend: KDSPage pantalla completa sin sidebar ✅
 - Polling 30s, colores por tiempo (ok/warning/crítico) ✅
 - Botones Preparando / Listo por plato ✅
-- Pendiente: testeo completo con datos reales en Swagger
 
 ### MÓDULO 6 — RECETAS Y ESCANDALLOS ✅ COMPLETO
 - Backend: CRUD recetas, ingredientes, semáforo, coste en tiempo real ✅
@@ -237,11 +246,11 @@ HorecaSO/
 - Pendiente Fase 4: rentabilidad mesas/hora, ingeniería menú BCG, previsión IA
 
 ### MÓDULO 9 — PROVEEDORES Y COMPRAS ✅ COMPLETO (parcial)
-- Backend proveedores.py + facturas + IA escaneo ✅
-- ProveedoresPage + FacturasPage ✅
-- PENDIENTE: flujo confirmación modal IA completo
-- PENDIENTE: soporte PDF en escaneo
-- PENDIENTE: capture="environment" móvil
+- Backend: CRUD proveedores + facturas + IA escaneo Groq vision ✅
+- Frontend: ProveedoresPage + FacturasPage ✅
+- **PENDIENTE refactor final:** flujo confirmación modal IA completo
+- **PENDIENTE refactor final:** soporte PDF en escaneo
+- **PENDIENTE refactor final:** capture="environment" cámara móvil
 
 ### MÓDULO 10 — EMPLEADOS Y RRHH ✅ COMPLETO
 - empleados.py: CRUD + fichajes + turnos + cuadrantes + ausencias ✅
@@ -250,24 +259,28 @@ HorecaSO/
 - FichajesPage.jsx (RDL 8/2019) ✅
 - CuadrantePage.jsx ✅
 - NominasPage.jsx ✅
-- Sidebar: Control Horario + Cuadrante + Nóminas ✅
-- Tabla ausencias creada en Supabase ✅
-- nombre_completo añadido como fallback en empleados ✅
-- PENDIENTE: bug móvil input se sale de pantalla (cosmético)
+- Sidebar: Empleados + Control Horario + Cuadrante + Nóminas ✅
+- Tablas Supabase: empleados + turnos + cuadrantes + nominas + ausencias ✅
+- nombre_completo como fallback (empleados sin usuario_id) ✅
+- **PENDIENTE refactor final:** bug móvil — input se sale de pantalla (cosmético)
 
-### MÓDULO 11 — RESERVAS Y CLIENTES ⏳ PENDIENTE FASE 3
-- Backend reservas.py: CRUD reservas, estados, origen
-- Backend clientes.py: historial, puntos fidelidad, alérgenos
-- Frontend: ReservasPage calendario + ClientesPage historial
-- Confirmación por SMS/email (SendGrid): Fase 4
+### MÓDULO 11 — RESERVAS Y CLIENTES ✅ COMPLETO
+- reservas.py: CRUD + PATCH estado + lista espera ✅
+- clientes.py: CRUD + historial tickets + puntos fidelidad ✅
+- ReservasPage.jsx: tabs Reservas / Lista de espera ✅
+- ClientesPage.jsx: tabla + modal historial + modal puntos ✅
+- Sidebar: Reservas + Clientes ✅
+- Tablas Supabase: reservas + clientes + lista_espera ✅
+- Confirmación por email (SendGrid): Fase 4
 - Widget embebible online: Fase 5
 
 ### MÓDULO 12 — ANALYTICS AVANZADO ⏳ PENDIENTE FASE 4
-- Rentabilidad por mesa/hora (mapa de calor)
-- Ingeniería de menú (Matriz BCG): estrella/caballo/puzzle/perro
+- Rentabilidad por mesa/hora
+- Ingeniería de menú (Matriz BCG): estrella/vaca/perro/interrogante
 - Previsión de demanda con IA (Groq)
 - Coste de personal vs ingresos por turno
-- Comparativa semana/mes
+- Comparativa semana/mes/año
+- Tablas Supabase necesarias: rentabilidad_mesas, ingenieria_menu (verificar)
 
 ### MÓDULO 13 — REPORTES Y PDF ⏳ PENDIENTE FASE 4
 - Ticket de venta con QR Verifactu (ReportLab)
@@ -276,13 +289,19 @@ HorecaSO/
 - Resumen fiscal modelo 303
 - Exportación CSV AEAT
 
-### MÓDULO 14 — DELIVERY E INTEGRACIONES ⏳ PENDIENTE FASE 5
+### MÓDULO 14 — APPCC Y FIFO ⏳ PENDIENTE FASE 4
+- APPCC: registros de control temperatura, higiene
+- FIFO: lotes de inventario con fecha caducidad
+- food_cost.py: coste real vs teórico por receta
+- Tabla Supabase: registros_appcc, lotes_inventario (verificar)
+
+### MÓDULO 15 — DELIVERY E INTEGRACIONES ⏳ PENDIENTE FASE 5
 - Glovo, Uber Eats, Just Eat: webhooks → TPV automático
 - Comisiones por plataforma
 - Carta digital QR pública multi-idioma
 
-### MÓDULO 15 — ENTERPRISE ⏳ PENDIENTE FASE 5
-- XML SOAP Verifactu + certificado + envío real AEAT
+### MÓDULO 16 — ENTERPRISE ⏳ PENDIENTE FASE 5
+- XML SOAP Verifactu + certificado digital + envío real AEAT
 - Multi-idioma react-i18next ES/EN/FR/DE
 - Modelos fiscales 303 y 130
 - Integración datáfono Ingenico/Verifone
@@ -295,227 +314,49 @@ HorecaSO/
 ## PROGRESO REAL POR FASE
 
 ```
-FASE 0 — Infraestructura:              100% ✅
-FASE 1 — Backend Core:                 100% ✅
-FASE 1 — Frontend Operativo:           100% ✅
-FASE 2 — Carta y Recetas:             100% ✅
-FASE 2 — Inventario y Mermas:         100% ✅
-FASE 2 — KDS:                         100% ✅
-FASE 2 — Gestión Sala:                100% ✅
-FASE 2 — Auditoría cursorrules:       100% ✅
-────────────────────────────────────────────────
-PENDIENTE INMEDIATO (antes de Fase 3):
-  cursorrules v2.1 aplicar al proyecto   0% ← MAÑANA PRIMERO
-  TPV cards compactas                    0% ← MAÑANA SEGUNDO
-  División de cuenta (BD + backend + UI) 0% ← MAÑANA TERCERO
-────────────────────────────────────────────────
-FASE 3 — Proveedores + IA facturas:    85% ✅ (pendiente mejoras)
-FASE 3 — Empleados + RRHH:            100% ✅
-FASE 3 — Reservas + Clientes:           0% SIGUIENTE
-FASE 4 — Analytics avanzado:           0% PENDIENTE
-FASE 4 — PDF y Reportes:               0% PENDIENTE
-FASE 4 — APPCC + FIFO:                 0% PENDIENTE
-FASE 5 — Enterprise:                   0% PENDIENTE
-Deploy Render + Vercel:                 0% PENDIENTE
+FASE 0 — Infraestructura:                    100% ✅
+FASE 1 — Backend Core (TPV+Mesas+Verifactu): 100% ✅
+FASE 1 — Frontend Operativo:                 100% ✅
+FASE 2 — Carta y Recetas:                   100% ✅
+FASE 2 — Inventario y Mermas:               100% ✅
+FASE 2 — KDS:                               100% ✅
+FASE 2 — Gestión Sala:                      100% ✅
+FASE 3 — Proveedores + IA facturas:          85% ✅ (pendiente mejoras menores)
+FASE 3 — Empleados + RRHH:                  100% ✅
+FASE 3 — Reservas + Clientes:               100% ✅
+────────────────────────────────────────────────────
+FASE 4 — Analytics avanzado:                  0% ← SIGUIENTE
+FASE 4 — PDFs con ReportLab:                  0% ← PENDIENTE
+FASE 4 — APPCC + FIFO:                        0% ← PENDIENTE
+FASE 5 — Delivery + Enterprise:               0% ← PENDIENTE
+────────────────────────────────────────────────────
+Refactorización + fixes estéticos:             0% ← ANTES DEL DEPLOY
+Deploy Render + Vercel:                        0% ← AL FINAL DE TODO
 
-TOTAL PROYECTO REAL: ~60%
+TOTAL PROYECTO REAL: ~70%
 ```
 
 ---
 
-## TAREAS PARA MAÑANA — EN ESTE ORDEN EXACTO
+## ORDEN DE TRABAJO ACORDADO
 
-### PASO 1 — Aplicar .cursorrules v2.1 al proyecto
-El archivo .cursorrules v2.1 ya está generado (descargado en esta sesión).
-Reemplazar el .cursorrules en la raíz del proyecto HorecaSO/
-con el archivo v2.1 descargado.
-NO dar ningún prompt a Cursor para esto — es solo copiar el archivo.
-
-### PASO 2 — TPV cards compactas
-Dar a Cursor el prompt de cards compactas para TPVPage.jsx.
-El prompt ya está redactado — ver sección "PROMPTS LISTOS".
-Verificar en el navegador que con 3+ productos se ven compactos.
-
-### PASO 3 — División de cuenta (3 partes)
-**Parte A — Supabase:**
-Crear la tabla ticket_pagos en Supabase manualmente:
-```sql
-CREATE TABLE ticket_pagos (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    ticket_id UUID REFERENCES tickets(id) ON DELETE CASCADE,
-    importe NUMERIC(10,2) NOT NULL,
-    metodo_pago VARCHAR(20) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX idx_ticket_pagos_ticket_id ON ticket_pagos(ticket_id);
 ```
-
-**Parte B — Backend tpv.py:**
-Dar a Cursor el prompt de división de cuenta backend.
-Ver sección "PROMPTS LISTOS".
-
-**Parte C — Frontend TPVPage.jsx:**
-Dar a Cursor el prompt de división de cuenta frontend.
-Ver sección "PROMPTS LISTOS".
-
-### PASO 4 — Backend Proveedores
-Dar a Cursor el prompt de proveedores.py.
-Es el módulo más complejo de Fase 3 — incluye IA Groq.
-
-### PASO 5 — Frontend Proveedores
-ProveedoresPage + FacturasPage (con botón escanear IA).
-
-### PASO 6 — Backend Empleados + Nóminas
-empleados.py + nominas.py — dos routers.
-
-### PASO 7 — Frontend RRHH
-EmpleadosPage + CuadrantePage + FichajesPage + NominasPage.
-
-### PASO 8 — Backend Reservas + Clientes
-reservas.py + clientes.py.
-
-### PASO 9 — Frontend Reservas + Clientes
-ReservasPage (calendario) + ClientesPage.
-
----
-
-## PROMPTS LISTOS PARA MAÑANA
-
-### PROMPT A — TPV Cards Compactas
-```
-Mejorar el grid de productos en src/pages/tpv/TPVPage.jsx.
-
-PROBLEMA:
-Las cards de productos son demasiado grandes.
-Con 30+ productos el scroll sería inmanejable en un TPV táctil.
-
-CAMBIOS:
-
-1. Grid de productos:
-   grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5
-   gap-2 entre cards
-
-2. Cada card compacta:
-   <div onClick={() => añadirProducto(producto)}
-     className="bg-white dark:bg-[#1a1d27]
-       border border-[#e2e5ed] dark:border-[#2e3347]
-       rounded-xl p-3 cursor-pointer
-       hover:border-amber-500 hover:shadow-md
-       transition-all duration-150 active:scale-95
-       flex flex-col gap-2">
-     <span className="text-[14px] font-medium leading-tight
-       line-clamp-2 min-h-[2.5rem]
-       text-[#111827] dark:text-[#e8eaf0]">
-       {producto.nombre}
-     </span>
-     <span className="text-base font-bold text-amber-500">
-       {precio}€
-     </span>
-     <button className="w-full h-9 bg-amber-500 hover:bg-amber-600
-       text-black text-sm font-semibold rounded-lg
-       flex items-center justify-center gap-1">
-       <Plus size={14} strokeWidth={1.5} /> Añadir
-     </button>
-   </div>
-   Card entera clickable. Botón usa e.stopPropagation().
-
-3. Área de productos: overflow-y-auto flex-1
-   Tabs de categorías: sticky top-0 fuera del área scrollable
-
-NO tocar columna derecha, flujo de cobro, otros archivos.
-npm run build al terminar.
-```
-
-### PROMPT B — División de cuenta backend
-```
-Añadir división de cuenta en backend/routers/tpv.py.
-La tabla ticket_pagos ya existe en Supabase.
-NO crear nuevos archivos — solo modificar tpv.py.
-
-NUEVOS ENDPOINTS:
-
-1. POST /api/tpv/tickets/{ticket_id}/pagos
-   Body: { importe: Decimal, metodo_pago: str }
-   - Verificar que el ticket existe y está abierto
-   - Verificar que el importe > 0
-   - Verificar que metodo_pago es válido:
-     efectivo|tarjeta_credito|tarjeta_debito|bizum|transferencia|invitacion
-   - INSERT en ticket_pagos
-   - Calcular total pagado = suma de todos los pagos del ticket
-   - Si total_pagado >= ticket.total:
-     * Marcar ticket como cobrado (estado = 'cobrado', cobrado_at = NOW())
-     * Calcular tiempo_ocupacion en minutos
-     * Generar registro Verifactu (mismo código que cobro normal)
-     * Actualizar mesa a estado 'libre'
-     * Todo en la misma transacción
-   - Retornar:
-     { pago_id, ticket_id, importe_pagado, total_pagado,
-       pendiente, completado: bool, metodo_pago }
-
-2. GET /api/tpv/tickets/{ticket_id}/pagos
-   - Lista todos los pagos de un ticket
-   - Retornar:
-     { pagos: [{id, importe, metodo_pago, created_at}],
-       total_ticket, total_pagado, pendiente }
-
-3. DELETE /api/tpv/tickets/{ticket_id}/pagos/{pago_id}
-   - Solo si el ticket sigue abierto (no cobrado)
-   - Eliminar el pago
-   - Retornar { deleted: true, pendiente_actualizado }
-
-ROLES: admin, camarero, jefe_sala en todos.
-Decimal para todos los cálculos.
-try/except en todos.
-Verifactu en misma transacción que cobro.
-```
-
-### PROMPT C — División de cuenta frontend
-```
-Añadir división de cuenta en src/pages/tpv/TPVPage.jsx.
-NO crear nuevos archivos. NO tocar el backend.
-
-FUNCIONALIDAD:
-Cuando el camarero pulsa "Cobrar", en lugar de seleccionar
-un solo método de pago, puede registrar múltiples pagos parciales
-hasta completar el total.
-
-CAMBIOS EN LA SECCIÓN DE COBRO:
-
-1. Reemplazar el select de método de pago único por
-   una interfaz de pagos múltiples:
-
-   ESTADO nuevo:
-   pagosRegistrados: []  → { importe, metodo_pago }[]
-   importePago: ''       → input del importe actual
-   metodoPago: 'efectivo' → método del pago actual
-   totalPagado: calculado desde pagosRegistrados
-   pendiente: ticket.total - totalPagado
-
-2. UI de división:
-   - Mostrar "Total: X€" prominente
-   - Mostrar "Pagado: X€" en verde
-   - Mostrar "Pendiente: X€" en rojo/amber según quede
-   - Input importe (number step 0.01)
-     Con botón rápido "Pendiente" que rellena el importe restante
-   - Select método de pago
-   - Botón "Añadir pago" → POST /api/tpv/tickets/{id}/pagos
-   - Lista de pagos añadidos con botón eliminar cada uno
-   - Botón "Completar cobro" visible solo cuando pendiente <= 0
-
-3. Flujo:
-   Mesa 1: 90€ total
-   → Añadir pago: 30€ efectivo → pendiente: 60€
-   → Añadir pago: 30€ bizum → pendiente: 30€
-   → Añadir pago: 30€ tarjeta → pendiente: 0€
-   → "Completar cobro" aparece → click → mesa libre
-
-4. Actualizar api.js:
-   addTicketPago(ticketId, { importe, metodo_pago })
-   getTicketPagos(ticketId)
-   deleteTicketPago(ticketId, pagoId)
-
-NO cambiar el resto del TPV.
-npm run build al terminar.
+1. ✅ Fase 1 — Core completo
+2. ✅ Fase 2 — Inventario, KDS, Carta, Recetas, GestionSala
+3. ✅ Fase 3 — Proveedores + IA escaneo
+4. ✅ Fase 3 — RRHH completo (empleados, nóminas, fichajes, cuadrante)
+5. ✅ Fase 3 — Reservas + Clientes + Lista espera
+─────────────────────────────────────────────────────
+6. ⏳ Fase 4 — Analytics (rentabilidad mesas, ingeniería menú, IA)
+7. ⏳ Fase 4 — PDFs ReportLab (tickets, nóminas, cierres)
+8. ⏳ Fase 4 — APPCC + FIFO inventario
+9. ⏳ Fase 5 — Delivery + Enterprise (según prioridad)
+─────────────────────────────────────────────────────
+10. 🔧 Refactorización JSX (componentes grandes → ~200 líneas)
+11. 🔧 Fixes estéticos móvil (inputs, overflow)
+12. 🔧 Pendientes Proveedores (modal IA, PDF, cámara)
+13. 🔧 Auditoría cursorrules completa
+14. 🚀 Deploy Render + Vercel
 ```
 
 ---
@@ -528,22 +369,15 @@ POST   /api/auth/login
 GET    /api/auth/perfil
 
 Mesas:
-GET    /api/mesas
-POST   /api/mesas
-GET    /api/mesas/{id}
-PUT    /api/mesas/{id}
-DELETE /api/mesas/{id}
-PATCH  /api/mesas/{id}/estado
+GET/POST/PUT/DELETE  /api/mesas
+PATCH                /api/mesas/{id}/estado
 
 TPV:
 POST   /api/tpv/tickets
 GET    /api/tpv/tickets/{id}
 POST   /api/tpv/tickets/{id}/lineas
 DELETE /api/tpv/tickets/{id}/lineas/{linea_id}
-POST   /api/tpv/tickets/{id}/cobrar         ← cobro simple (mantener)
-POST   /api/tpv/tickets/{id}/pagos          ← PENDIENTE (división cuenta)
-GET    /api/tpv/tickets/{id}/pagos          ← PENDIENTE
-DELETE /api/tpv/tickets/{id}/pagos/{id}     ← PENDIENTE
+POST   /api/tpv/tickets/{id}/cobrar
 GET    /api/tpv/tickets/abiertos
 GET    /api/tpv/carta
 POST   /api/tpv/cierre-caja
@@ -559,9 +393,9 @@ GET    /api/carta
 GET    /api/alergenos
 
 Admin Carta:
-GET/POST/PUT/DELETE /api/admin/categorias
-GET/POST/PUT/DELETE /api/admin/productos
-POST   /api/admin/productos/{id}/alergenos
+GET/POST/PUT/DELETE  /api/admin/categorias
+GET/POST/PUT/DELETE  /api/admin/productos
+POST                 /api/admin/productos/{id}/alergenos
 
 Admin Recetas:
 GET    /api/admin/recetas
@@ -589,23 +423,15 @@ KDS:
 GET    /api/kds/comandas
 PATCH  /api/kds/lineas/{id}/estado
 GET    /api/kds/estadisticas
-```
 
----
-
-## APIS PENDIENTES
-
-```
-Proveedores (Fase 3):
+Proveedores:
 GET/POST       /api/proveedores
 GET/PUT        /api/proveedores/{id}
 POST/GET       /api/facturas-proveedor
-POST           /api/facturas-proveedor/escanear-ia  ← Groq vision
+POST           /api/facturas-proveedor/escanear-ia
 GET            /api/facturas-proveedor/pendientes-pago
-POST/GET       /api/pedidos-proveedor
-GET            /api/proveedores/comparativa-precios/{articulo_id}
 
-Empleados (Fase 3):
+Empleados:
 GET/POST       /api/empleados
 GET/PUT        /api/empleados/{id}
 POST           /api/turnos/fichaje-entrada
@@ -615,46 +441,90 @@ GET            /api/turnos/horas-extra/{empleado_id}
 GET/POST       /api/cuadrantes
 GET/POST       /api/ausencias
 PATCH          /api/ausencias/{id}/estado
+
+Nóminas:
 GET            /api/nominas/{empleado_id}
 POST           /api/nominas/calcular
-GET            /api/nominas/{id}/pdf
+GET            /api/nominas/{nomina_id}/detalle
 
-Reservas y Clientes (Fase 3):
+Reservas:
 GET/POST       /api/reservas
+GET/PUT        /api/reservas/{id}
 PATCH          /api/reservas/{id}/estado
+GET/POST       /api/lista-espera
+PATCH          /api/lista-espera/{id}/estado
+
+Clientes:
 GET/POST       /api/clientes
+GET/PUT        /api/clientes/{id}
 GET            /api/clientes/{id}/historial
-GET            /api/lista-espera
-POST           /api/lista-espera
-
-Analytics (Fase 4):
-GET            /api/dashboard/rentabilidad-mesas
-GET            /api/dashboard/ingenieria-menu
-GET            /api/dashboard/coste-personal
-GET            /api/ia/prevision-demanda
-GET            /api/ia/sugerencias-menu
-
-Reportes (Fase 4):
-GET            /api/reportes/ticket/{id}
-GET            /api/reportes/cierre-caja/{fecha}
-GET            /api/reportes/ventas
-GET            /api/reportes/costes
-GET            /api/reportes/nomina/{id}
-GET            /api/reportes/fiscal-trimestre
-
-APPCC (Fase 4):
-GET/POST       /api/appcc/registros
-
-Delivery (Fase 5):
-POST           /api/delivery/webhook/{plataforma}
-GET            /api/delivery/pedidos
-GET            /api/delivery/estadisticas
-GET            /api/delivery/comisiones
+POST           /api/clientes/{id}/puntos
 ```
 
 ---
 
-## DECISIONES TÉCNICAS TOMADAS Y POR QUÉ
+## APIS PENDIENTES
+
+```
+TPV (división cuenta — tabla ya existe):
+POST   /api/tpv/tickets/{id}/pagos
+GET    /api/tpv/tickets/{id}/pagos
+DELETE /api/tpv/tickets/{id}/pagos/{pago_id}
+
+Analytics (Fase 4):
+GET    /api/dashboard/rentabilidad-mesas
+GET    /api/dashboard/ingenieria-menu
+GET    /api/dashboard/coste-personal
+GET    /api/ia/prevision-demanda
+GET    /api/ia/sugerencias-menu
+
+Reportes PDF (Fase 4):
+GET    /api/reportes/ticket/{id}
+GET    /api/reportes/cierre-caja/{fecha}
+GET    /api/reportes/ventas
+GET    /api/reportes/costes
+GET    /api/reportes/nomina/{id}
+GET    /api/reportes/fiscal-trimestre
+
+APPCC (Fase 4):
+GET/POST  /api/appcc/registros
+
+Delivery (Fase 5):
+POST   /api/delivery/webhook/{plataforma}
+GET    /api/delivery/pedidos
+GET    /api/delivery/estadisticas
+GET    /api/delivery/comisiones
+```
+
+---
+
+## TABLAS SUPABASE — ESTADO COMPLETO
+
+```
+✅ CREADAS Y VERIFICADAS:
+tenants, outlets, usuarios
+mesas
+categorias_menu, alergenos, productos, producto_alergenos
+menus_dia, menu_dia_platos
+tickets, ticket_lineas, ticket_pagos, cierres_caja
+verifactu_registros
+articulos, lotes_inventario, movimientos_stock, mermas
+recetas, receta_ingredientes
+proveedores, pedidos_proveedor, facturas_proveedor,
+  facturas_proveedor_lineas
+empleados (+ nombre_completo añadido), turnos, cuadrantes,
+  nominas, ausencias
+clientes, reservas, lista_espera
+
+⏳ PENDIENTE VERIFICAR ANTES DE FASE 4:
+rentabilidad_mesas
+ingenieria_menu
+registros_appcc
+```
+
+---
+
+## DECISIONES TÉCNICAS TOMADAS
 
 | Decisión | Motivo |
 |----------|--------|
@@ -663,29 +533,63 @@ GET            /api/delivery/comisiones
 | Supabase pgbouncer | statement_cache_size=0 obligatorio |
 | Decimal para dinero | Nunca float en cálculos financieros |
 | Un solo Sidebar filtrado por rol | Evitar duplicación y inconsistencias |
-| Sidebar siempre expandido con scroll | Regla: iconos siempre con texto en nav |
+| Sidebar siempre expandido con scroll | Iconos siempre con texto en nav |
 | Modales con bg-black/60 | Estándar del design system |
-| KDSPage sin AppLayout | Pantalla completa de cocina, igual que TPV |
-| Placeholders en App.jsx | Navegación sin errores para módulos pendientes |
-| Cards compactas en TPV | 30+ productos → scroll inmanejable con cards grandes |
-| ticket_pagos tabla separada | División de cuenta múltiples métodos sin romper Verifactu |
-| Verifactu al completar pagos | Se genera cuando suma(pagos) >= total del ticket |
-| GestionSalaPage separada de MesasPage | MesasPage es operativa, GestionSala es configuración |
+| KDSPage sin AppLayout | Pantalla completa de cocina |
+| nombre_completo en empleados | Fallback para empleados sin cuenta de usuario |
+| asyncpg datetime.time para TIME | asyncpg no acepta strings en columnas TIME |
+| ticket_pagos tabla separada | División cuenta sin romper Verifactu |
+| Verifactu al completar pagos | Se genera cuando suma(pagos) >= total |
+| Deploy al final de todo | Primero todo funcional en local, luego deploy único |
+| Refactor al final de todo | Evitar romper funcionalidad activa |
 
 ---
 
 ## PROBLEMAS CONOCIDOS Y SOLUCIONES APLICADAS
 
-| Problema | Causa | Solución aplicada |
-|----------|-------|-------------------|
-| column "proveedor_habitual_id" does not exist | Columna del PRD no creada en Supabase | Eliminada del SELECT hasta Fase 3 |
-| Pantalla en blanco tras login | visibleItems no definida en Sidebar refactorizado | Restaurada navegación plana |
-| float en Pydantic models | Generado por Cursor sin seguir cursorrules | Corregido a Decimal |
+| Problema | Causa | Solución |
+|----------|-------|----------|
+| column "proveedor_habitual_id" does not exist | Columna PRD no creada en Supabase | Eliminada del SELECT |
+| Pantalla en blanco tras login | visibleItems no definida en Sidebar | Restaurada navegación plana |
+| float en Pydantic models | Generado por Cursor | Corregido a Decimal |
 | f-strings en SQL dinámico | Generado por Cursor | Corregido a concatenación + placeholders |
-| bg-black/50 en modales | Inconsistencia generada por Cursor | Corregido a bg-black/60 |
+| bg-black/50 en modales | Inconsistencia Cursor | Corregido a bg-black/60 |
 | require_roles faltando | Cursor usó get_current_user directo | Corregido en admin_carta, admin_recetas |
-| TPV sidebar click muerto | Ruta /tpv tenía Navigate to /mesas | Eliminada la ruta /tpv, flujo Sala→Mesa→TPV |
-| Cards de producto gigantes | Cursor generó grid de 1-2 cols con padding grande | PENDIENTE fix mañana |
+| column "nombre_completo" does not exist | Cursor insertaba campo inexistente | Añadida columna + COALESCE en JOINs |
+| column "salario_bruto_mensual" does not exist | Tabla empleados incompleta | ALTER TABLE para añadir columnas |
+| asyncpg TIME error | String '14:00:00' en lugar de datetime.time | _parse_hora_time() helper en reservas.py |
+| Usuario sin outlet_id | Admin demo sin outlet asignado | UPDATE usuarios SET outlet_id en Supabase |
+| CuadrantePage "sin outlet" | Mismo problema que arriba | Corregido con UPDATE en Supabase |
+
+---
+
+## DEUDA TÉCNICA — ANTES DEL DEPLOY
+
+```
+1. Refactorización JSX — componentes > 200 líneas:
+   EmpleadosPage, NominasPage, CuadrantePage, FichajesPage,
+   ReservasPage, ClientesPage, ProveedoresPage, FacturasPage
+   → partir en pages/modulo/components/ autónomos
+
+2. Auditoría cursorrules completa:
+   - require_roles en todos los endpoints nuevos
+   - Decimal en todos los cálculos monetarios
+   - dark: en todos los componentes frontend
+   - Mobile first en todos los layouts
+
+3. Fixes estéticos móvil:
+   - Inputs que se salen de pantalla en barra de búsqueda
+   - Revisar overflow en modales móvil
+
+4. Pendientes Proveedores:
+   - Flujo confirmación modal IA completo
+   - Soporte PDF en escaneo
+   - capture="environment" cámara móvil
+
+5. División de cuenta TPV:
+   - Backend: POST/GET/DELETE /api/tpv/tickets/{id}/pagos
+   - Frontend: UI pagos múltiples en TPVPage
+```
 
 ---
 
@@ -699,8 +603,8 @@ GET            /api/delivery/comisiones
   - `DATABASE_URL` (pooler Supabase)
   - `SECRET_KEY_AUTH`
   - `ALLOWED_ORIGINS` (URL de Vercel)
-  - `GROQ_API_KEY` (cuando se implemente IA en Fase 3)
-  - `SENDGRID_API_KEY` (cuando se implemente email en Fase 4)
+  - `GROQ_API_KEY`
+  - `SENDGRID_API_KEY`
 
 **Frontend en Vercel:**
 - Root Directory: `frontend`
@@ -723,11 +627,13 @@ GET            /api/delivery/comisiones
 
 ## TIEMPO INVERTIDO
 
-- Día 1 (19/03/2026): ~10 horas — Infraestructura + Fase 1 completa + inicio Fase 2
-- Día 2 (20/03/2026): ~10 horas — Fase 2 completa + KDS + GestionSala + auditoría + cursorrules v2.1
-- Día 3 (20/03/2026 tarde): ~4 horas — RRHH completo backend + frontend
+- Día 1 (19/03/2026): ~10h — Infraestructura + Fase 1 completa + inicio Fase 2
+- Día 2 (20/03/2026): ~10h — Fase 2 completa + KDS + GestionSala + auditoría + cursorrules v2.1
+- Día 3 (20/03/2026 tarde): ~4h — RRHH completo backend + frontend
+- Día 3 (20/03/2026 noche): ~2h — Reservas y Clientes completos
+- **Total acumulado: ~26 horas**
 
 ---
 
-*STEP v2.1 — HorecaSO — Arin Romero — 20/03/2026 — Día 3 tarde*
-*Próxima sesión: Reservas + Clientes (Fase 3) — mejoras Proveedores / IA facturas (opcional)*
+*STEP v3.0 — HorecaSO — Arin Romero — 20/03/2026*
+*Estado: Fase 3 completa al 100% — Iniciando Fase 4 Analytics*

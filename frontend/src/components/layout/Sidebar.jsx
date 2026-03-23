@@ -3,6 +3,7 @@ import {
   LayoutGrid,
   Settings,
   BarChart2,
+  BarChart3,
   Activity,
   ClipboardList,
   Package,
@@ -20,6 +21,8 @@ import {
   Clock,
   CalendarDays,
   Receipt,
+  ShieldCheck,
+  Layers,
 } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -46,6 +49,12 @@ const NAV_ITEMS = [
     roles: ['admin', 'director'],
   },
   {
+    path: '/analytics',
+    label: 'Analytics',
+    Icon: BarChart3,
+    roles: ['admin', 'director'],
+  },
+  {
     path: '/admin/carta',
     label: 'Carta',
     Icon: ClipboardList,
@@ -68,6 +77,18 @@ const NAV_ITEMS = [
     label: 'Mermas',
     Icon: Trash2,
     roles: ['admin', 'director', 'almacen', 'cocina'],
+  },
+  {
+    path: '/appcc',
+    label: 'APPCC',
+    Icon: ShieldCheck,
+    roles: ['admin', 'director', 'almacen', 'cocina'],
+  },
+  {
+    path: '/fifo',
+    label: 'Stock FIFO',
+    Icon: Layers,
+    roles: ['admin', 'director', 'almacen'],
   },
   {
     path: '/proveedores',
