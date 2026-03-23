@@ -6,24 +6,26 @@
 |--------|----------|
 | **Empleados RRHH** | `empleados_shared.py` (helpers + ROLES), `empleados.py` (solo CRUD `/empleados`), `fichajes.py` (`/turnos`), `cuadrantes.py` (`/cuadrantes`), `ausencias.py` (`/ausencias`). |
 | **TPV** | `tpv_shared.py` (helpers + `METODOS_PAGO` + Verifactu auxiliar), `tpv.py` (tickets/líneas hasta `delete_linea`), `tpv_cobro.py` (`/cobrar`, `/pagos`). |
-| **main.py** | `include_router` para `tpv_cobro_router`, `fichajes_router`, `cuadrantes_router`, `ausencias_router`, `facturas_proveedor_router` (además de los existentes). |
-| **Proveedores** | `proveedores_shared.py`, `proveedores.py` (CRUD `/proveedores`), `facturas_proveedor.py` (`/facturas-proveedor`, escaneo IA). Scripts auxiliares: `backend/scripts/_gen_proveedores_split.py` y `_gen_proveedores_split2.py` (regenerar si hace falta). |
+| **Proveedores** | `proveedores_shared.py`, `proveedores.py` (CRUD `/proveedores`), `facturas_proveedor.py` (`/facturas-proveedor`, escaneo IA). |
+| **Inventario** | `inventario_shared.py`, `inventario.py` (artículos CRUD), `inventario_movimientos.py` (alertas, movimientos, inventario físico). |
+| **Reservas** | `reservas_shared.py`, `reservas.py` (CRUD reservas), `lista_espera.py` (`lista_espera_router`). |
+| **Admin recetas** | `admin_recetas_shared.py`, `admin_recetas.py` (CRUD recetas, listado), `admin_recetas_ingredientes.py` (semáforo, ingredientes, coste). |
+| **Admin carta** | `admin_carta_shared.py` (tenant, sanitizers, dinero, `_normalize_destino_kds` alineado con `migration_kds_barra_destino.sql`), `admin_carta.py` (categorías + `router_alergenos`), `admin_productos.py` (productos + alérgenos por producto). |
+| **KDS** | `kds_shared.py`, `kds.py` (`/comandas`), `kds_estados.py` (PATCH línea, `/estadisticas`). |
+| **FIFO** | `fifo_shared.py`, `fifo.py` (`/lotes`), `fifo_consumo.py` (`/consumir`, alertas, valoración). |
+| **Clientes** | `clientes_shared.py`, `clientes.py` (CRUD), `clientes_historial.py` (historial, puntos). |
+| **Analytics** | `analytics_shared.py`, `analytics_mesas.py`, `analytics_menu.py`, `analytics_personal.py` (todos con `prefix="/dashboard"` → rutas finales `/api/dashboard/...` vía `main.py`). |
+| **Reportes diferenciales** | `reportes_dif_shared.py`, `reportes_dif_ventas.py`, `reportes_dif_personal.py`, `reportes_dif_carta.py`, `reportes_dif_proveedores.py`, `reportes_dif_appcc.py`; `reportes.py` registra los cinco. Eliminado `reportes_diferenciales.py`. |
+| **PDF diferenciales** | `services/pdf_diferenciales_shared.py` (`_q2`, `_m`), `services/pdf_diferenciales.py` (`pdf_cuadrante`), `services/pdf_diferenciales_bcg.py` (`pdf_rentabilidad_platos`). |
+| **main.py** | `include_router` para todos los routers nuevos (mismos prefijos HTTP que antes). |
 
-Verificación: `python -c "from main import create_app; create_app()"` en `backend/` → **OK**.
+Verificación: en entorno con dependencias instaladas, desde `backend/`:
 
-## Pendiente (mismo criterio: solo mover bloques, mismas rutas)
+`python -c "from main import create_app; create_app()"`
 
-### Backend routers / services (según tu lista)
-- `inventario.py` → `inventario.py` + `inventario_movimientos.py`
-- `reservas.py` → `reservas.py` + `lista_espera.py` (quitar `lista_espera_router` de `reservas.py` y exportarlo desde el nuevo archivo; actualizar import en `main.py`).
-- `admin_recetas.py` → `admin_recetas.py` + `admin_recetas_ingredientes.py`
-- `admin_carta.py` → `admin_carta.py` + `admin_productos.py` (+ mantener `router_alergenos` según exports actuales).
-- `kds.py` → `kds.py` + `kds_estados.py`
-- `fifo.py` → `fifo.py` + `fifo_consumo.py`
-- `clientes.py` → `clientes.py` + `clientes_historial.py`
-- `analytics.py` → `analytics_mesas.py`, `analytics_menu.py`, `analytics_personal.py` (prefijo `/api/dashboard` como ahora).
-- `reportes_diferenciales.py` → 5 módulos + `main.py`.
-- `services/pdf_diferenciales.py` → `pdf_diferenciales.py` + `pdf_diferenciales_bcg.py` y ajustar imports en routers que usen `pdf_rentabilidad_platos` / `pdf_cuadrante`.
+En esta sesión el entorno de prueba no tenía `bcrypt` instalado (`ModuleNotFoundError`); **todos los módulos `routers/*.py` pasan `python -m py_compile`**.
+
+## Pendiente
 
 ### Frontend (todos los pages + Sidebar + opcional api.js)
 
@@ -31,5 +33,5 @@ Orden indicado: Inventario, Facturas, FIFO, Carta, Reservas, TPV, Analytics, Cli
 
 ## Notas
 
-- Los módulos `*_shared.py` no estaban en la lista original del usuario; son **solo código movido** para evitar duplicar helpers entre routers del mismo dominio (misma regla que en muchos codebases tras un split mecánico).
-- Tras cada grupo de cambios conviene volver a ejecutar el import de `main` y, si aplica, `npm run build` en `frontend/`.
+- Los módulos `*_shared.py` son **solo código movido** para evitar duplicar helpers entre routers del mismo dominio.
+- `_normalize_destino_kds` faltaba en `admin_carta.py`; se añadió en `admin_carta_shared.py` con la misma lógica que el `CASE` comentado en `backend/sql/migration_kds_barra_destino.sql` (explícito en body → si no, receta→cocina, bebida→barra, si no→ninguno).

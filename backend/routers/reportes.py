@@ -12,7 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from auth.dependencies import require_roles
 from database import get_db
 
-from routers.reportes_diferenciales import register_reportes_diferenciales
+from routers.reportes_dif_appcc import register_reportes_dif_appcc
+from routers.reportes_dif_carta import register_reportes_dif_carta
+from routers.reportes_dif_personal import register_reportes_dif_personal
+from routers.reportes_dif_proveedores import register_reportes_dif_proveedores
+from routers.reportes_dif_ventas import register_reportes_dif_ventas
 from services.pdf_inventario import pdf_inventario
 from services.pdf_nomina import pdf_nomina
 from services.pdf_reportes import pdf_cierre_caja
@@ -173,4 +177,8 @@ async def reporte_cierre_caja(
         raise HTTPException(status_code=500, detail="Error interno")
 
 
-register_reportes_diferenciales(router)
+register_reportes_dif_ventas(router)
+register_reportes_dif_personal(router)
+register_reportes_dif_carta(router)
+register_reportes_dif_proveedores(router)
+register_reportes_dif_appcc(router)
