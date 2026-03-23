@@ -30,6 +30,7 @@ ROLES_EMPLEADO = [
     "jefe_sala",
     "camarero",
     "cocina",
+    "barra",
     "almacen",
 ]
 

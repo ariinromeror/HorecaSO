@@ -47,6 +47,11 @@ export function deleteMesa(id) {
   return api.delete(`/mesas/${id}`)
 }
 
+/** PATCH /mesas/:id/estado — body { estado: 'libre' | 'ocupada' | 'reservada' } */
+export function patchMesaEstado(id, body) {
+  return api.patch(`/mesas/${id}/estado`, body)
+}
+
 export function getDashboardDirector() {
   return api.get('/dashboard/director')
 }

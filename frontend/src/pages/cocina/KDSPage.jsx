@@ -8,6 +8,7 @@ import {
   WifiOff,
 } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
+import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import {
   getKDSComandas,
@@ -83,6 +84,7 @@ function estadoLabel(estado) {
   const e = (estado || 'pendiente').toLowerCase()
   if (e === 'preparando') return 'Preparando'
   if (e === 'listo') return 'Listo'
+  if (e === 'servido') return 'Servido'
   return 'Pendiente'
 }
 
@@ -93,13 +95,22 @@ function minutosDesde(iso) {
   return Math.max(0, Math.round((Date.now() - t) / 60000))
 }
 
+function tituloKdsPorRol(rol) {
+  const r = String(rol || '').toLowerCase()
+  if (r === 'barra') return 'Barra KDS'
+  if (r === 'cocina') return 'Cocina KDS'
+  return 'KDS — Sala'
+}
+
 export default function KDSPage() {
   const { isDark, toggleTheme } = useTheme()
+  const { user } = useAuth()
 
   const [comandas, setComandas] = useState([])
   const [stats, setStats] = useState({
     platos_pendientes: 0,
     platos_preparando: 0,
+    platos_listos_recogida: 0,
     platos_completados: 0,
     comandas_activas: 0,
     producto_mas_pedido: null,
@@ -120,6 +131,7 @@ export default function KDSPage() {
       setStats({
         platos_pendientes: statsRes.data?.platos_pendientes ?? 0,
         platos_preparando: statsRes.data?.platos_preparando ?? 0,
+        platos_listos_recogida: statsRes.data?.platos_listos_recogida ?? 0,
         platos_completados: statsRes.data?.platos_completados ?? 0,
         comandas_activas: statsRes.data?.comandas_activas ?? 0,
         producto_mas_pedido: statsRes.data?.producto_mas_pedido ?? null,
@@ -231,10 +243,14 @@ export default function KDSPage() {
                 {stats.platos_preparando}
               </span>{' '}
               preparando ·{' '}
+              <span className="text-teal-600 dark:text-teal-400">
+                {stats.platos_listos_recogida}
+              </span>{' '}
+              listos ·{' '}
               <span className="text-emerald-600 dark:text-emerald-400">
                 {stats.platos_completados}
               </span>{' '}
-              completados
+              ya salieron
             </p>
             <button
               type="button"
@@ -322,7 +338,11 @@ export default function KDSPage() {
 
                     <ul className="min-h-0 flex-1 divide-y divide-[#e2e5ed] dark:divide-[#2e3347]">
                       {(c.lineas || []).map((ln) => {
-                        const est = (ln.estado_cocina || 'pendiente').toLowerCase()
+                        const est = (
+                          ln.estado_kds ||
+                          ln.estado_cocina ||
+                          'pendiente'
+                        ).toLowerCase()
                         const mins = Number(ln.minutos_espera ?? 0)
                         const waitLabel = `${mins}m`
 
@@ -377,6 +397,15 @@ export default function KDSPage() {
                                   className="h-10 min-w-[120px] rounded-lg bg-emerald-500/15 px-4 text-sm font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/25 dark:text-emerald-400"
                                 >
                                   Listo
+                                </button>
+                              ) : null}
+                              {est === 'listo' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => cambiarEstado(ln.id, 'servido')}
+                                  className="h-10 min-w-[120px] rounded-lg bg-amber-500/15 px-4 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-500/25 dark:text-amber-400"
+                                >
+                                  Ya salió
                                 </button>
                               ) : null}
                             </div>

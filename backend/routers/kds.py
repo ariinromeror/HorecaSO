@@ -1,5 +1,5 @@
 """
-Router KDS (Kitchen Display System) — comandas en cocina.
+Router KDS (Kitchen Display System) — comandas cocina y barra.
 """
 
 import logging
@@ -15,8 +15,22 @@ from database import get_db
 
 logger = logging.getLogger(__name__)
 
-ROLES_KDS_LECTURA = ["admin", "director", "jefe_sala", "cocina"]
-ROLES_KDS_ESCRITURA = ["admin", "director", "jefe_sala", "cocina"]
+ROLES_KDS_LECTURA = [
+    "admin",
+    "director",
+    "jefe_sala",
+    "camarero",
+    "cocina",
+    "barra",
+]
+ROLES_KDS_ESCRITURA = [
+    "admin",
+    "director",
+    "jefe_sala",
+    "camarero",
+    "cocina",
+    "barra",
+]
 
 router = APIRouter(
     prefix="/kds",
@@ -36,6 +50,44 @@ async def _get_user_outlet(conn, user_id: str) -> str | None:
     if not row or not row["outlet_id"]:
         return None
     return str(row["outlet_id"])
+
+
+def _kds_vista_for_role(role: str | None) -> Literal["cocina", "barra", "completa"]:
+    r = role or ""
+    if r == "cocina":
+        return "cocina"
+    if r == "barra":
+        return "barra"
+    if r in ("camarero", "jefe_sala", "admin", "director"):
+        return "completa"
+    return "cocina"
+
+
+def _resolve_vista(current_user: dict, vista_query: str | None) -> str:
+    role = current_user.get("role")
+    if vista_query and role in ("admin", "director"):
+        if vista_query not in ("cocina", "barra", "completa"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="vista debe ser cocina, barra o completa",
+            )
+        return vista_query
+    return _kds_vista_for_role(role)
+
+
+def _assert_patch_role_destino(role: str | None, destino_kds: str) -> None:
+    r = role or ""
+    dk = destino_kds or "cocina"
+    if r == "cocina" and dk != "cocina":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado para líneas de barra",
+        )
+    if r == "barra" and dk != "barra":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado para líneas de cocina",
+        )
 
 
 def _minutos_espera(val) -> float:
@@ -61,14 +113,77 @@ def _alerta_comanda(lineas_alertas: list[str]) -> Literal["ok", "warning", "crit
 
 
 class PatchLineaEstadoBody(BaseModel):
-    estado: Literal["preparando", "listo"]
+    estado: Literal["preparando", "listo", "servido"]
+
+
+_SQL_COMANDAS_BASE = """
+                SELECT
+                    tl.id, tl.ticket_id, tl.cantidad,
+                    tl.nota,
+                    COALESCE(p.destino_kds, 'cocina') AS destino_kds,
+                    CASE WHEN COALESCE(p.destino_kds, 'cocina') = 'barra'
+                         THEN tl.estado_barra
+                         ELSE tl.estado_cocina
+                    END AS estado_kds,
+                    tl.estado_cocina,
+                    tl.estado_barra,
+                    CASE WHEN COALESCE(p.destino_kds, 'cocina') = 'barra'
+                         THEN tl.enviado_barra_at
+                         ELSE tl.enviado_cocina_at
+                    END AS kds_enviado_at,
+                    tl.enviado_cocina_at,
+                    tl.enviado_barra_at,
+                    p.nombre AS producto_nombre,
+                    p.tiempo_preparacion,
+                    t.created_at AS ticket_created_at,
+                    m.numero AS mesa_numero, m.zona AS mesa_zona,
+                    EXTRACT(EPOCH FROM (NOW() - (
+                        CASE WHEN COALESCE(p.destino_kds, 'cocina') = 'barra'
+                             THEN tl.enviado_barra_at
+                             ELSE tl.enviado_cocina_at
+                        END
+                    ))) / 60 AS minutos_espera
+                FROM ticket_lineas tl
+                JOIN tickets t ON tl.ticket_id = t.id
+                JOIN productos p ON tl.producto_id = p.id
+                LEFT JOIN mesas m ON t.mesa_id = m.id
+                WHERE t.outlet_id = $1
+                  AND t.estado = 'abierto'
+                  AND (
+                    ($2::text = 'cocina'
+                     AND COALESCE(p.destino_kds, 'cocina') = 'cocina'
+                     AND tl.enviado_cocina = true
+                     AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
+                    OR
+                    ($2::text = 'barra'
+                     AND COALESCE(p.destino_kds, 'cocina') = 'barra'
+                     AND tl.enviado_barra = true
+                     AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
+                    OR
+                    ($2::text = 'completa'
+                     AND (
+                       (COALESCE(p.destino_kds, 'cocina') = 'cocina'
+                        AND tl.enviado_cocina = true
+                        AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
+                       OR
+                       (COALESCE(p.destino_kds, 'cocina') = 'barra'
+                        AND tl.enviado_barra = true
+                        AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
+                     ))
+                  )
+                ORDER BY kds_enviado_at ASC NULLS LAST
+"""
 
 
 @router.get("/comandas")
 async def get_comandas(
+    vista: str | None = Query(
+        default=None,
+        description="Solo admin/director: cocina | barra | completa",
+    ),
     current_user: dict = Depends(require_roles(ROLES_KDS_LECTURA)),
 ):
-    """Líneas pendientes de cocina agrupadas por ticket."""
+    """Líneas KDS agrupadas por ticket (cocina, barra o vista completa)."""
     try:
         async with get_db() as conn:
             outlet_id = await _get_user_outlet(conn, current_user["sub"])
@@ -78,27 +193,11 @@ async def get_comandas(
                     detail="Usuario sin outlet asignado",
                 )
 
+            v = _resolve_vista(current_user, vista)
             rows = await conn.fetch(
-                """
-                SELECT
-                    tl.id, tl.ticket_id, tl.cantidad,
-                    tl.nota, tl.estado_cocina, tl.enviado_cocina_at,
-                    p.nombre AS producto_nombre,
-                    p.tiempo_preparacion,
-                    t.created_at AS ticket_created_at,
-                    m.numero AS mesa_numero, m.zona AS mesa_zona,
-                    EXTRACT(EPOCH FROM (NOW() - tl.enviado_cocina_at)) / 60
-                        AS minutos_espera
-                FROM ticket_lineas tl
-                JOIN tickets t ON tl.ticket_id = t.id
-                JOIN productos p ON tl.producto_id = p.id
-                LEFT JOIN mesas m ON t.mesa_id = m.id
-                WHERE t.outlet_id = $1
-                  AND tl.enviado_cocina = true
-                  AND tl.estado_cocina != 'listo'
-                ORDER BY tl.enviado_cocina_at ASC
-                """,
+                _SQL_COMANDAS_BASE,
                 UUID(outlet_id),
+                v,
             )
 
         by_ticket: dict = {}
@@ -113,7 +212,7 @@ async def get_comandas(
                     if r.get("ticket_created_at")
                     else "",
                     "lineas": [],
-                    "_sort_key": r.get("enviado_cocina_at"),
+                    "_sort_key": r.get("kds_enviado_at"),
                 }
             mins = _minutos_espera(r.get("minutos_espera"))
             al = _alerta_linea(mins)
@@ -123,15 +222,19 @@ async def get_comandas(
             except (TypeError, ValueError):
                 cant_int = int(float(cant))
 
+            est = (r.get("estado_kds") or "pendiente").strip()
+            enviado = r.get("kds_enviado_at")
+            enviado_iso = enviado.isoformat() if enviado else ""
+
             linea = {
                 "id": str(r["id"]),
                 "producto_nombre": r["producto_nombre"] or "",
                 "cantidad": cant_int,
                 "nota": r["nota"],
-                "estado_cocina": r["estado_cocina"] or "pendiente",
-                "enviado_cocina_at": r["enviado_cocina_at"].isoformat()
-                if r.get("enviado_cocina_at")
-                else "",
+                "destino_kds": r.get("destino_kds") or "cocina",
+                "estado_kds": est,
+                "estado_cocina": est,
+                "enviado_cocina_at": enviado_iso,
                 "minutos_espera": mins,
                 "tiempo_preparacion": r["tiempo_preparacion"],
                 "alerta": al,
@@ -142,14 +245,12 @@ async def get_comandas(
         for data in by_ticket.values():
             alertas = [ln["alerta"] for ln in data["lineas"]]
             data["alerta_comanda"] = _alerta_comanda(alertas)
+            del data["_sort_key"]
             result.append(data)
 
         result.sort(
             key=lambda x: min(
-                (
-                    ln.get("enviado_cocina_at") or ""
-                    for ln in x["lineas"]
-                ),
+                (ln.get("enviado_cocina_at") or "" for ln in x["lineas"]),
                 default="",
             )
         )
@@ -165,12 +266,14 @@ async def get_comandas(
 
 
 def _valid_transition(actual: str, nuevo: str) -> bool:
-    if actual == "listo":
+    if actual == "servido":
         return False
     if nuevo == "preparando":
         return actual == "pendiente"
     if nuevo == "listo":
         return actual in ("pendiente", "preparando")
+    if nuevo == "servido":
+        return actual == "listo"
     return False
 
 
@@ -180,7 +283,7 @@ async def patch_linea_estado(
     body: PatchLineaEstadoBody,
     current_user: dict = Depends(require_roles(ROLES_KDS_ESCRITURA)),
 ):
-    """Actualiza estado_cocina de una línea (preparando / listo)."""
+    """Actualiza estado KDS de la línea (columna cocina o barra según producto)."""
     try:
         async with get_db() as conn:
             outlet_id = await _get_user_outlet(conn, current_user["sub"])
@@ -192,7 +295,8 @@ async def patch_linea_estado(
 
             row = await conn.fetchrow(
                 """
-                SELECT tl.id, tl.ticket_id, tl.estado_cocina,
+                SELECT tl.id, tl.ticket_id, tl.estado_cocina, tl.estado_barra,
+                       COALESCE(p.destino_kds, 'cocina') AS destino_kds,
                        p.nombre AS producto_nombre,
                        m.numero AS mesa_numero
                 FROM ticket_lineas tl
@@ -210,11 +314,26 @@ async def patch_linea_estado(
                     detail="Línea no encontrada",
                 )
 
-            anterior = row["estado_cocina"] or "pendiente"
-            if anterior == "listo":
+            dk = str(row["destino_kds"] or "cocina")
+            if dk == "ninguno":
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No se puede revertir un plato listo",
+                    detail="Este producto no usa KDS",
+                )
+
+            _assert_patch_role_destino(current_user.get("role"), dk)
+
+            if dk == "barra":
+                col = "estado_barra"
+                anterior = row["estado_barra"] or "pendiente"
+            else:
+                col = "estado_cocina"
+                anterior = row["estado_cocina"] or "pendiente"
+
+            if anterior == "servido":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El plato ya fue marcado como servido",
                 )
             if not _valid_transition(anterior, body.estado):
                 raise HTTPException(
@@ -222,12 +341,11 @@ async def patch_linea_estado(
                     detail="Transición de estado no válida",
                 )
 
+            if col not in ("estado_cocina", "estado_barra"):
+                raise HTTPException(status_code=500, detail="Error interno")
+
             await conn.execute(
-                """
-                UPDATE ticket_lineas
-                SET estado_cocina = $1
-                WHERE id = $2
-                """,
+                f"UPDATE ticket_lineas SET {col} = $1 WHERE id = $2",
                 body.estado,
                 linea_id,
             )
@@ -239,6 +357,7 @@ async def patch_linea_estado(
             "producto_nombre": row["producto_nombre"] or "",
             "mesa_numero": row["mesa_numero"],
             "ticket_id": str(row["ticket_id"]),
+            "destino_kds": dk,
         }
     except HTTPException:
         raise
@@ -250,9 +369,98 @@ async def patch_linea_estado(
         )
 
 
+async def _estadisticas_counts(
+    conn, oid: UUID, desde: date, vista: str
+) -> tuple[dict[str, int], int]:
+    """Cuentas por estado y comandas activas para una vista KDS."""
+    rows_estado = await conn.fetch(
+        """
+        SELECT COALESCE(
+            CASE WHEN COALESCE(p.destino_kds, 'cocina') = 'barra'
+                 THEN tl.estado_barra
+                 ELSE tl.estado_cocina
+            END,
+            'pendiente'
+        ) AS st,
+        COUNT(*)::int AS cnt
+        FROM ticket_lineas tl
+        JOIN tickets t ON tl.ticket_id = t.id
+        JOIN productos p ON tl.producto_id = p.id
+        WHERE t.outlet_id = $1
+          AND t.created_at::date >= $2
+          AND (
+            ($3::text = 'cocina'
+             AND COALESCE(p.destino_kds, 'cocina') = 'cocina'
+             AND tl.enviado_cocina = true)
+            OR
+            ($3::text = 'barra'
+             AND COALESCE(p.destino_kds, 'cocina') = 'barra'
+             AND tl.enviado_barra = true)
+            OR
+            ($3::text = 'completa'
+             AND (
+               (COALESCE(p.destino_kds, 'cocina') = 'cocina' AND tl.enviado_cocina)
+               OR
+               (COALESCE(p.destino_kds, 'cocina') = 'barra' AND tl.enviado_barra)
+             ))
+          )
+        GROUP BY 1
+        """,
+        oid,
+        desde,
+        vista,
+    )
+
+    counts = {"pendiente": 0, "preparando": 0, "listo": 0, "servido": 0}
+    for r in rows_estado:
+        st = r["st"]
+        if st in counts:
+            counts[st] = r["cnt"]
+
+    comandas_activas = await conn.fetchval(
+        """
+        SELECT COUNT(DISTINCT tl.ticket_id)::int
+        FROM ticket_lineas tl
+        JOIN tickets t ON tl.ticket_id = t.id
+        JOIN productos p ON tl.producto_id = p.id
+        WHERE t.outlet_id = $1
+          AND t.estado = 'abierto'
+          AND t.created_at::date >= $2
+          AND (
+            ($3::text = 'cocina'
+             AND COALESCE(p.destino_kds, 'cocina') = 'cocina'
+             AND tl.enviado_cocina = true
+             AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
+            OR
+            ($3::text = 'barra'
+             AND COALESCE(p.destino_kds, 'cocina') = 'barra'
+             AND tl.enviado_barra = true
+             AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
+            OR
+            ($3::text = 'completa'
+             AND (
+               (COALESCE(p.destino_kds, 'cocina') = 'cocina'
+                AND tl.enviado_cocina
+                AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
+               OR
+               (COALESCE(p.destino_kds, 'cocina') = 'barra'
+                AND tl.enviado_barra
+                AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
+             ))
+          )
+        """,
+        oid,
+        desde,
+        vista,
+    )
+
+    return counts, int(comandas_activas or 0)
+
+
 @router.get("/estadisticas")
 async def get_estadisticas(
     desde: date = Query(default_factory=date.today),
+    vista: str | None = Query(default=None),
     current_user: dict = Depends(require_roles(ROLES_KDS_LECTURA)),
 ):
     """Métricas KDS para el outlet desde una fecha (por defecto hoy)."""
@@ -266,41 +474,39 @@ async def get_estadisticas(
                 )
 
             oid = UUID(outlet_id)
+            v = _resolve_vista(current_user, vista)
 
-            rows_estado = await conn.fetch(
-                """
-                SELECT COALESCE(tl.estado_cocina, 'pendiente') AS st,
-                       COUNT(*)::int AS cnt
-                FROM ticket_lineas tl
-                JOIN tickets t ON tl.ticket_id = t.id
-                WHERE t.outlet_id = $1
-                  AND tl.enviado_cocina = true
-                  AND t.created_at::date >= $2
-                GROUP BY COALESCE(tl.estado_cocina, 'pendiente')
-                """,
-                oid,
-                desde,
-            )
-
-            counts = {"pendiente": 0, "preparando": 0, "listo": 0}
-            for r in rows_estado:
-                st = r["st"]
-                if st in counts:
-                    counts[st] = r["cnt"]
-
-            comandas_activas = await conn.fetchval(
-                """
-                SELECT COUNT(DISTINCT tl.ticket_id)::int
-                FROM ticket_lineas tl
-                JOIN tickets t ON tl.ticket_id = t.id
-                WHERE t.outlet_id = $1
-                  AND tl.enviado_cocina = true
-                  AND tl.estado_cocina != 'listo'
-                  AND t.created_at::date >= $2
-                """,
-                oid,
-                desde,
-            )
+            if v == "completa":
+                ca, _ = await _estadisticas_counts(conn, oid, desde, "cocina")
+                cb, _ = await _estadisticas_counts(conn, oid, desde, "barra")
+                counts = {k: ca[k] + cb[k] for k in ca}
+                comandas_activas = await conn.fetchval(
+                    """
+                    SELECT COUNT(DISTINCT tl.ticket_id)::int
+                    FROM ticket_lineas tl
+                    JOIN tickets t ON tl.ticket_id = t.id
+                    JOIN productos p ON tl.producto_id = p.id
+                    WHERE t.outlet_id = $1
+                      AND t.estado = 'abierto'
+                      AND t.created_at::date >= $2
+                      AND (
+                        (COALESCE(p.destino_kds, 'cocina') = 'cocina'
+                         AND tl.enviado_cocina = true
+                         AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
+                        OR
+                        (COALESCE(p.destino_kds, 'cocina') = 'barra'
+                         AND tl.enviado_barra = true
+                         AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
+                      )
+                    """,
+                    oid,
+                    desde,
+                )
+                comandas_activas = int(comandas_activas or 0)
+            else:
+                counts, comandas_activas = await _estadisticas_counts(
+                    conn, oid, desde, v
+                )
 
             top = await conn.fetchrow(
                 """
@@ -328,10 +534,12 @@ async def get_estadisticas(
 
         return {
             "desde": desde.isoformat(),
-            "platos_completados": counts["listo"],
+            "vista": v,
+            "platos_completados": counts["servido"],
+            "platos_listos_recogida": counts["listo"],
             "platos_pendientes": counts["pendiente"],
             "platos_preparando": counts["preparando"],
-            "comandas_activas": int(comandas_activas or 0),
+            "comandas_activas": comandas_activas,
             "tiempo_medio_preparacion": None,
             "producto_mas_pedido": producto_mas,
         }

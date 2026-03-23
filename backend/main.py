@@ -43,6 +43,7 @@ from routers.reservas import lista_espera_router
 from routers.clientes import router as clientes_router
 from routers.appcc import router as appcc_router
 from routers.fifo import router as fifo_router
+from routers.reportes import router as reportes_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -132,6 +133,7 @@ def create_app() -> FastAPI:
     app.include_router(clientes_router, prefix="/api")
     app.include_router(appcc_router, prefix="/api")
     app.include_router(fifo_router, prefix="/api")
+    app.include_router(reportes_router, prefix="/api")
 
     @app.get("/api/health")
     async def health_check():

@@ -9,7 +9,7 @@ import api from '../../services/api'
 const ROLES_PERMITIDOS = ['admin', 'director']
 
 const INPUT =
-  'w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
+  'w-full min-w-0 max-w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
 const SELECT =
   `${INPUT} appearance-none bg-[#f0f2f5] dark:bg-[#222536]`
 const BTN_PRIMARY =
@@ -248,7 +248,7 @@ export default function EmpleadosPage() {
       ) : null}
 
       <div
-        className={`mb-6 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center ${SURFACE} p-4`}
+        className={`mb-6 flex min-w-0 flex-col gap-3 md:flex-row md:flex-wrap md:items-center ${SURFACE} p-4`}
       >
         <input
           type="search"

@@ -27,7 +27,7 @@ import {
 } from '../../services/api'
 
 const INPUT =
-  'w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500'
+  'w-full min-w-0 max-w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500'
 const TABLE_WRAP =
   'bg-white dark:bg-[#1a1d27] border border-[#e2e5ed] dark:border-[#2e3347] rounded-xl overflow-hidden'
 const BTN_PRIMARY =
@@ -436,9 +436,9 @@ export default function MermasPage() {
         </div>
 
         <div
-          className={`flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-end ${TABLE_WRAP}`}
+          className={`flex min-w-0 max-w-full flex-col gap-3 overflow-x-auto p-4 sm:flex-row sm:flex-wrap sm:items-end ${TABLE_WRAP}`}
         >
-          <div className="min-w-[140px] flex-1">
+          <div className="min-w-0 flex-1 sm:min-w-[140px]">
             <label className="mb-1 block text-xs font-medium text-[#6b7280] dark:text-[#9ca3af]">
               Desde
             </label>
@@ -464,7 +464,7 @@ export default function MermasPage() {
               className={INPUT}
             />
           </div>
-          <div className="min-w-[200px] flex-[2]">
+          <div className="min-w-0 flex-[2] sm:min-w-[180px]">
             <label className="mb-1 block text-xs font-medium text-[#6b7280] dark:text-[#9ca3af]">
               Artículo
             </label>

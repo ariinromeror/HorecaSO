@@ -17,7 +17,7 @@ import api from '../../services/api'
 const ROLES_ACCESO = ['admin', 'director']
 
 const INPUT =
-  'w-full rounded-lg border border-[#e2e5ed] bg-[#f4f6f9] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#0f1117] dark:text-[#e8eaf0]'
+  'w-full min-w-0 max-w-full rounded-lg border border-[#e2e5ed] bg-[#f4f6f9] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#0f1117] dark:text-[#e8eaf0]'
 const SELECT = `${INPUT} appearance-none`
 const SURFACE =
   'rounded-xl border border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27]'
@@ -84,43 +84,42 @@ function badgeClasificacion(cls) {
   return 'bg-gray-500/15 text-gray-600 dark:text-gray-400'
 }
 
-const TITULO_CLASIFICACION = {
-  estrella: 'text-emerald-600 dark:text-emerald-400',
-  vaca: 'text-amber-600 dark:text-amber-400',
-  interrogante: 'text-blue-600 dark:text-blue-400',
-  perro: 'text-red-600 dark:text-red-400',
-}
-
 const BCG_ORDER = ['interrogante', 'estrella', 'perro', 'vaca']
 
 const BCG_META = {
   interrogante: {
-    label: 'INTERROGANTE',
+    label: 'Interrogante',
     sub: 'Baja popularidad · Alto margen',
     cellClass:
       'border-blue-500/30 bg-blue-500/5 dark:bg-blue-500/10',
     titleClass: 'text-blue-600 dark:text-blue-400',
   },
   estrella: {
-    label: 'ESTRELLA',
+    label: 'Ganador',
     sub: 'Alta popularidad · Alto margen',
     cellClass:
       'border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10',
     titleClass: 'text-emerald-600 dark:text-emerald-400',
   },
   perro: {
-    label: 'PERRO',
+    label: 'Bajo rendimiento',
     sub: 'Baja popularidad · Bajo margen',
     cellClass: 'border-red-500/30 bg-red-500/5 dark:bg-red-500/10',
     titleClass: 'text-red-600 dark:text-red-400',
   },
   vaca: {
-    label: 'VACA',
+    label: 'Motor de ventas',
     sub: 'Alta popularidad · Bajo margen',
     cellClass:
       'border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10',
     titleClass: 'text-amber-600 dark:text-amber-400',
   },
+}
+
+/** Etiqueta visible para claves API estrella|vaca|perro|interrogante */
+function labelClasificacion(cls) {
+  const c = String(cls || '').toLowerCase()
+  return BCG_META[c]?.label || (cls ? String(cls) : '—')
 }
 
 export default function AnalyticsPage() {
@@ -244,7 +243,7 @@ export default function AnalyticsPage() {
 
   return (
     <div
-      className={`${PAGE_BG} px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
+      className={`${PAGE_BG} min-w-0 overflow-x-hidden px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
     >
       <header className="mb-6 flex items-center gap-3">
         <BarChart3
@@ -618,7 +617,8 @@ export default function AnalyticsPage() {
               </div>
 
               <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {['estrella', 'vaca', 'interrogante', 'perro'].map((k) => {
+                {BCG_ORDER.map((k) => {
+                  const meta = BCG_META[k]
                   const r = resumenCls[k] || { count: 0, ingreso_total: 0 }
                   return (
                     <div
@@ -626,9 +626,9 @@ export default function AnalyticsPage() {
                       className={`${SURFACE} p-3 text-center`}
                     >
                       <p
-                        className={`text-xs font-bold uppercase ${TITULO_CLASIFICACION[k] || 'text-[#6b7280] dark:text-[#8b90a7]'}`}
+                        className={`text-xs font-bold uppercase tracking-wide ${meta?.titleClass || 'text-[#6b7280] dark:text-[#8b90a7]'}`}
                       >
-                        {k}
+                        {meta?.label ?? k}
                       </p>
                       <p className="mt-1 text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
                         {r.count ?? 0}
@@ -687,9 +687,9 @@ export default function AnalyticsPage() {
                         <td className="px-4 py-3">{fmtNum(p.margen_porcentaje, '%')}</td>
                         <td className="px-4 py-3">
                           <span
-                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${badgeClasificacion(p.clasificacion)}`}
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClasificacion(p.clasificacion)}`}
                           >
-                            {p.clasificacion}
+                            {labelClasificacion(p.clasificacion)}
                           </span>
                         </td>
                       </tr>
@@ -704,9 +704,9 @@ export default function AnalyticsPage() {
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <p className="font-bold">{p.nombre}</p>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${badgeClasificacion(p.clasificacion)}`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${badgeClasificacion(p.clasificacion)}`}
                       >
-                        {p.clasificacion}
+                        {labelClasificacion(p.clasificacion)}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
