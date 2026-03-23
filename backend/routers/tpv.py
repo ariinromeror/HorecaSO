@@ -162,6 +162,28 @@ async def _require_ticket_tpv_access(conn, ticket_id: UUID, user_id: str):
     return ticket_row
 
 
+async def _marcar_lineas_kds_servido(conn, ticket_id: UUID) -> None:
+    """
+    Al cobrar el ticket, las líneas enviadas a cocina/barra pasan a servido
+    para no dejar colas huérfanas en históricos o vistas que filtren mal.
+    """
+    await conn.execute(
+        """
+        UPDATE ticket_lineas
+        SET estado_cocina = CASE
+                WHEN enviado_cocina = true THEN 'servido'
+                ELSE estado_cocina
+            END,
+            estado_barra = CASE
+                WHEN COALESCE(enviado_barra, false) = true THEN 'servido'
+                ELSE estado_barra
+            END
+        WHERE ticket_id = $1
+        """,
+        ticket_id,
+    )
+
+
 async def _sum_pagos_ticket(conn, ticket_id: UUID) -> Decimal:
     row = await conn.fetchrow(
         """
@@ -197,6 +219,7 @@ async def _completar_cobro_mixto_verifactu(
         """,
         ticket_id,
     )
+    await _marcar_lineas_kds_servido(conn, ticket_id)
     if mesa_id:
         await conn.execute(
             "UPDATE mesas SET estado = 'libre' WHERE id = $1",
@@ -613,7 +636,11 @@ async def add_linea(
 
         # Obtener producto y verificar tenant
         producto_row = await conn.fetchrow(
-            "SELECT id, precio, tenant_id FROM productos WHERE id = $1 AND activo = true",
+            """
+            SELECT id, precio, tenant_id,
+                   COALESCE(destino_kds, 'cocina') AS destino_kds
+            FROM productos WHERE id = $1 AND activo = true
+            """,
             UUID(body.producto_id),
         )
         if not producto_row:
@@ -635,22 +662,64 @@ async def add_linea(
         precio = Decimal(str(producto_row["precio"]))
         subtotal = (precio * body.cantidad).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
-        linea_row = await conn.fetchrow(
-            """
-            INSERT INTO ticket_lineas (
-                ticket_id, producto_id, cantidad, precio_unitario, subtotal, nota,
-                enviado_cocina, enviado_cocina_at, estado_cocina
+        dk = str(producto_row.get("destino_kds") or "cocina")
+        if dk == "cocina":
+            linea_row = await conn.fetchrow(
+                """
+                INSERT INTO ticket_lineas (
+                    ticket_id, producto_id, cantidad, precio_unitario, subtotal, nota,
+                    enviado_cocina, enviado_cocina_at, estado_cocina,
+                    enviado_barra, enviado_barra_at, estado_barra
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), 'pendiente',
+                        false, NULL, 'pendiente')
+                RETURNING *
+                """,
+                ticket_id,
+                UUID(body.producto_id),
+                body.cantidad,
+                precio,
+                subtotal,
+                body.nota,
             )
-            VALUES ($1, $2, $3, $4, $5, $6, true, NOW(), 'pendiente')
-            RETURNING *
-            """,
-            ticket_id,
-            UUID(body.producto_id),
-            body.cantidad,
-            precio,
-            subtotal,
-            body.nota,
-        )
+        elif dk == "barra":
+            linea_row = await conn.fetchrow(
+                """
+                INSERT INTO ticket_lineas (
+                    ticket_id, producto_id, cantidad, precio_unitario, subtotal, nota,
+                    enviado_cocina, enviado_cocina_at, estado_cocina,
+                    enviado_barra, enviado_barra_at, estado_barra
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, false, NULL, 'pendiente',
+                        true, NOW(), 'pendiente')
+                RETURNING *
+                """,
+                ticket_id,
+                UUID(body.producto_id),
+                body.cantidad,
+                precio,
+                subtotal,
+                body.nota,
+            )
+        else:
+            linea_row = await conn.fetchrow(
+                """
+                INSERT INTO ticket_lineas (
+                    ticket_id, producto_id, cantidad, precio_unitario, subtotal, nota,
+                    enviado_cocina, enviado_cocina_at, estado_cocina,
+                    enviado_barra, enviado_barra_at, estado_barra
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, false, NULL, 'pendiente',
+                        false, NULL, 'pendiente')
+                RETURNING *
+                """,
+                ticket_id,
+                UUID(body.producto_id),
+                body.cantidad,
+                precio,
+                subtotal,
+                body.nota,
+            )
 
         # Recalcular total del ticket
         total_row = await conn.fetchrow(
@@ -758,6 +827,7 @@ async def cobrar_ticket(
             body.metodo_pago,
             ticket_id,
         )
+        await _marcar_lineas_kds_servido(conn, ticket_id)
         await conn.execute(
             "UPDATE mesas SET estado = 'libre' WHERE id = $1",
             ticket_row["mesa_id"],

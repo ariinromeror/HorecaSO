@@ -24,7 +24,7 @@ const MESES = [
 ]
 
 const INPUT =
-  'w-full min-h-[48px] rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
+  'w-full min-w-0 max-w-full min-h-[48px] rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
 const SELECT =
   `${INPUT} appearance-none bg-[#f0f2f5] dark:bg-[#222536]`
 const BTN_PRIMARY =
@@ -323,7 +323,7 @@ export default function NominasPage() {
   }
 
   return (
-    <div className="min-h-full text-[15px] text-[#111827] dark:text-[#e8eaf0]">
+    <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[15px] text-[#111827] dark:text-[#e8eaf0]">
       <header className="mb-6 flex items-center gap-3">
         <Receipt className="text-amber-500" size={28} strokeWidth={1.5} />
         <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
@@ -335,8 +335,8 @@ export default function NominasPage() {
         <p className="mb-4 text-red-600 dark:text-red-400">{errorEmp}</p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className={`${SURFACE} p-4 md:p-6`}>
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className={`min-w-0 ${SURFACE} p-4 md:p-6`}>
           <h2 className="mb-4 text-lg font-semibold text-[#111827] dark:text-[#e8eaf0]">
             Calculadora
           </h2>
@@ -345,7 +345,7 @@ export default function NominasPage() {
             <Loader />
           ) : (
             <>
-              <label className="mb-4 block">
+              <label className="mb-4 block min-w-0">
                 <span className="mb-1 block text-[15px] text-[#111827] dark:text-[#e8eaf0]">
                   Empleado
                 </span>
@@ -514,7 +514,9 @@ export default function NominasPage() {
           )}
         </div>
 
-        <div className={mostrarPanelDerecho ? '' : 'hidden lg:block'}>
+        <div
+          className={`min-w-0 ${mostrarPanelDerecho ? '' : 'hidden lg:block'}`}
+        >
           {mostrarPanelDerecho ? (
             <DesglosePanel
               titulo={tituloResultado}

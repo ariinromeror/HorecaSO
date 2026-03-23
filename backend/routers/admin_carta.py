@@ -3,7 +3,9 @@ Router admin de carta (categorías y productos) para HorecaSO.
 """
 
 import logging
+import re
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,6 +17,43 @@ from database import get_db
 logger = logging.getLogger(__name__)
 
 ROLES_ADMIN_CARTA = ["admin", "director"]
+
+# Quitar emojis en nombre/icono de categorías (regla de producto).
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F300-\U0001F9FF"
+    "\U0001FA00-\U0001FAFF"
+    "\u2600-\u26FF"
+    "\u2700-\u27BF"
+    "\U0001F1E6-\U0001F1FF"
+    "\uFE0F"
+    "\u200D"
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+def _strip_emojis(s: str) -> str:
+    if not s:
+        return ""
+    return _EMOJI_RE.sub("", s).strip()
+
+
+def _sanitize_categoria_nombre(nombre: str) -> str:
+    n = _strip_emojis(nombre).strip()
+    if not n:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El nombre no puede estar vacío ni ser solo emojis",
+        )
+    return n
+
+
+def _sanitize_categoria_icono(icono: str | None) -> str | None:
+    if icono is None:
+        return None
+    stripped = _strip_emojis(icono).strip()
+    return stripped if stripped else None
 
 router = APIRouter(
     prefix="/api/admin",
@@ -73,6 +112,7 @@ class CreateProductoRequest(BaseModel):
     tiene_receta: bool = False
     disponible_delivery: bool = True
     tiempo_preparacion: int = 0
+    destino_kds: Literal["cocina", "barra", "ninguno"] | None = None
 
 
 class UpdateProductoRequest(BaseModel):
@@ -86,6 +126,7 @@ class UpdateProductoRequest(BaseModel):
     disponible_delivery: bool | None = None
     tiempo_preparacion: int | None = None
     activo: bool | None = None
+    destino_kds: Literal["cocina", "barra", "ninguno"] | None = None
 
 
 class AlergenosRequest(BaseModel):
@@ -146,6 +187,9 @@ async def create_categoria(
         async with get_db() as conn:
             tenant_id = await _require_tenant_id(conn, current_user["sub"])
 
+            nombre_ok = _sanitize_categoria_nombre(body.nombre)
+            icono_ok = _sanitize_categoria_icono(body.icono)
+
             row = await conn.fetchrow(
                 """
                 INSERT INTO categorias_menu (tenant_id, nombre, icono, color, orden)
@@ -153,8 +197,8 @@ async def create_categoria(
                 RETURNING *
                 """,
                 UUID(tenant_id),
-                body.nombre,
-                body.icono,
+                nombre_ok,
+                icono_ok,
                 body.color,
                 body.orden,
             )
@@ -181,10 +225,10 @@ async def update_categoria(
             args: list = []
             updates: list[str] = []
             if body.nombre is not None:
-                args.append(body.nombre)
+                args.append(_sanitize_categoria_nombre(body.nombre))
                 updates.append("nombre = $" + str(len(args)))
             if body.icono is not None:
-                args.append(body.icono)
+                args.append(_sanitize_categoria_icono(body.icono))
                 updates.append("icono = $" + str(len(args)))
             if body.color is not None:
                 args.append(body.color)
@@ -275,6 +319,7 @@ def _producto_row_to_dict(r) -> dict:
         if r.get("disponible_delivery") is not None
         else True,
         "tiempo_preparacion": r.get("tiempo_preparacion") or 0,
+        "destino_kds": r.get("destino_kds") or "cocina",
     }
 
 
@@ -317,6 +362,7 @@ async def list_productos(
                 else True,
                 "tiempo_preparacion": r.get("tiempo_preparacion") or 0,
                 "categoria_nombre": r.get("categoria_nombre"),
+                "destino_kds": r.get("destino_kds") or "cocina",
             }
             for r in rows
         ]
@@ -337,13 +383,20 @@ async def create_producto(
         async with get_db() as conn:
             tenant_id = await _require_tenant_id(conn, current_user["sub"])
 
+            destino = _normalize_destino_kds(
+                body.destino_kds,
+                body.tiene_receta,
+                body.es_bebida,
+            )
+
             row = await conn.fetchrow(
                 """
                 INSERT INTO productos (
                     tenant_id, categoria_id, nombre, descripcion, precio,
-                    iva_porcentaje, es_bebida, tiene_receta, disponible_delivery, tiempo_preparacion
+                    iva_porcentaje, es_bebida, tiene_receta, disponible_delivery,
+                    tiempo_preparacion, destino_kds
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 RETURNING *
                 """,
                 UUID(tenant_id),
@@ -356,6 +409,7 @@ async def create_producto(
                 body.tiene_receta,
                 body.disponible_delivery,
                 body.tiempo_preparacion,
+                destino,
             )
 
         return _producto_row_to_dict(row)
@@ -406,6 +460,9 @@ async def update_producto(
             if body.tiempo_preparacion is not None:
                 args.append(body.tiempo_preparacion)
                 updates.append("tiempo_preparacion = $" + str(len(args)))
+            if body.destino_kds is not None:
+                args.append(body.destino_kds)
+                updates.append("destino_kds = $" + str(len(args)))
             if body.activo is not None:
                 args.append(body.activo)
                 updates.append("activo = $" + str(len(args)))

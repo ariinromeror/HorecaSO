@@ -12,8 +12,27 @@ const ROLES_FICHAJES = [
   'jefe_sala',
   'camarero',
   'cocina',
+  'barra',
   'almacen',
 ]
+
+const STORAGE_FICHAR_LOGIN = 'horecaso_fichar_al_login'
+
+function readFicharAlLogin() {
+  try {
+    return localStorage.getItem(STORAGE_FICHAR_LOGIN) !== '0'
+  } catch {
+    return true
+  }
+}
+
+function writeFicharAlLogin(v) {
+  try {
+    localStorage.setItem(STORAGE_FICHAR_LOGIN, v ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
 
 const STORAGE_PREFIX = 'horecaso_fichaje_activo_'
 
@@ -88,14 +107,15 @@ function clearFichajeStorage(empleadoId) {
 }
 
 const SELECT =
-  'w-full min-h-[48px] rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
+  'w-full min-w-0 max-w-full min-h-[48px] rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
 const INPUT =
-  'w-full min-h-[48px] rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
+  'w-full min-w-0 max-w-full min-h-[48px] rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
 const SURFACE =
   'rounded-xl border border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27]'
 
 export default function FichajesPage() {
   const { user, isLoading: authLoading } = useAuth()
+  const [ficharAlLogin, setFicharAlLoginState] = useState(readFicharAlLogin)
 
   const [empleados, setEmpleados] = useState([])
   const [loadingEmp, setLoadingEmp] = useState(true)
@@ -319,13 +339,35 @@ export default function FichajesPage() {
   }
 
   return (
-    <div className="min-h-full text-[15px] text-[#111827] dark:text-[#e8eaf0]">
+    <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[15px] text-[#111827] dark:text-[#e8eaf0]">
       <header className="mb-6 flex items-center gap-3">
         <Clock className="text-amber-500" size={28} strokeWidth={1.5} />
         <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
           Control Horario
         </h1>
       </header>
+
+      <div className={`mb-6 ${SURFACE} p-4 md:p-5`}>
+        <label className="flex cursor-pointer items-start gap-3 text-[15px] text-[#111827] dark:text-[#e8eaf0]">
+          <input
+            type="checkbox"
+            checked={ficharAlLogin}
+            onChange={(e) => {
+              const v = e.target.checked
+              setFicharAlLoginState(v)
+              writeFicharAlLogin(v)
+            }}
+            className="mt-1 h-5 w-5 rounded border-[#e2e5ed] text-amber-500 focus:ring-amber-500 dark:border-[#2e3347]"
+          />
+          <span>
+            <span className="font-medium">Fichar al iniciar sesión</span>
+            <span className="mt-1 block text-[14px] text-[#6b7280] dark:text-[#8b90a7]">
+              Si tu usuario tiene empleado vinculado, se registra la entrada al
+              entrar (si no había turno abierto hoy). Puedes desactivarlo aquí.
+            </span>
+          </span>
+        </label>
+      </div>
 
       {/* Sección 1 — Fichaje */}
       <section className={`mb-8 ${SURFACE} p-4 md:p-6`}>
@@ -342,7 +384,7 @@ export default function FichajesPage() {
         {loadingEmp ? (
           <Loader />
         ) : (
-          <label className="mb-4 block text-[15px] text-[#111827] dark:text-[#e8eaf0]">
+          <label className="mb-4 block min-w-0 text-[15px] text-[#111827] dark:text-[#e8eaf0]">
             Empleado
             <select
               value={empleadoPanel}
@@ -469,8 +511,8 @@ export default function FichajesPage() {
           <h2 className="mb-4 text-lg font-semibold text-[#111827] dark:text-[#e8eaf0]">
             Historial de turnos
           </h2>
-          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap">
-            <label className="min-w-0 flex-1 text-[15px] text-[#111827] dark:text-[#e8eaf0]">
+          <div className="flex min-w-0 flex-col gap-3 overflow-x-auto md:flex-row md:flex-wrap md:items-end">
+            <label className="min-w-0 w-full flex-1 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:min-w-[12rem]">
               Empleado
               <select
                 value={empleadoHistorial}
@@ -485,7 +527,7 @@ export default function FichajesPage() {
                 ))}
               </select>
             </label>
-            <label className="w-full text-[15px] text-[#111827] dark:text-[#e8eaf0] md:w-48">
+            <label className="w-full min-w-0 max-w-full text-[15px] text-[#111827] dark:text-[#e8eaf0] md:w-48 md:max-w-[12rem]">
               Fecha
               <input
                 type="date"

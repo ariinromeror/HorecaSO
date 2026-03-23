@@ -50,7 +50,12 @@ HorecaSO es el ERP web más completo del mercado de hostelería español. Conect
 | **jefe_sala** | Mesas, reservas, TPV, venta live, KDS, gestión sala |
 | **camarero** | TPV, mesas — tomar pedidos, cobrar, división de cuenta |
 | **cocina** | KDS, recetas (lectura), inventario (lectura), mermas |
+| **barra** | KDS barra (bebidas / elaboración en barra), control horario |
 | **almacen** | Inventario completo, proveedores, mermas, APPCC |
+
+### Glosario operativo — merma (recetas / inventario)
+
+En HorecaSO la **merma** de un ingrediente no es un porcentaje de “rentabilidad al pelar”, sino la **pérdida de peso o volumen usable** al manipular el producto (pelar, limpiar, deshilachar, etc.). Ejemplo: compras 1 kg de cebolla; al pelar y quitar la raíz pierdes 200 g → solo entran 800 g al plato; la merma es ese **20 %** de peso que no se aprovecha. El sistema usa ese % para calcular cuánto ingrediente bruto necesitas y el **coste por ración**. En pantalla se evita el término *escandallo*; se usa **receta y coste** o **desglose de ingredientes**.
 
 ---
 

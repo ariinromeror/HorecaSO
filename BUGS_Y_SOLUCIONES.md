@@ -1,0 +1,147 @@
+# HorecaSO — Bugs encontrados y soluciones aplicadas
+
+Registro **dedicado** (fuera del STEP) para ir anotando cada bug, contexto y fix.  
+El [STEP_HORECASO.md](STEP_HORECASO.md) mantiene un resumen histórico en *Problemas conocidos*; aquí el detalle vive por **fecha** y se puede enlazar a commit/PR.
+
+---
+
+## Cómo añadir una entrada
+
+1. Nueva fila en la tabla de la **sección activa** (mes actual), o nueva subsección `## AAAA-MM`.
+2. Campos: **ID** (opcional, `BUG-001`), **Fecha**, **Módulo**, **Síntoma**, **Causa**, **Solución**, **Estado** (`✅` / `⏳` / `❌ wontfix`).
+3. Si el bug está solo **planificado** (sin fix), marcarlo en el plan roadmap (`.cursor/plans/`) y aquí **Estado: ⏳ pendiente**.
+4. Para **cambios grandes** (varios archivos), añadir o actualizar la **bitácora detallada** más abajo con lista de archivos y comportamiento.
+
+---
+
+## 2026-03 — Sesión 18/03 (tabla resumida)
+
+| ID | Fecha | Módulo | Síntoma | Causa | Solución | Estado |
+|----|-------|--------|---------|-------|----------|--------|
+| — | 18/03/2026 | Docs / STEP | STEP desactualizado vs código (Fase 4 en 0%) | Documentación no sincronizada con implementación real | Auditoría repo → STEP v3.1; APIs y módulos marcados OK | ✅ |
+| — | 18/03/2026 | Backend reportes | `pdf_comparativa_proveedores` llamada con args incorrectos | Router pasaba `(filas, tenant, nombre)` en vez de `(articulo, precios, tenant)` | Mapeo `precios_pdf` + `articulo_pdf` en `reportes_diferenciales.py` | ✅ |
+| BUG-001 | 18/03/2026 | TPV / Mesas | Mesa queda **ocupada** sin ticket; no se podía corregir | `estado` en BD sin acción explícita en UI | `patchMesaEstado` en `frontend/src/services/api.js`; **TPV** (`TPVPage.jsx`) botón liberar mesa; **Sala** (`MesasPage.jsx`) acción “marcar libre” con confirmación vía mismo `PATCH` | ✅ |
+| BUG-002 | 18/03/2026 | Carta / TPV | Emoji en categorías o tabs TPV tras “guardar bien” | Estado local / `icono` mezclado; sin saneo en servidor | `frontend/src/utils/textSanitize.js` (`stripEmojis`); **Carta** refetch y formulario limpio; saneo en **backend** `admin_carta.py`; **TPV** tabs con `stripEmojis` al mostrar | ✅ |
+| BUG-003 | 18/03/2026 | KDS | Tras **cobrar**, comandas seguían en cocina/barra | Query no excluía tickets cerrados; líneas no pasaban a estado final | `backend/routers/kds.py`: `JOIN tickets` con `t.estado = 'abierto'`; estados **servido** + flujo **“Ya salió”**; en cobro, helper en `tpv.py` para marcar líneas enviadas como `servido` | ✅ |
+| BUG-004 | 18/03/2026 | Frontend (varias páginas) | `<select>` y barras de filtros se **salen del viewport** en móvil | Flex/grid sin `min-w-0`; inputs sin tope de ancho | Patrón: contenedores `min-w-0 max-w-full` (+ `overflow-x-auto` donde aplica); constantes `INPUT` con `min-w-0 max-w-full` en Analytics, Inventario, FIFO, APPCC, Reservas, Mermas, Facturas, GestionSala; RRHH/Reportes/Carta en sesiones previas | ✅ |
+| MEJ-001 | 18/03/2026 | KDS / Productos | Cocina ve bebidas sin elaborar; barra ve platos | Un solo destino “cocina” para todo | `destino_kds` en productos (`cocina` \| `barra` \| `ninguno`); migración `backend/sql/migration_kds_barra_destino.sql`; columnas línea `enviado_barra`, `estado_barra`; API KDS filtra por **rol** (`cocina`, `barra`, vista completa sala); **Carta** admin selector destino; **TPV** inserta/envío según destino | ✅ |
+| MEJ-002 | 18/03/2026 | Auth / RRHH | Fichar entrada manual siempre | Sin enlace usuario–empleado en flujo login | `GET /auth/perfil` incluye `empleado_id`; **AuthContext**: tras login, opción `POST /turnos/fichaje-entrada` si no hay turno abierto; **FichajesPage**: toggle “fichar al entrar” (localStorage) | ✅ |
+| MEJ-003 | 18/03/2026 | Analytics / PDF | Jerga BCG (estrella/vaca/perro) en pantalla | Copy heredado de matriz clásica | **Solo UI / PDF**: claves API sin cambio. `AnalyticsPage.jsx` → `BCG_META`: Interrogante + **Ganador**, **Motor de ventas**, **Bajo rendimiento**. `pdf_diferenciales.py` leyenda alineada | ✅ |
+| MEJ-004 | 18/03/2026 | Recetas / costes | UX poco clara (ingredientes, merma, coste/ración) | Todo en una página larga | `recetas/recetasUtils.js`; `RecetaDetalleIngredientesSection.jsx`; `RecetasPage.jsx` con tabla almacén, tooltips merma en lenguaje claro, coste estimado por ración | ✅ |
+| MEJ-005 | 18/03/2026 | Docs | “Merma” mal entendida | Falta glosario | Párrafos en STEP/PRD: merma = pérdida de peso al manipular, no % de rentabilidad al pelar | ✅ |
+| MEJ-006 | 18/03/2026 | UI global | “Escandallo” y sidebar confuso | Terminología técnica | Sidebar **“Recetas y Costes”**; textos en recetas sin “escandallo” | ✅ |
+| DEBT-001 | 18/03/2026 | Frontend | Páginas JSX muy largas | Crecimiento orgánico | Primera fase: extracción `RecetaDetalleIngredientesSection` + utils; pendiente más troceos (TPV, Carta, Analytics…) | ⏳ parcial |
+
+---
+
+## Bitácora detallada — plan «bugs críticos, KDS por rol, fichajes, naming y refactor»
+
+*Orden lógico de implementación; referencia para auditorías y onboarding.*
+
+### 1. Mesa libre (BUG-001)
+
+| Qué | Detalle |
+|-----|---------|
+| **API cliente** | `frontend/src/services/api.js` — función `patchMesaEstado(id, body)` → `PATCH /mesas/{id}/estado`. |
+| **TPV** | `frontend/src/pages/tpv/TPVPage.jsx` — liberar mesa cuando procede (mesa ocupada sin ticket coherente con negocio). |
+| **Sala** | `frontend/src/pages/sala/MesasPage.jsx` — acción explícita para pasar mesa a `libre` con confirmación. |
+| **Backend** | Ya existía endpoint en `backend/routers/mesas.py` (no duplicar lógica). |
+
+### 2. Carta sin emoji + coherencia TPV (BUG-002)
+
+| Qué | Detalle |
+|-----|---------|
+| **Utilidad** | `frontend/src/utils/textSanitize.js` — `stripEmojis()` para render y formularios. |
+| **Admin carta** | `frontend/src/pages/admin/CartaPage.jsx` — saneo al editar/guardar, refetch categorías/productos, visualización sin emoji residual. |
+| **Backend** | `backend/routers/admin_carta.py` — rechazar o limpiar emoji al persistir (defensa en profundidad). |
+| **TPV** | `TPVPage.jsx` — nombres de pestañas de categoría con `stripEmojis`. |
+
+### 3. Selects y filtros en móvil (BUG-004)
+
+| Qué | Detalle |
+|-----|---------|
+| **Patrón** | Padre flex/grid: `min-w-0`; contenedor filtros: `max-w-full`, a veces `overflow-x-auto`; inputs/select: `w-full min-w-0 max-w-full`. |
+| **Páginas tocadas (ejemplos)** | `AnalyticsPage.jsx`, `InventarioPage.jsx`, `FIFOPage.jsx`, `APPCCPage.jsx`, `ReservasPage.jsx`, `MermasPage.jsx`, `FacturasPage.jsx`, `GestionSalaPage.jsx`; envoltorios con `min-w-0 overflow-x-hidden` donde evitaba scroll horizontal global. |
+| **TPV cobro** | Select método pago simple: clases con `min-w-0 max-w-full`. |
+| **RRHH / reportes / carta** | Ajustes en sesiones del mismo roadmap (`NominasPage`, `FichajesPage`, componentes en `reportes/`, `CartaPage`). |
+
+### 4. KDS: tickets cobrados, «Ya salió», cocina vs barra (BUG-003 + MEJ-001)
+
+| Qué | Detalle |
+|-----|---------|
+| **Listados** | `backend/routers/kds.py` — solo tickets `estado = 'abierto'`; exclusión de líneas ya `servido` donde corresponde; contadores y PATCH de estado por columna cocina/barra. |
+| **Estados** | Transiciones `preparando` → `listo` → `servido` (incl. acción tipo **Ya salió** en UI). |
+| **Cobro** | `backend/routers/tpv.py` — al cerrar ticket, marcar líneas enviadas a cocina/barra como `servido` para no dejar cola fantasma. |
+| **Producto** | Campo `destino_kds`: `cocina` \| `barra` \| `ninguno` — UI en admin carta/producto. |
+| **Líneas ticket** | `enviado_barra`, `estado_barra`, timestamps espejo de cocina según migración. |
+| **Migración SQL** | `backend/sql/migration_kds_barra_destino.sql` — ejecutar en Supabase si no está aplicada. |
+| **Rol `barra`** | CHECK en `usuarios.rol`; rutas y `require_roles`; frontend `App.jsx` / `Sidebar.jsx` / `KDSPage` según diseño actual. |
+| **`.cursorrules`** | Tabla de roles actualizada con fila **barra**. |
+
+### 5. Analytics BCG y PDF (MEJ-003)
+
+| Qué | Detalle |
+|-----|---------|
+| **Frontend** | `frontend/src/pages/analytics/AnalyticsPage.jsx` — objeto `BCG_META` (etiquetas visibles; claves API `estrella`, `vaca`, `perro`, `interrogante` sin cambio). |
+| **PDF** | `backend/services/pdf_diferenciales.py` — mapeo y leyenda con **Ganador**, **Motor de ventas**, **Bajo rendimiento**, **Interrogante**. |
+
+### 6. Recetas, ingredientes y coste (MEJ-004 + MEJ-006)
+
+| Qué | Detalle |
+|-----|---------|
+| **Utils** | `frontend/src/pages/admin/recetas/recetasUtils.js` — formato €, cantidad bruta, coste línea, unidades. |
+| **Componente** | `frontend/src/pages/admin/recetas/RecetaDetalleIngredientesSection.jsx` — bloque “Ingredientes y cantidades”, tabla, alta de ingrediente, tooltips merma. |
+| **Página** | `frontend/src/pages/admin/RecetasPage.jsx` — integración sección + tabla precios almacén + `min-w-0` en layout modal. |
+| **Sidebar** | `frontend/src/components/layout/Sidebar.jsx` — entrada “Recetas y Costes” (o equivalente según versión). |
+
+### 7. Fichaje al login (MEJ-002)
+
+| Qué | Detalle |
+|-----|---------|
+| **Perfil** | `backend/routers/auth.py` — subconsulta / campo `empleado_id` en respuesta de perfil. |
+| **Cliente** | `frontend/src/context/AuthContext.jsx` — tras login exitoso, llamada condicionada a `POST /turnos/fichaje-entrada`. |
+| **Preferencia** | `frontend/src/pages/empleados/FichajesPage.jsx` — toggle persistido (no fichar si el usuario lo desactiva). |
+| **Biométrico / WebAuthn** | Planificado fase 2 — no implementado en este bloque. |
+
+### 8. Documentación merma (MEJ-005)
+
+| Qué | Detalle |
+|-----|---------|
+| **STEP / PRD** | Párrafo glosario: merma = pérdida de peso/volumen usable al manipular; fórmula bruto/neto en recetas. |
+
+### 9. Deuda técnica JSX (DEBT-001)
+
+| Qué | Detalle |
+|-----|---------|
+| **Hecho** | Extracción recetas (sección ingredientes). |
+| **Pendiente** | Trocear `TPVPage.jsx`, `CartaPage.jsx`, `AnalyticsPage.jsx`, `DashboardPage.jsx`, etc., en `components/` + `hooks/` por feature sin cambiar comportamiento. |
+
+---
+
+## Histórico (migrado desde STEP — resumen)
+
+Estos ya estaban documentados en STEP *Problemas conocidos y soluciones aplicadas*:
+
+| Problema | Solución aplicada |
+|----------|-------------------|
+| `proveedor_habitual_id` no existía | Eliminada del SELECT |
+| Pantalla blanca tras login (`visibleItems`) | Navegación plana en Sidebar |
+| float en modelos Pydantic | Sustituido por Decimal donde aplica |
+| f-strings en SQL | Placeholders `$1,$2` + concatenación segura |
+| Modales `bg-black/50` | Unificado a `bg-black/60` |
+| `require_roles` faltante | Corregido en admin_carta / admin_recetas |
+| `nombre_completo` / columnas empleados | Migración + COALESCE en JOINs |
+| asyncpg TIME con string | Helper `_parse_hora_time()` (reservas) |
+| Usuario sin `outlet_id` | UPDATE manual en Supabase (datos) |
+
+---
+
+## Checklist post-implementación (local / antes de Render)
+
+- [ ] Migración `migration_kds_barra_destino.sql` aplicada en Supabase (columnas producto + líneas + rol `barra` si aplica).
+- [ ] Smoke test: TPV cobro → KDS sin ticket cobrado; cocina solo `destino_kds=cocina`; barra solo `barra`.
+- [ ] Deploy Render/Vercel: **último paso** tras validar todo en local (según STEP).
+
+---
+
+*Última actualización: 18/03/2026 — bitácora plan roadmap ampliada.*

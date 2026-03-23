@@ -47,7 +47,8 @@ TypeScript en backend, Express, Next.js, Mongoose, Firebase.
 | director | Dashboard, analytics, configuración, reportes, nóminas |
 | jefe_sala | Mesas, reservas, TPV, venta live, KDS |
 | camarero | TPV, mesas |
-| cocina | KDS, recetas, inventario (lectura) |
+| cocina | KDS cocina, recetas, inventario (lectura) |
+| barra | KDS barra (bebidas/elaborados en barra) |
 | almacen | Inventario completo, proveedores, mermas |
 
 ---

@@ -9,7 +9,7 @@ import api from '../../services/api'
 const ROLES_ACCESO = ['admin', 'director', 'almacen', 'cocina']
 
 const INPUT =
-  'w-full rounded-lg border border-[#e2e5ed] bg-[#f4f6f9] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#0f1117] dark:text-[#e8eaf0]'
+  'w-full min-w-0 max-w-full rounded-lg border border-[#e2e5ed] bg-[#f4f6f9] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#0f1117] dark:text-[#e8eaf0]'
 const SELECT = `${INPUT} appearance-none`
 const TEXTAREA = `${INPUT} min-h-[88px] resize-y`
 const SURFACE =
@@ -408,7 +408,7 @@ export default function APPCCPage() {
 
       {mainTab === 'registros' ? (
         <>
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+          <div className="mb-4 flex min-w-0 max-w-full flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
             <div className="w-full min-w-0 lg:max-w-[200px]">
               <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
                 Tipo
@@ -569,7 +569,7 @@ export default function APPCCPage() {
             <EmptyState message="El detalle de no conformidades solo está disponible para administración." />
           ) : (
             <>
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <div className="mb-4 flex min-w-0 max-w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                 <div className="w-full min-w-0 sm:max-w-[160px]">
                   <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
                     Desde

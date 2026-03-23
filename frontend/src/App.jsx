@@ -31,6 +31,7 @@ import CuadrantePage from './pages/empleados/CuadrantePage'
 import NominasPage from './pages/empleados/NominasPage'
 import ReservasPage from './pages/reservas/ReservasPage'
 import ClientesPage from './pages/clientes/ClientesPage'
+import ReportesPage from './pages/reportes/ReportesPage'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { isLoading, isAuthenticated, user } = useAuth()
@@ -187,7 +188,9 @@ export default function App() {
                     'admin',
                     'director',
                     'jefe_sala',
+                    'camarero',
                     'cocina',
+                    'barra',
                   ]}
                 >
                   <KDSPage />
@@ -232,10 +235,7 @@ export default function App() {
                 <Route path="/nominas" element={<NominasPage />} />
                 <Route path="/reservas" element={<ReservasPage />} />
                 <Route path="/clientes" element={<ClientesPage />} />
-                <Route
-                  path="/reportes"
-                  element={<ModulePlaceholder name="Reportes" />}
-                />
+                <Route path="/reportes" element={<ReportesPage />} />
               </Route>
               <Route path="/tpv/:mesaId" element={<TPVPage />} />
             </Route>

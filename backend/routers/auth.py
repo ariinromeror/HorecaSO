@@ -84,9 +84,13 @@ async def get_perfil(current_user: dict = Depends(get_current_user)):
     async with get_db() as conn:
         row = await conn.fetchrow(
             """
-            SELECT id, nombre, email, rol, tenant_id, outlet_id, activo
-            FROM usuarios
-            WHERE id = $1
+            SELECT u.id, u.nombre, u.email, u.rol, u.tenant_id, u.outlet_id, u.activo,
+                   (SELECT e.id FROM empleados e
+                    WHERE e.usuario_id = u.id AND COALESCE(e.activo, true)
+                    ORDER BY e.id
+                    LIMIT 1) AS empleado_id
+            FROM usuarios u
+            WHERE u.id = $1
             """,
             current_user["sub"],
         )
@@ -105,6 +109,7 @@ async def get_perfil(current_user: dict = Depends(get_current_user)):
         "tenant_id": str(row["tenant_id"]) if row["tenant_id"] else None,
         "outlet_id": str(row["outlet_id"]) if row["outlet_id"] else None,
         "activo": row["activo"],
+        "empleado_id": str(row["empleado_id"]) if row.get("empleado_id") else None,
     }
 
 

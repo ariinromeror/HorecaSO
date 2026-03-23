@@ -24,6 +24,7 @@ import {
   updateAdminCategoria,
   updateAdminProducto,
 } from '../../services/api'
+import { stripEmojis } from '../../utils/textSanitize'
 
 const PRESET_COLORS = [
   '#ef4444',
@@ -41,9 +42,16 @@ const BTN_PRIMARY =
 const BTN_DANGER =
   'h-10 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-lg transition-colors'
 const INPUT =
-  'w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500'
+  'w-full min-w-0 max-w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500'
 const CARD =
   'bg-white dark:bg-[#1a1d27] border border-[#e2e5ed] dark:border-[#2e3347] rounded-xl'
+
+function labelDestinoKds(d) {
+  const v = String(d || 'cocina').toLowerCase()
+  if (v === 'barra') return 'Barra'
+  if (v === 'ninguno') return 'Sin KDS'
+  return 'Cocina'
+}
 
 function useFeedback() {
   const [feedback, setFeedback] = useState(null)
@@ -205,8 +213,8 @@ export default function CartaPage() {
     setEditingCategoria(cat)
     if (cat) {
       setCatForm({
-        nombre: cat.nombre || '',
-        icono: cat.icono || '',
+        nombre: stripEmojis(cat.nombre || ''),
+        icono: stripEmojis(cat.icono || ''),
         color: cat.color || '#f59e0b',
         orden: cat.orden ?? 0,
       })
@@ -234,6 +242,7 @@ export default function CartaPage() {
           p.iva_porcentaje === 21 || p.iva_porcentaje === 21.0 ? '21' : '10'
         ),
         activo: p.activo !== false,
+        destino_kds: p.destino_kds || 'cocina',
       })
     } else {
       const firstCat = categoriasOrdenadas[0]
@@ -244,6 +253,7 @@ export default function CartaPage() {
         categoria_id: firstCat ? String(firstCat.id) : '',
         iva_porcentaje: '10',
         activo: true,
+        destino_kds: 'cocina',
       })
     }
     setModal('producto')
@@ -271,14 +281,19 @@ export default function CartaPage() {
   const submitCategoria = async () => {
     setModalMsg(null)
     try {
+      const nombreLimpio = stripEmojis(catForm.nombre).trim()
+      const iconoLimpio = stripEmojis(catForm.icono).trim() || null
       const body = {
-        nombre: catForm.nombre.trim(),
-        icono: catForm.icono.trim() || null,
+        nombre: nombreLimpio,
+        icono: iconoLimpio,
         color: catForm.color || null,
         orden: Number(catForm.orden) || 0,
       }
       if (!body.nombre) {
-        setModalMsg({ type: 'error', text: 'El nombre es obligatorio' })
+        setModalMsg({
+          type: 'error',
+          text: 'El nombre es obligatorio (sin emojis)',
+        })
         return
       }
       if (editingCategoria) {
@@ -336,6 +351,7 @@ export default function CartaPage() {
           tiene_receta: false,
           disponible_delivery: true,
           tiempo_preparacion: 0,
+          destino_kds: prodForm.destino_kds,
         })
         const newId = created.data?.id
         if (newId && !prodForm.activo) {
@@ -407,8 +423,8 @@ export default function CartaPage() {
   }
 
   return (
-    <div className="min-h-full text-[#111827] dark:text-[#e8eaf0]">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[#111827] dark:text-[#e8eaf0]">
+      <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
           Carta del restaurante
         </h1>
@@ -487,12 +503,12 @@ export default function CartaPage() {
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-[15px] font-semibold text-[#111827] dark:text-[#e8eaf0]">
-                        {cat.nombre}
+                        {stripEmojis(cat.nombre || '').trim() || '—'}
                       </p>
                       <p className="mt-1 text-sm text-[#6b7280] dark:text-[#8b90a7]">
                         Icono:{' '}
                         <span className="font-mono text-xs">
-                          {cat.icono || '—'}
+                          {stripEmojis(cat.icono || '').trim() || '—'}
                         </span>
                       </p>
                       <p className="text-sm text-[#6b7280] dark:text-[#8b90a7]">
@@ -525,9 +541,9 @@ export default function CartaPage() {
         </div>
       ) : (
         <div>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative flex-1 sm:max-w-xs">
+          <div className="mb-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1 sm:max-w-xs">
                 <Filter
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]"
                   size={18}
@@ -551,7 +567,7 @@ export default function CartaPage() {
                   strokeWidth={1.5}
                 />
               </div>
-              <div className="relative flex-1 sm:max-w-xs">
+              <div className="relative min-w-0 flex-1 sm:max-w-xs">
                 <Search
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]"
                   size={18}
@@ -669,6 +685,9 @@ export default function CartaPage() {
                         IVA
                       </th>
                       <th className="px-4 py-3 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
+                        KDS
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
                         Activo
                       </th>
                       <th className="px-4 py-3 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
@@ -690,6 +709,9 @@ export default function CartaPage() {
                           {Number(p.precio).toFixed(2)} €
                         </td>
                         <td className="px-4 py-3">{p.iva_porcentaje}%</td>
+                        <td className="px-4 py-3 text-[#6b7280] dark:text-[#8b90a7]">
+                          {labelDestinoKds(p.destino_kds)}
+                        </td>
                         <td className="px-4 py-3">
                           <button
                             type="button"
@@ -948,6 +970,26 @@ export default function CartaPage() {
                 <option value="10">10%</option>
                 <option value="21">21%</option>
               </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[#6b7280] dark:text-[#8b90a7]">
+                Pantalla KDS (cocina / barra)
+              </label>
+              <select
+                value={prodForm.destino_kds}
+                onChange={(e) =>
+                  setProdForm((s) => ({ ...s, destino_kds: e.target.value }))
+                }
+                className={INPUT}
+              >
+                <option value="cocina">Cocina</option>
+                <option value="barra">Barra</option>
+                <option value="ninguno">No mostrar en KDS</option>
+              </select>
+              <p className="mt-1 text-xs text-[#6b7280] dark:text-[#8b90a7]">
+                Define si el pedido aparece en el monitor de cocina, de barra o
+                en ninguno (p. ej. latas servidas solo en sala).
+              </p>
             </div>
             <label className="flex cursor-pointer items-center gap-3 text-[15px]">
               <input
