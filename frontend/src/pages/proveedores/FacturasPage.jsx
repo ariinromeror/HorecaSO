@@ -28,7 +28,7 @@ import {
 } from '../../services/api'
 
 const INPUT =
-  'w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
+  'w-full min-w-0 max-w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 py-2 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
 const BTN_PRIMARY =
   'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 text-sm font-semibold text-black transition-colors hover:bg-amber-600 disabled:opacity-40'
 const ROLES_ESCRITURA = ['admin', 'director', 'almacen']
@@ -244,7 +244,7 @@ export default function FacturasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9] px-4 py-6 dark:bg-[#0f1117] md:px-6">
+    <div className="min-h-screen min-w-0 overflow-x-hidden bg-[#f4f6f9] px-4 py-6 dark:bg-[#0f1117] md:px-6">
       <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <FileText className="text-amber-500" size={28} strokeWidth={1.5} />
@@ -328,7 +328,7 @@ export default function FacturasPage() {
       </div>
 
       {tabActiva === 'todas' ? (
-        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-4 grid min-w-0 max-w-full gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="flex flex-col text-xs font-medium text-[#6b7280] dark:text-[#8b90a7]">
             Proveedor
             <select

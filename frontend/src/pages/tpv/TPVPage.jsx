@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import EmptyState from '../../components/shared/EmptyState'
 import Loader from '../../components/shared/Loader'
+import { stripEmojis } from '../../utils/textSanitize'
+import TpvMesaOcupadaAlert from './components/TpvMesaOcupadaAlert'
 import {
   addLinea as apiAddLinea,
   addTicketPago,
@@ -24,7 +26,11 @@ import {
   getTicket,
   getTicketPagos,
   getTicketsAbiertos,
+  patchMesaEstado,
 } from '../../services/api'
+
+const MESA_OCUPADA_SIN_TICKET_MSG =
+  'Mesa ocupada sin ticket abierto visible'
 
 function formatEuro(n) {
   return new Intl.NumberFormat('es-ES', {
@@ -89,6 +95,8 @@ export default function TPVPage() {
   const [divisionError, setDivisionError] = useState('')
   const [numPartesInput, setNumPartesInput] = useState('2')
   const [borradorPartesPagos, setBorradorPartesPagos] = useState(null)
+  const [tpvReloadKey, setTpvReloadKey] = useState(0)
+  const [liberarMesaLoading, setLiberarMesaLoading] = useState(false)
 
   const productoNombrePorId = useMemo(() => {
     const map = new Map()
@@ -152,7 +160,7 @@ export default function TPVPage() {
                 const full = await getTicket(t.id)
                 if (!cancelled) setTicket(full.data)
               } else {
-                setError('Mesa ocupada sin ticket abierto visible')
+                setError(MESA_OCUPADA_SIN_TICKET_MSG)
               }
             } else if (!cancelled) {
               setError(
@@ -174,6 +182,31 @@ export default function TPVPage() {
 
     return () => {
       cancelled = true
+    }
+  }, [mesaId, tpvReloadKey])
+
+  const handleLiberarMesa = useCallback(async () => {
+    if (!mesaId) return
+    if (
+      !window.confirm(
+        '¿Marcar esta mesa como libre? Solo si no hubo pedido o fue un error.'
+      )
+    ) {
+      return
+    }
+    setLiberarMesaLoading(true)
+    try {
+      await patchMesaEstado(mesaId, { estado: 'libre' })
+      setError('')
+      setTpvReloadKey((k) => k + 1)
+    } catch (e) {
+      setError(
+        e.response?.data?.detail ||
+          e.message ||
+          'No se pudo liberar la mesa'
+      )
+    } finally {
+      setLiberarMesaLoading(false)
     }
   }, [mesaId])
 
@@ -463,12 +496,21 @@ export default function TPVPage() {
       </header>
 
       {error ? (
-        <div
-          className="border-b border-red-500/20 bg-red-500/10 px-4 py-2 text-center text-sm text-red-600 dark:text-red-400"
-          role="alert"
-        >
-          {error}
-        </div>
+        error === MESA_OCUPADA_SIN_TICKET_MSG ? (
+          <TpvMesaOcupadaAlert
+            message={error}
+            liberarMesaLoading={liberarMesaLoading}
+            onLiberarMesa={handleLiberarMesa}
+            onVolverSala={() => navigate('/mesas')}
+          />
+        ) : (
+          <div
+            className="border-b border-red-500/20 bg-red-500/10 px-4 py-2 text-center text-sm text-red-600 dark:text-red-400"
+            role="alert"
+          >
+            {error}
+          </div>
+        )
       ) : null}
 
       <div className="flex h-12 shrink-0 border-b border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27] md:hidden">
@@ -508,6 +550,8 @@ export default function TPVPage() {
           <div className="sticky top-0 z-10 flex shrink-0 gap-2 overflow-x-auto border-b border-[#e2e5ed] bg-white p-3 dark:border-[#2e3347] dark:bg-[#1a1d27]">
             {categorias.map((cat, i) => {
               const active = i === categActiva
+              const tabLabel =
+                stripEmojis(cat.nombre || '').trim() || 'Sin nombre'
               return (
                 <button
                   key={cat.id || i}
@@ -520,7 +564,7 @@ export default function TPVPage() {
                       : 'text-[#6b7280] hover:bg-[#f0f2f5] dark:text-[#8b90a7] dark:hover:bg-[#222536]',
                   ].join(' ')}
                 >
-                  {cat.nombre}
+                  {tabLabel}
                 </button>
               )
             })}
@@ -650,7 +694,7 @@ export default function TPVPage() {
                   <select
                     value={metodoPago}
                     onChange={(e) => setMetodoPago(e.target.value)}
-                    className="h-12 w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]"
+                    className="h-12 w-full min-w-0 max-w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]"
                   >
                     <option value="efectivo">Efectivo</option>
                     <option value="tarjeta_credito">Tarjeta crédito</option>

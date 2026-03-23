@@ -28,7 +28,7 @@ import {
 } from '../../services/api'
 
 const INPUT =
-  'w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500'
+  'w-full min-w-0 max-w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500'
 const CARD_BASE =
   'bg-white dark:bg-[#1a1d27] border border-[#e2e5ed] dark:border-[#2e3347] rounded-xl'
 const BTN_PRIMARY =
@@ -514,7 +514,7 @@ export default function InventarioPage() {
 
   return (
     <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-4">
+      <div className="mx-auto max-w-7xl min-w-0 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <Package {...ICON_PROPS} className="h-8 w-8 text-amber-500" />
           <h1 className="text-2xl font-bold text-[#111827] dark:text-[#f5f5f5]">
@@ -635,7 +635,7 @@ export default function InventarioPage() {
               <select
                 value={categoriaFiltro}
                 onChange={(e) => setCategoriaFiltro(e.target.value)}
-                className={`${INPUT} md:max-w-[200px]`}
+                className={`${INPUT} w-full shrink-0 md:max-w-[200px]`}
               >
                 {CATEGORIAS_ALMACEN.map((c) => (
                   <option key={c.value || 'all'} value={c.value}>
@@ -906,7 +906,7 @@ export default function InventarioPage() {
         ) : (
           <section className="space-y-4">
             <div
-              className={`grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 ${CARD_BASE}`}
+              className={`grid min-w-0 max-w-full gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 ${CARD_BASE}`}
             >
               <select
                 value={filtroMovArticulo}

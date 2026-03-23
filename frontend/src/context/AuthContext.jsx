@@ -6,6 +6,23 @@ import {
   useState,
 } from 'react'
 import { getPerfil, login as apiLogin } from '../services/api'
+import api from '../services/api'
+
+const ROLES_FICHAJE_AUTO = [
+  'camarero',
+  'jefe_sala',
+  'cocina',
+  'barra',
+  'almacen',
+]
+
+function readFicharAlLogin() {
+  try {
+    return localStorage.getItem('horecaso_fichar_al_login') !== '0'
+  } catch {
+    return true
+  }
+}
 
 const AuthContext = createContext(null)
 
@@ -44,6 +61,29 @@ export function AuthProvider({ children }) {
     localStorage.setItem('horecaso_user', JSON.stringify(userData))
     setUser(userData)
     setIsAuthenticated(true)
+
+    if (
+      readFicharAlLogin() &&
+      userData?.empleado_id &&
+      ROLES_FICHAJE_AUTO.includes(userData.rol)
+    ) {
+      try {
+        await api.post('/turnos/fichaje-entrada', {
+          empleado_id: userData.empleado_id,
+        })
+      } catch (e) {
+        const msg = e.response?.data?.detail
+        if (
+          e.response?.status === 400 &&
+          typeof msg === 'string' &&
+          msg.includes('fichaje de entrada activo')
+        ) {
+          /* ya fichado hoy */
+        } else {
+          console.warn('Fichaje automático al login:', msg || e.message)
+        }
+      }
+    }
   }, [])
 
   const logout = useCallback(() => {

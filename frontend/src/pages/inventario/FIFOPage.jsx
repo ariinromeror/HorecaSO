@@ -10,7 +10,7 @@ import api from '../../services/api'
 const ROLES_ACCESO = ['admin', 'director', 'almacen']
 
 const INPUT =
-  'w-full rounded-lg border border-[#e2e5ed] bg-[#f4f6f9] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#0f1117] dark:text-[#e8eaf0]'
+  'w-full min-w-0 max-w-full rounded-lg border border-[#e2e5ed] bg-[#f4f6f9] px-3 py-2.5 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#0f1117] dark:text-[#e8eaf0]'
 const SELECT = `${INPUT} appearance-none`
 const SURFACE =
   'rounded-xl border border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27]'
@@ -303,7 +303,7 @@ export default function FIFOPage() {
 
   return (
     <div
-      className={`${PAGE_BG} px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
+      className={`${PAGE_BG} min-w-0 overflow-x-hidden px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
     >
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -357,8 +357,8 @@ export default function FIFOPage() {
       {/* ——— TAB LOTES ——— */}
       {mainTab === 'lotes' ? (
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
-            <div className="grid w-full gap-3 sm:grid-cols-2 lg:max-w-2xl lg:flex-1">
+          <div className="flex min-w-0 max-w-full flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
+            <div className="grid w-full min-w-0 max-w-full gap-3 sm:grid-cols-2 lg:max-w-2xl lg:flex-1">
               <div>
                 <label
                   htmlFor="fifo-articulo"

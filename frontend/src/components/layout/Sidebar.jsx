@@ -23,6 +23,7 @@ import {
   Receipt,
   ShieldCheck,
   Layers,
+  Download,
 } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -53,6 +54,12 @@ const NAV_ITEMS = [
     label: 'Analytics',
     Icon: BarChart3,
     roles: ['admin', 'director'],
+  },
+  {
+    path: '/reportes',
+    label: 'Reportes',
+    Icon: Download,
+    roles: ['admin', 'director', 'jefe_sala', 'almacen'],
   },
   {
     path: '/admin/carta',
@@ -104,7 +111,7 @@ const NAV_ITEMS = [
   },
   {
     path: '/admin/recetas',
-    label: 'Recetas',
+    label: 'Recetas y Costes',
     Icon: ChefHat,
     roles: ['admin', 'director', 'cocina'],
   },
@@ -153,9 +160,16 @@ const NAV_ITEMS = [
   },
   {
     path: '/kds',
-    label: 'Cocina KDS',
+    label: 'KDS',
     Icon: Bell,
-    roles: ['admin', 'cocina', 'jefe_sala'],
+    roles: [
+      'admin',
+      'director',
+      'jefe_sala',
+      'camarero',
+      'cocina',
+      'barra',
+    ],
   },
 ]
 

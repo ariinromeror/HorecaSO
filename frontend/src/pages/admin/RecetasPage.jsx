@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
-  BookOpen,
   ChefHat,
   Edit,
   Plus,
-  RefreshCw,
   Save,
-  Trash2,
   TrendingDown,
   TrendingUp,
   X,
@@ -22,36 +19,17 @@ import {
   getRecetasSemaforo,
   updateReceta,
 } from '../../services/api'
+import RecetaDetalleIngredientesSection from './recetas/RecetaDetalleIngredientesSection'
+import { UNIDADES_OPTS, formatEuro } from './recetas/recetasUtils'
 
 const INPUT =
-  'w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500'
+  'w-full min-w-0 max-w-full bg-[#f0f2f5] dark:bg-[#222536] border border-[#e2e5ed] dark:border-[#2e3347] rounded-lg px-4 py-3 text-[15px] text-[#111827] dark:text-[#e8eaf0] focus:outline-none focus:border-amber-500'
 const BTN_PRIMARY =
   'h-12 px-6 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
 const BTN_DANGER =
   'h-9 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-lg text-sm transition-colors'
 const CARD_BASE =
   'bg-white dark:bg-[#1a1d27] border border-[#e2e5ed] dark:border-[#2e3347] rounded-xl p-5 cursor-pointer transition-all duration-200'
-const UNIDADES_OPTS = ['kg', 'g', 'l', 'ml', 'ud']
-
-function formatEuro(n) {
-  return new Intl.NumberFormat('es-ES', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(Number(n) || 0)
-}
-
-function cantidadBruta(neta, mermaPct) {
-  const n = Number(neta) || 0
-  const m = Number(mermaPct) || 0
-  const den = 1 - m / 100
-  if (den <= 0) return n
-  return n / den
-}
-
-function costeLineaIng(bruta, costeUnit) {
-  return (Number(bruta) || 0) * (Number(costeUnit) || 0)
-}
-
 function semaforoMeta(s) {
   switch (s) {
     case 'verde':
@@ -138,7 +116,7 @@ export default function RecetasPage() {
     } catch (e) {
       setFeedback({
         type: 'error',
-        msg: e.response?.data?.detail || 'Error al cargar escandallos',
+        msg: e.response?.data?.detail || 'Error al cargar recetas y costes',
       })
     } finally {
       setLoadingSemaforo(false)
@@ -185,6 +163,14 @@ export default function RecetasPage() {
     () => productos.filter((p) => p.tiene_receta === false && p.activo !== false),
     [productos]
   )
+
+  const articulosOrdenados = useMemo(() => {
+    return [...articulos].sort((a, b) =>
+      String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', {
+        sensitivity: 'base',
+      })
+    )
+  }, [articulos])
 
   const openDetalle = async (recetaId) => {
     setModalDetalle(true)
@@ -355,7 +341,7 @@ export default function RecetasPage() {
   }
 
   return (
-    <div className="min-h-full text-[#111827] dark:text-[#e8eaf0]">
+    <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[#111827] dark:text-[#e8eaf0]">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
           <ChefHat
@@ -364,7 +350,7 @@ export default function RecetasPage() {
             className="text-amber-500"
             aria-hidden
           />
-          <h1 className="text-2xl font-bold">Escandallos</h1>
+          <h1 className="text-2xl font-bold">Recetas y costes</h1>
         </div>
         <button
           type="button"
@@ -395,6 +381,53 @@ export default function RecetasPage() {
           {feedback.msg}
         </div>
       ) : null}
+
+      <details className="mb-6 rounded-xl border border-[#e2e5ed] bg-white p-4 dark:border-[#2e3347] dark:bg-[#1a1d27]">
+        <summary className="cursor-pointer text-[15px] font-semibold text-[#111827] dark:text-[#e8eaf0]">
+          Ingredientes del almacén — precios de compra (referencia)
+        </summary>
+        <p className="mt-2 text-sm text-[#6b7280] dark:text-[#8b90a7]">
+          Lista de artículos con coste unitario en inventario. Úsala para
+          contrastar con el desglose de cada receta al abrir un plato.
+        </p>
+        <div className="mt-3 max-h-56 overflow-y-auto overflow-x-auto rounded-lg border border-[#e2e5ed] dark:border-[#2e3347]">
+          <table className="w-full min-w-[480px] text-left text-[14px]">
+            <thead className="sticky top-0 bg-[#f0f2f5] dark:bg-[#222536]">
+              <tr>
+                <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
+                  Artículo
+                </th>
+                <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
+                  SKU
+                </th>
+                <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
+                  Unidad
+                </th>
+                <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
+                  Precio / ud.
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {articulosOrdenados.map((a) => (
+                <tr
+                  key={a.id}
+                  className="border-t border-[#e2e5ed] dark:border-[#2e3347]"
+                >
+                  <td className="px-3 py-2">{a.nombre || '—'}</td>
+                  <td className="px-3 py-2 text-[#6b7280] dark:text-[#8b90a7]">
+                    {a.sku || '—'}
+                  </td>
+                  <td className="px-3 py-2">{a.unidad_medida || '—'}</td>
+                  <td className="px-3 py-2 font-medium">
+                    {formatEuro(a.coste_unitario)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
 
       <div className="mb-6 flex flex-wrap gap-3">
         <span
@@ -570,6 +603,31 @@ export default function RecetasPage() {
                         : '—'}
                     </strong>
                   </span>
+                  <span>
+                    Rendimiento:{' '}
+                    <strong className="text-[#111827] dark:text-[#e8eaf0]">
+                      {Number(recetaDetalle?.rendimiento) > 0
+                        ? Number(recetaDetalle.rendimiento).toFixed(2)
+                        : '—'}{' '}
+                      raciones / preparación
+                    </strong>
+                  </span>
+                  <span
+                    title="Coste total de ingredientes dividido entre el rendimiento de la receta."
+                  >
+                    Coste estimado por ración:{' '}
+                    <strong className="text-amber-600 dark:text-amber-400">
+                      {(() => {
+                        const rd = Number(recetaDetalle?.rendimiento) || 0
+                        const ct = Number(
+                          recetaDetalle?.coste_total ??
+                            recetaDetalle?.coste
+                        )
+                        if (rd <= 0 || Number.isNaN(ct)) return '—'
+                        return formatEuro(ct / rd)
+                      })()}
+                    </strong>
+                  </span>
                 </div>
               </div>
               <button
@@ -593,205 +651,17 @@ export default function RecetasPage() {
               <p className="text-[#6b7280] dark:text-[#8b90a7]">Cargando…</p>
             ) : recetaDetalle ? (
               <>
-                <div className="mb-2 flex items-center gap-2">
-                  <BookOpen size={20} strokeWidth={1.5} className="text-amber-500" />
-                  <h3 className="text-lg font-semibold">Ingredientes</h3>
-                  <button
-                    type="button"
-                    onClick={() => reloadCoste(recetaDetalle.receta_id)}
-                    className="ml-auto rounded-lg p-2 text-[#6b7280] hover:bg-[#f0f2f5] dark:text-[#8b90a7] dark:hover:bg-[#222536]"
-                    title="Actualizar"
-                  >
-                    <RefreshCw size={18} strokeWidth={1.5} />
-                  </button>
-                </div>
-                <div className="mb-6 overflow-x-auto rounded-xl border border-[#e2e5ed] dark:border-[#2e3347]">
-                  <table className="w-full min-w-[640px] text-left text-[15px]">
-                    <thead>
-                      <tr className="border-b border-[#e2e5ed] bg-[#f0f2f5] dark:border-[#2e3347] dark:bg-[#222536]">
-                        <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
-                          Artículo
-                        </th>
-                        <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
-                          Cant. neta
-                        </th>
-                        <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
-                          % Merma
-                        </th>
-                        <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
-                          Cant. bruta
-                        </th>
-                        <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
-                          Unidad
-                        </th>
-                        <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
-                          Coste
-                        </th>
-                        <th className="px-3 py-2" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(recetaDetalle.ingredientes || []).map((ing) => {
-                        const bruta =
-                          ing.cantidad_bruta ??
-                          cantidadBruta(ing.cantidad_neta, ing.porcentaje_merma)
-                        const cLine = costeLineaIng(bruta, ing.coste_unitario)
-                        return (
-                          <tr
-                            key={ing.id}
-                            className="border-b border-[#e2e5ed] dark:border-[#2e3347]"
-                          >
-                            <td className="px-3 py-2">
-                              {ing.articulo_nombre || ing.articulo_id}
-                            </td>
-                            <td className="px-3 py-2">{ing.cantidad_neta}</td>
-                            <td className="px-3 py-2">{ing.porcentaje_merma}</td>
-                            <td className="px-3 py-2">
-                              {Number(bruta).toFixed(4)}
-                            </td>
-                            <td className="px-3 py-2">{ing.unidad}</td>
-                            <td className="px-3 py-2 font-medium">
-                              {formatEuro(cLine)}
-                            </td>
-                            <td className="px-3 py-2">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteIng(ing.id)}
-                                className={`inline-flex items-center gap-1 ${BTN_DANGER}`}
-                              >
-                                <Trash2 size={16} strokeWidth={1.5} />
-                                Eliminar
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="bg-[#f0f2f5] font-bold dark:bg-[#222536]">
-                        <td
-                          colSpan={5}
-                          className="px-3 py-3 text-[#111827] dark:text-[#e8eaf0]"
-                        >
-                          TOTAL
-                        </td>
-                        <td className="px-3 py-3 text-amber-600 dark:text-amber-500">
-                          {formatEuro(
-                            (recetaDetalle.ingredientes || []).reduce(
-                              (acc, ing) => {
-                                const bruta =
-                                  ing.cantidad_bruta ??
-                                  cantidadBruta(
-                                    ing.cantidad_neta,
-                                    ing.porcentaje_merma
-                                  )
-                                return (
-                                  acc + costeLineaIng(bruta, ing.coste_unitario)
-                                )
-                              },
-                              0
-                            )
-                          )}
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-
-                <div className="mb-6 rounded-xl border border-[#e2e5ed] p-4 dark:border-[#2e3347]">
-                  <h4 className="mb-3 text-[15px] font-semibold">
-                    Añadir ingrediente
-                  </h4>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="sm:col-span-2">
-                      <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
-                        Artículo
-                      </label>
-                      <select
-                        value={formIngrediente.articulo_id}
-                        onChange={(e) => onSelectArticulo(e.target.value)}
-                        className={INPUT}
-                      >
-                        <option value="">Seleccionar…</option>
-                        {articulos.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.nombre} — {formatEuro(a.coste_unitario)}/
-                            {a.unidad_medida || 'ud'}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
-                        Cantidad neta
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formIngrediente.cantidad_neta}
-                        onChange={(e) =>
-                          setFormIngrediente((f) => ({
-                            ...f,
-                            cantidad_neta: e.target.value,
-                          }))
-                        }
-                        className={INPUT}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
-                        % Merma
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="99"
-                        value={formIngrediente.porcentaje_merma}
-                        onChange={(e) =>
-                          setFormIngrediente((f) => ({
-                            ...f,
-                            porcentaje_merma: e.target.value,
-                          }))
-                        }
-                        className={INPUT}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
-                        Unidad
-                      </label>
-                      <select
-                        value={formIngrediente.unidad}
-                        onChange={(e) =>
-                          setFormIngrediente((f) => ({
-                            ...f,
-                            unidad: e.target.value,
-                          }))
-                        }
-                        className={INPUT}
-                      >
-                        {UNIDADES_OPTS.map((u) => (
-                          <option key={u} value={u}>
-                            {u}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-end">
-                      <button
-                        type="button"
-                        disabled={loadingAddIngrediente}
-                        onClick={handleAddIngrediente}
-                        className={`w-full ${BTN_PRIMARY}`}
-                      >
-                        Añadir
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <RecetaDetalleIngredientesSection
+                  recetaDetalle={recetaDetalle}
+                  formIngrediente={formIngrediente}
+                  setFormIngrediente={setFormIngrediente}
+                  articulos={articulos}
+                  onSelectArticulo={onSelectArticulo}
+                  onReloadCoste={reloadCoste}
+                  onAddIngrediente={handleAddIngrediente}
+                  onDeleteIngrediente={handleDeleteIng}
+                  loadingAddIngrediente={loadingAddIngrediente}
+                />
 
                 <div>
                   <h4 className="mb-2 flex items-center gap-2 text-lg font-semibold">

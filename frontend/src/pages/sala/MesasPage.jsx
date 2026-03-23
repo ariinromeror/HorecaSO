@@ -4,7 +4,7 @@ import { Users } from 'lucide-react'
 import { tokens } from '../../constants/uiTokens'
 import EmptyState from '../../components/shared/EmptyState'
 import Loader from '../../components/shared/Loader'
-import { getMesas } from '../../services/api'
+import { getMesas, patchMesaEstado } from '../../services/api'
 
 function mesaEstadoKey(estado) {
   const e = String(estado || '')
@@ -23,7 +23,7 @@ const chairPositions = [
   { right: '-6px', top: '50%', transform: 'translateY(-50%)' },
 ]
 
-function MesaCard({ mesa, onNavigate }) {
+function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando }) {
   const estado = mesaEstadoKey(mesa.estado)
   const t = tokens.shared.mesa[estado]
   const clickable = estado === 'libre' || estado === 'ocupada'
@@ -43,25 +43,26 @@ function MesaCard({ mesa, onNavigate }) {
   }
 
   return (
-    <div
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      className={[
-        'relative max-w-[148px] w-full transition-transform',
-        clickable
-          ? 'cursor-pointer hover:scale-105'
-          : 'cursor-not-allowed opacity-60',
-      ].join(' ')}
-    >
+    <div className="relative max-w-[148px] w-full min-w-0">
       <div
-        className="relative flex aspect-square w-full flex-col items-center justify-center rounded-xl border-2 p-3"
-        style={{
-          borderColor: t.border,
-          background: t.bg,
-        }}
+        role={clickable ? 'button' : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        className={[
+          'relative w-full transition-transform',
+          clickable
+            ? 'cursor-pointer hover:scale-105'
+            : 'cursor-not-allowed opacity-60',
+        ].join(' ')}
       >
+        <div
+          className="relative flex aspect-square w-full flex-col items-center justify-center rounded-xl border-2 p-3"
+          style={{
+            borderColor: t.border,
+            background: t.bg,
+          }}
+        >
         {chairPositions.map((pos, i) => (
           <span
             key={i}
@@ -98,7 +99,21 @@ function MesaCard({ mesa, onNavigate }) {
           <Users size={11} strokeWidth={1.5} aria-hidden />
           {mesa.capacidad ?? '—'} pax
         </span>
+        </div>
       </div>
+      {estado === 'ocupada' && onMarcarLibre ? (
+        <button
+          type="button"
+          disabled={!!liberando}
+          onClick={(e) => {
+            e.stopPropagation()
+            onMarcarLibre(mesa)
+          }}
+          className="mt-1.5 w-full rounded-lg border border-[#e2e5ed] bg-white py-1.5 text-[11px] font-medium text-[#374151] hover:bg-[#f9fafb] disabled:opacity-50 dark:border-[#2e3347] dark:bg-[#1a1d27] dark:text-[#e8eaf0] dark:hover:bg-[#222536]"
+        >
+          {liberando ? '…' : 'Marcar libre'}
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -108,6 +123,7 @@ export default function MesasPage() {
   const [mesas, setMesas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [liberandoMesaId, setLiberandoMesaId] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -154,6 +170,28 @@ export default function MesasPage() {
     navigate(`/tpv/${mesaId}`)
   }
 
+  const handleMarcarMesaLibre = async (mesa) => {
+    if (
+      !window.confirm(
+        '¿Marcar esta mesa como libre? Solo si no hubo pedido o fue un error.'
+      )
+    ) {
+      return
+    }
+    setLiberandoMesaId(mesa.id)
+    try {
+      await patchMesaEstado(mesa.id, { estado: 'libre' })
+      const res = await getMesas()
+      setMesas(Array.isArray(res.data) ? res.data : [])
+    } catch (e) {
+      window.alert(
+        e.response?.data?.detail || 'No se pudo actualizar el estado de la mesa'
+      )
+    } finally {
+      setLiberandoMesaId(null)
+    }
+  }
+
   if (loading) {
     return <Loader />
   }
@@ -186,7 +224,13 @@ export default function MesasPage() {
             {[...mesasPorZona[zona]]
               .sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0))
               .map((mesa) => (
-                <MesaCard key={mesa.id} mesa={mesa} onNavigate={goTpv} />
+                <MesaCard
+                  key={mesa.id}
+                  mesa={mesa}
+                  onNavigate={goTpv}
+                  onMarcarLibre={handleMarcarMesaLibre}
+                  liberando={liberandoMesaId === mesa.id}
+                />
               ))}
           </div>
         </section>
