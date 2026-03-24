@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, model_validator
 from auth.dependencies import require_roles
 from database import get_db
 
-from routers.proveedores_shared import (
+from routers.proveedores.proveedores_shared import (
     ROLES_ADMIN_ALMACEN,
     ROLES_LECTURA,
     _factura_row_to_dict,
@@ -60,7 +60,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from auth.dependencies import require_roles
 from database import get_db
 
-from routers.proveedores_shared import (
+from routers.proveedores.proveedores_shared import (
     ROLES_ADMIN_ALMACEN,
     ROLES_LECTURA,
     CreateFacturaProveedorRequest,
