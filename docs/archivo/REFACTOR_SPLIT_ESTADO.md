@@ -2,7 +2,7 @@
 
 **Última actualización:** 24/03/2026 — **REFACTOR FINALIZADO** (Fase 2 frontend cerrada al 100%)
 
-Objetivo: trocear routers y páginas grandes **sin cambiar comportamiento** (mover bloques, imports relativos, mismos prefijos HTTP). Inventario inicial: [INVENTARIO_ARCHIVOS_GRANDES.md](INVENTARIO_ARCHIVOS_GRANDES.md).
+Objetivo: trocear routers y páginas grandes **sin cambiar comportamiento** (mover bloques, imports relativos, mismos prefijos HTTP). Inventario inicial: [INVENTARIO_ARCHIVOS_GRANDES.md](./INVENTARIO_ARCHIVOS_GRANDES.md).
 
 ---
 
