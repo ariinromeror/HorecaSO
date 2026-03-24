@@ -34,6 +34,31 @@ El [STEP_HORECASO.md](STEP_HORECASO.md) mantiene un resumen histórico en *Probl
 
 ---
 
+## 2026-03 — Refactor routers + routing FastAPI (24/03/2026)
+
+| ID | Fecha | Módulo | Síntoma | Causa | Solución | Estado |
+|----|-------|--------|---------|-------|----------|--------|
+| BUG-005 | 24/03/2026 | Backend / FastAPI | **307 Temporary Redirect** en `GET /api/mesas`, reservas, turnos, etc. | Comportamiento por defecto: redirige URL sin `/` final a la variante con barra | `redirect_slashes=False` en `create_app()` → `FastAPI(..., redirect_slashes=False, …)` | ✅ |
+| BUG-006 | 24/03/2026 | Auth / listados | **403** en listados con rol `admin` (mesas, reservas, turnos) | `list_mesas` usaba solo `get_current_user`; otros listados con `ROLES_*` demasiado restrictivos | `require_roles` con lista operativa: `admin`, `director`, `jefe_sala`, `camarero`, `cocina`, `barra`, `almacen` en `mesas_list.list_mesas`, `reservas_read.list_reservas`, `fichajes.list_turnos` | ✅ |
+| BUG-007 | 24/03/2026 | Backend / routers | **405 Method Not Allowed** en `GET /api/empleados`, `/api/clientes`, `/api/cuadrantes` (y similares) | Con `redirect_slashes=False`, la ruta solo registrada como `…/` no atiende `…` sin barra; en subrouters **sin** prefijo, `@get("")` rompe al incluir | Donde hay prefijo de recurso (`/empleados`, …): pareja `@get("")` + `@get("/")` en el mismo handler. **Mesas/reservas:** handler compartido (`list_mesas_handler`, `do_list_reservas`) + `GET ""` en el router padre con prefijo (`mesas.py`, `reservas.py`) | ✅ |
+| BUG-008 | 24/03/2026 | KDS / Supabase | **500** en `/api/kds/comandas`: `column p.destino_kds does not exist` | Migración SQL no aplicada en la base del proyecto | Ejecutar en Supabase [backend/sql/migration_kds_barra_destino.sql](backend/sql/migration_kds_barra_destino.sql) (productos + ticket_lineas; revisar CHECK rol `barra` si aplica). **No es fix de código** | ⏳ hasta ejecutar SQL |
+
+### Bitácora rápida BUG-005 … BUG-008
+
+| Archivo / zona | Detalle |
+|----------------|---------|
+| `backend/main.py` | `redirect_slashes=False` en la app FastAPI. |
+| `backend/routers/mesas_list.py` | `list_mesas_handler` + `GET /`; roles `ROLES_LISTADO_OPERATIVO`. |
+| `backend/routers/mesas.py` | `GET ""` → `list_mesas_handler` (misma auth que el listado). |
+| `backend/routers/reservas/reservas_read.py` | `do_list_reservas` + `GET /`; roles ampliados; `ROLES_GESTION` sigue en `get_reserva`. |
+| `backend/routers/reservas/reservas.py` | `GET ""` → `do_list_reservas` con mismos `Query`. |
+| `backend/routers/empleados/fichajes.py` | `ROLES_LISTADO_OPERATIVO` + doble ruta en `list_turnos`. |
+| `backend/routers/empleados/empleados.py`, `cuadrantes.py` | Doble ruta en listado / GET raíz del recurso. |
+| `backend/routers/clientes/clientes.py` | Doble ruta en `list_clientes`. |
+| `backend/routers/reservas/lista_espera.py` | Patrón `""` + `"/"` donde aplica (tras refactor previo). |
+
+---
+
 ## Bitácora detallada — plan «bugs críticos, KDS por rol, fichajes, naming y refactor»
 
 *Orden lógico de implementación; referencia para auditorías y onboarding.*
@@ -144,4 +169,4 @@ Estos ya estaban documentados en STEP *Problemas conocidos y soluciones aplicada
 
 ---
 
-*Última actualización: 18/03/2026 — bitácora plan roadmap ampliada.*
+*Última actualización: 24/03/2026 — añadidos BUG-005…008 (routing FastAPI post-split + migración KDS).*

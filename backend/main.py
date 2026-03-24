@@ -22,41 +22,45 @@ from slowapi.util import get_remote_address
 
 from config import settings
 from database import close_connection_pool, init_connection_pool, get_db
-from routers.admin_carta import router as admin_carta_router
-from routers.admin_carta import router_alergenos as alergenos_router
-from routers.admin_productos import router as admin_productos_router
+from routers.admin_carta.admin_carta import router as admin_carta_router
+from routers.admin_carta.admin_carta import router_alergenos as alergenos_router
+from routers.admin_carta.admin_productos import router as admin_productos_router
 from routers.dashboard import router as dashboard_router
-from routers.analytics_mesas import router as analytics_mesas_router
-from routers.analytics_menu import router as analytics_menu_router
-from routers.analytics_personal import router as analytics_personal_router
-from routers.admin_recetas import router as admin_recetas_router
-from routers.admin_recetas_ingredientes import router as admin_recetas_ingredientes_router
+from routers.analytics.analytics_mesas import router as analytics_mesas_router
+from routers.analytics.analytics_menu import router as analytics_menu_router
+from routers.analytics.analytics_personal import router as analytics_personal_router
+from routers.recetas.admin_recetas import router as admin_recetas_router
+from routers.recetas.admin_recetas_ingredientes import (
+    router as admin_recetas_ingredientes_router,
+)
 from routers.auth import router as auth_router
 from routers.carta import router_publica as carta_publica_router
 from routers.carta import router_tpv as carta_tpv_router
 from routers.mesas import router as mesas_router
-from routers.tpv import router as tpv_router
-from routers.tpv_cobro import router as tpv_cobro_router
+from routers.tpv.tpv import router as tpv_router
+from routers.tpv.tpv_cobro import router as tpv_cobro_router
 from routers.verifactu import router as verifactu_router
-from routers.inventario import router as inventario_router
-from routers.inventario_movimientos import router as inventario_movimientos_router
-from routers.kds import router as kds_router
-from routers.kds_estados import router as kds_estados_router
-from routers.proveedores import router as proveedores_router
-from routers.facturas_proveedor import router as facturas_proveedor_router
-from routers.empleados import router as empleados_router
-from routers.fichajes import router as fichajes_router
-from routers.cuadrantes import router as cuadrantes_router
-from routers.ausencias import router as ausencias_router
+from routers.inventario.inventario import router as inventario_router
+from routers.inventario.inventario_movimientos import (
+    router as inventario_movimientos_router,
+)
+from routers.kds.kds import router as kds_router
+from routers.kds.kds_estados import router as kds_estados_router
+from routers.proveedores.proveedores import router as proveedores_router
+from routers.proveedores.facturas_proveedor import router as facturas_proveedor_router
+from routers.empleados.empleados import router as empleados_router
+from routers.empleados.fichajes import router as fichajes_router
+from routers.empleados.cuadrantes import router as cuadrantes_router
+from routers.empleados.ausencias import router as ausencias_router
 from routers.nominas import router as nominas_router
-from routers.reservas import router as reservas_router
-from routers.lista_espera import lista_espera_router
-from routers.clientes import router as clientes_router
-from routers.clientes_historial import router as clientes_historial_router
+from routers.reservas.reservas import router as reservas_router
+from routers.reservas.lista_espera import lista_espera_router
+from routers.clientes.clientes import router as clientes_router
+from routers.clientes.clientes_historial import router as clientes_historial_router
 from routers.appcc import router as appcc_router
-from routers.fifo import router as fifo_router
-from routers.fifo_consumo import router as fifo_consumo_router
-from routers.reportes import router as reportes_router
+from routers.fifo.fifo import router as fifo_router
+from routers.fifo.fifo_consumo import router as fifo_consumo_router
+from routers.reportes.reportes import router as reportes_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,6 +88,7 @@ def create_app() -> FastAPI:
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         lifespan=lifespan,
+        redirect_slashes=False,
     )
 
     app.state.limiter = limiter
