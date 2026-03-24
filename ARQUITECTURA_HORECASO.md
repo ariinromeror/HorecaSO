@@ -53,7 +53,22 @@ HorecaSO/
 │   ├── config.py            # pydantic-settings
 │   ├── database.py          # Pool asyncpg + get_db()
 │   ├── auth/                # JWT, Depends, require_roles
-│   ├── routers/             # Un módulo por dominio HTTP (ver tabla abajo)
+│   ├── routers/             # Dominios HTTP (orquestadores en raíz + paquetes por carpeta)
+│   │   ├── __init__.py
+│   │   ├── auth.py, carta.py, appcc.py, dashboard.py, nominas.py, verifactu.py
+│   │   ├── mesas.py, mesas_list.py, mesas_mutations.py, mesas_shared.py
+│   │   ├── tpv/             # tickets, líneas, cobro (tpv_cobro, pagos, shared, …)
+│   │   ├── proveedores/     # proveedores + facturas_proveedor (lista, mutaciones, escaneo IA)
+│   │   ├── reservas/        # reservas_read/write, lista_espera, shared
+│   │   ├── inventario/      # artículos, movimientos, schemas, shared
+│   │   ├── empleados/       # empleados, fichajes, cuadrantes, ausencias
+│   │   ├── clientes/        # clientes, historial, shared
+│   │   ├── kds/
+│   │   ├── fifo/
+│   │   ├── analytics/
+│   │   ├── reportes/
+│   │   ├── admin_carta/
+│   │   └── recetas/
 │   ├── services/            # Lógica reutilizable: Verifactu, PDFs, (IA en router proveedores)
 │   └── sql/                 # Migraciones manuales Supabase (ej. KDS barra)
 ├── frontend/
@@ -277,4 +292,4 @@ Detalle de columnas: **PRD** y esquema real en Supabase.
 
 ---
 
-*Última revisión del documento: 2026-03-18 — alineado con main.py y App.jsx del repositorio.*
+*Última revisión del documento: 2026-03-24 — árbol `backend/routers/` alineado con el repo.*

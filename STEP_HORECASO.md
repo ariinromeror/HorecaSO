@@ -1,6 +1,6 @@
-# HorecaSO — STEP v3.3
+# HorecaSO — STEP v3.4
 ## State of The Entire Project
-### Última actualización: 24/03/2026 — Refactor backend split + fixes routing (307/403/405) + estado Fase JSX
+### Última actualización: 24/03/2026 — Limpieza documentación (docs/archivo, índice, Fase B); routers en ARQUITECTURA
 
 ---
 
@@ -200,7 +200,7 @@ HorecaSO/
 │       └── index.css                    ✅
 ├── ARQUITECTURA_HORECASO.md        ✅ radiografía técnica (routers, flujos, mapa repo)
 ├── BUGS_Y_SOLUCIONES.md            ✅ bugs + fixes (incl. BUG-005…008 routing 24/03)
-├── REFACTOR_SPLIT_ESTADO.md        ✅ Fase 1 backend troceado (parcial) + Fase 2 JSX pendiente
+├── docs/archivo/REFACTOR_SPLIT_ESTADO.md   📁 histórico — refactor backend/frontend cerrado (marzo 2026)
 ├── (deuda técnica: ver sección final + plan roadmap Cursor)
 ├── .cursorrules                         ✅ v2.1
 └── .gitignore                           ✅
@@ -603,9 +603,9 @@ lotes_inventario (FIFO)
 
 ```
 1. Refactorización código — líneas / mantenibilidad:
-   ✅ Backend: split por dominio (TPV, proveedores, mesas, reservas, inventario, …) — ver REFACTOR_SPLIT_ESTADO.md
+   ✅ Backend: split por dominio (TPV, proveedores, mesas, reservas, inventario, …) — ver [docs/archivo/REFACTOR_SPLIT_ESTADO.md](docs/archivo/REFACTOR_SPLIT_ESTADO.md)
    ✅ Recetas JSX: parcial (RecetaDetalleIngredientesSection + recetasUtils)
-   ⏳ Frontend: TPVPage, CartaPage, AnalyticsPage, DashboardPage, Sidebar→navConfig, etc. (Fase 2 split)
+   ✅ Frontend Fase 2 split: mayoría de páginas troceadas — deuda residual en **QUÉ FALTA → Pendientes operativos**
 
 2. Auditoría cursorrules / endpoints:
    - require_roles en endpoints nuevos (revisar tras cada feature)
@@ -616,10 +616,7 @@ lotes_inventario (FIFO)
    Reservas, Mermas, Facturas, GestionSala, TPV select cobro, RRHH…)
    ⏳ Revisar overflow puntual en modales si aparece en dispositivo concreto
 
-4. Pendientes Proveedores:
-   - Flujo confirmación modal IA completo
-   - Soporte PDF en escaneo
-   - capture="environment" cámara móvil
+4. Pendientes Proveedores / PWA / refactor residual / auditoría código: ver **QUÉ FALTA SEGÚN STEP → Pendientes operativos** (fusionado desde `Penientes.md`, criterio [docs/archivo/AUDITORIA_RESULTADO.md](docs/archivo/AUDITORIA_RESULTADO.md) 24/03/2026).
 
 5. ~~División de cuenta TPV~~ ✅ HECHO
 ```
@@ -665,7 +662,7 @@ lotes_inventario (FIFO)
 | Campo | Detalle |
 |-------|---------|
 | **Enfoque** | Post-split: `redirect_slashes=False`; roles en listados mesas/reservas/turnos; rutas `GET` con y sin `/` final (405); handlers compartidos en `mesas.py` / `reservas.py`. |
-| **Docs** | [REFACTOR_SPLIT_ESTADO.md](REFACTOR_SPLIT_ESTADO.md) actualizado; [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) BUG-005…008. |
+| **Docs** | Refactor documentado en [docs/archivo/REFACTOR_SPLIT_ESTADO.md](docs/archivo/REFACTOR_SPLIT_ESTADO.md); [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) BUG-005…008. |
 | **KDS** | Error `destino_kds` en BD → ejecutar migración SQL en Supabase (BUG-008). |
 
 ### 18/03/2026 — Roadmap bugs + KDS + UX (sincronizado STEP v3.2)
@@ -722,7 +719,39 @@ Detalle ampliado y seguimiento día a día: **[BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLU
 | Refactor JSX | ⏳ TPV, Carta, Analytics, Dashboard (páginas muy largas) |
 | Fase 5 | ⏳ Delivery, Verifactu envío real AEAT, WS, etc. |
 
+### Pendientes operativos (módulo proveedores + auditoría código)
+
+*Extraídos de `Penientes.md` (archivado en [docs/archivo/Penientes.md](docs/archivo/Penientes.md)), conservando solo lo que la auditoría del 24/03/2026 marcó como ❌ pendiente o ⏳ parcial. PDF, `capture` y parte del modal IA ya están resumidos en la fila *Proveedores* de la tabla superior; aquí el detalle y lo que la tabla no cubre.*
+
+1. **Facturas desde modal IA — stock (⏳ parcial):** El flujo de confirmación y `POST /api/facturas-proveedor` está en UI; falta **actualizar inventario** (movimientos de stock al registrar líneas de factura) en backend.
+2. **PDF en escaneo IA (❌):** `accept` con `application/pdf` en el input; conversión PDF→imagen en backend antes de Groq.
+3. **Cámara directa en móvil (❌):** `capture="environment"` en el input de imagen del escaneo.
+4. **PWA (❌):** `manifest.json`, service worker e icono para pantalla de inicio (cuando se haga deploy).
+5. **Refactor / archivos grandes (⏳ parcial):** Muchas páginas del listado histórico ya están troceadas; según auditoría quedan sobre todo `frontend/src/pages/inventario/components/ArticulosTable.jsx` (~329 líneas) y en backend `empleados/fichajes.py` (>300), `appcc.py` (~340), `recetas/admin_recetas_ingredientes.py` (~307). Patrón: `pages/<módulo>/components/` y routers en submódulos.
+6. **Auditoría `.cursorrules` (⏳ parcial):** Revisión sistemática de `require_roles`, `Decimal`, clases `dark:` y mobile first en archivos nuevos o críticos (no hay barrido completo automatizado).
+
 ---
 
-*STEP v3.2 — HorecaSO — Arin Romero — 18/03/2026*
-*Estado: Fase 3 ✅ · Fase 4 ✅ parcial · Roadmap bugs/KDS/UX ✅ en código · Deploy al final*
+## FASE B — Superadmin, Gestión Usuarios, Tenant Prueba
+
+**Estado:** ❌ No iniciado
+
+| Ítem | Estado |
+|------|--------|
+| Rol superadmin en BD | ❌ |
+| Tabla platform_logs | ❌ |
+| Tabla tenant_audit_log | ❌ |
+| Tabla usuario_permisos | ❌ |
+| Router /api/superadmin | ❌ |
+| Router /api/admin/usuarios | ❌ |
+| Frontend pages/superadmin/ | ❌ |
+| Frontend pages/admin/usuarios/ | ❌ |
+| Tenant restauranteprueba (SQL seed) | ❌ |
+| Script generate_test_hashes.py | ❌ |
+
+**Referencia completa:** [PRD_SUPERADMIN_TENANTS_PRUEBAS.md](PRD_SUPERADMIN_TENANTS_PRUEBAS.md)
+
+---
+
+*STEP v3.4 — HorecaSO — Arin Romero — 24/03/2026*
+*Estado: Fase 3 ✅ · Fase 4 ✅ parcial · Roadmap bugs/KDS/UX ✅ en código · Fase B ❌ no iniciada · Deploy al final*
