@@ -1,6 +1,6 @@
-# HorecaSO — STEP v3.2
+# HorecaSO — STEP v3.3
 ## State of The Entire Project
-### Última actualización: 18/03/2026 — Sincronizado con código (roadmap bugs + KDS + UX)
+### Última actualización: 24/03/2026 — Refactor backend split + fixes routing (307/403/405) + estado Fase JSX
 
 ---
 
@@ -65,6 +65,7 @@
 - Iconos: lucide-react strokeWidth={1.5} — NUNCA emojis como iconos de UI
 - SQL dinámico: concatenar cláusulas SÍ permitido, valores SIEMPRE por $1,$2
 - require_roles([...]) obligatorio en TODOS los endpoints protegidos
+- FastAPI: `redirect_slashes=False` en `main.py` — evita 307 en llamadas `/api/recurso` vs `/api/recurso/`; rutas listado duplicadas `""` + `"/"` donde aplica tras el split de routers
 - try/except HTTPException/Exception con logger.error en TODOS los endpoints
 - Tablas en desktop (md+) → cards apiladas en móvil — SIEMPRE
 - Modales con overlay bg-black/60 — SIEMPRE
@@ -106,25 +107,25 @@ HorecaSO/
 │   │   ├── jwt_handler.py           ✅
 │   │   └── dependencies.py          ✅ require_roles factory
 │   ├── routers/
+│   │   ├── __init__.py              ✅ paquete (imports relativos)
 │   │   ├── auth.py                  ✅ testeado
-│   │   ├── mesas.py                 ✅ GET/POST/PUT/DELETE/PATCH estado
-│   │   ├── tpv.py                   ✅ cobro + división cuenta (ticket_pagos)
+│   │   ├── mesas.py                 ✅ orquestador /api/mesas (+ mesas_list, mesas_mutations, mesas_shared)
+│   │   ├── tpv/                     ✅ tpv.py + tpv_cobro + submódulos tickets/líneas/pagos
 │   │   ├── verifactu.py             ✅ testeado
-│   │   ├── carta.py                 ✅ testeado
-│   │   ├── admin_carta.py           ✅ require_roles, Decimal, try/except
-│   │   ├── admin_recetas.py         ✅ require_roles, Decimal, try/except
+│   │   ├── carta.py                 ✅ testeado (pública TPV + pública)
+│   │   ├── admin_carta/             ✅ admin_carta + admin_productos + shared
+│   │   ├── recetas/                 ✅ admin_recetas + ingredientes + shared
 │   │   ├── dashboard.py             ✅ testeado
-│   │   ├── inventario.py            ✅ SQL sin f-strings, Decimal, try/except
-│   │   ├── kds.py                   ✅ cocina/barra/vista completa, servido, tickets abiertos
-│   │   ├── proveedores.py           ✅ CRUD + facturas + IA escaneo
-│   │   ├── reservas.py              ✅ CRUD + estados + lista espera
-│   │   ├── clientes.py              ✅ CRUD + historial + puntos fidelidad
-│   │   ├── empleados.py             ✅ CRUD + fichajes + turnos + cuadrantes + ausencias
+│   │   ├── inventario/              ✅ inventario.py + inventario_movimientos + shared
+│   │   ├── kds/                     ✅ kds.py + kds_estados + shared
+│   │   ├── proveedores/             ✅ proveedores + facturas_proveedor + shared
+│   │   ├── reservas/                ✅ reservas.py + reservas_read/write + lista_espera + shared
+│   │   ├── clientes/                ✅ clientes + clientes_historial + shared
+│   │   ├── empleados/               ✅ empleados, fichajes, cuadrantes, ausencias + shared
 │   │   ├── nominas.py               ✅ cálculo automático SS + IRPF
-│   │   ├── analytics.py             ✅ rentabilidad-mesas, ingeniería menú, coste-personal
-│   │   ├── reportes.py              ✅ PDFs base + register reportes_diferenciales
-│   │   ├── reportes_diferenciales.py ✅ ventas, cuadrante, rentabilidad, comparativa, appcc
-│   │   ├── fifo.py                  ✅ lotes FIFO (API /api/fifo)
+│   │   ├── analytics/               ✅ analytics_mesas, menu, personal + shared
+│   │   ├── reportes/                ✅ reportes.py + reportes_dif_* + shared
+│   │   ├── fifo/                    ✅ fifo + fifo_consumo + shared
 │   │   └── appcc.py                 ✅ registros APPCC
 │   ├── services/
 │   │   ├── verifactu_engine.py      ✅ testeado
@@ -133,7 +134,7 @@ HorecaSO/
 │   │   ├── pdf_generator.py         ✅ + pdf_nomina, pdf_inventario, pdf_reportes, pdf_diferenciales*
 │   ├── config.py                    ✅
 │   ├── database.py                  ✅
-│   ├── main.py                      ✅ todos los routers registrados
+│   ├── main.py                      ✅ routers + `redirect_slashes=False` (evita 307 en APIs)
 │   ├── requirements.txt             ✅
 │   └── sql/
 │       └── migration_kds_barra_destino.sql  ✅ en repo — aplicar en Supabase (destino_kds, barra, líneas)
@@ -198,7 +199,8 @@ HorecaSO/
 │       ├── App.jsx                      ✅ todas las rutas registradas
 │       └── index.css                    ✅
 ├── ARQUITECTURA_HORECASO.md        ✅ radiografía técnica (routers, flujos, mapa repo)
-├── BUGS_Y_SOLUCIONES.md            ✅ bugs + fixes (registro dedicado)
+├── BUGS_Y_SOLUCIONES.md            ✅ bugs + fixes (incl. BUG-005…008 routing 24/03)
+├── REFACTOR_SPLIT_ESTADO.md        ✅ Fase 1 backend troceado (parcial) + Fase 2 JSX pendiente
 ├── (deuda técnica: ver sección final + plan roadmap Cursor)
 ├── .cursorrules                         ✅ v2.1
 └── .gitignore                           ✅
@@ -600,9 +602,10 @@ lotes_inventario (FIFO)
 ## DEUDA TÉCNICA — ANTES DEL DEPLOY
 
 ```
-1. Refactorización JSX — componentes > 200 líneas:
-   ✅ Recetas: parcial (RecetaDetalleIngredientesSection + recetasUtils)
-   ⏳ TPVPage, CartaPage, AnalyticsPage, DashboardPage, etc.
+1. Refactorización código — líneas / mantenibilidad:
+   ✅ Backend: split por dominio (TPV, proveedores, mesas, reservas, inventario, …) — ver REFACTOR_SPLIT_ESTADO.md
+   ✅ Recetas JSX: parcial (RecetaDetalleIngredientesSection + recetasUtils)
+   ⏳ Frontend: TPVPage, CartaPage, AnalyticsPage, DashboardPage, Sidebar→navConfig, etc. (Fase 2 split)
 
 2. Auditoría cursorrules / endpoints:
    - require_roles en endpoints nuevos (revisar tras cada feature)
@@ -656,6 +659,14 @@ lotes_inventario (FIFO)
 ---
 
 ## BITÁCORA DE TRABAJO (sesiones recientes)
+
+### 24/03/2026 — Refactor routers + routing FastAPI (STEP v3.3)
+
+| Campo | Detalle |
+|-------|---------|
+| **Enfoque** | Post-split: `redirect_slashes=False`; roles en listados mesas/reservas/turnos; rutas `GET` con y sin `/` final (405); handlers compartidos en `mesas.py` / `reservas.py`. |
+| **Docs** | [REFACTOR_SPLIT_ESTADO.md](REFACTOR_SPLIT_ESTADO.md) actualizado; [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) BUG-005…008. |
+| **KDS** | Error `destino_kds` en BD → ejecutar migración SQL en Supabase (BUG-008). |
 
 ### 18/03/2026 — Roadmap bugs + KDS + UX (sincronizado STEP v3.2)
 
