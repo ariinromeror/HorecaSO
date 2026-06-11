@@ -193,6 +193,19 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 11/06/2026 — **Fix safe area iOS (header tapado por la barra de estado en iPhone)**
+
+- **Síntoma:** en iPhone (PWA con `apple-mobile-web-app-status-bar-style=black-translucent` + `viewport-fit=cover`) la web se extiende bajo la barra de estado; el header móvil con el botón de menú quedaba debajo de la hora/batería y no se podía pulsar.
+- **`frontend/src/index.css`:** utilities `.pt-safe`, `.pb-safe` y `.h-header-safe` (header de 56px que crece con `env(safe-area-inset-top)` manteniendo el contenido centrado).
+- **Aplicado en:** `AppLayout.jsx` (header móvil → `h-header-safe`, `main` → `pb-safe`), `Sidebar.jsx` (drawer → `pt-safe`, botón X con `top` ajustado al inset), `TPVPage.jsx` (header → `h-header-safe`), `KDSPage.jsx` (header → `pt-safe`), `LoginPage.jsx` (toggle de tema con `top` ajustado).
+- **Resultado:** `npm run build` OK, sin lints. En desktop/Android sin notch los insets valen 0 → sin cambios visuales.
+
+### 11/06/2026 — **Tipografía Inter + panel Predicciones IA en Dashboard**
+
+- **Fuente:** Inter (Google Fonts, weights 400–800) en `index.html`; `--font-sans` en `@theme` (`index.css`) + antialiasing iOS y utilidad `.horeca-nums` (cifras tabulares); etiqueta zona en `MesaCard` con `font-medium capitalize tracking-wide`.
+- **IA:** `DashboardPage.jsx` con pestañas **Resumen** | **Predicciones IA** (icono `BrainCircuit`, sin emoji por .cursorrules). Nuevo `PrediccionesIAPanel.jsx`: tarjeta coste total 7 días, barras por día, top 5 artículos con riesgo, badge del modelo. Helper `getPrediccionMermas` en `api.js` → `GET /api/dashboard/prediccion-mermas`.
+- **Verificación:** `npm run build` OK.
+
 ### 11/06/2026 — **Pulido para reclutadores: logo, login demo, docs/, predicción ML**
 
 - **Logo:** `imagenlogo.png` (raíz) → `frontend/public/` como `favicon.png`, `apple-touch-icon.png`, `pwa-192/512.png`, `logo.png`; `index.html` y `vite.config.js` actualizados; `favicon.svg` eliminado; logo visible en LoginPage.

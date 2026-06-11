@@ -22,7 +22,7 @@ export default function AppLayout() {
         />
       ) : null}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden md:ml-64">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[#e2e5ed] bg-white px-4 dark:border-[#2e3347] dark:bg-[#1a1d27] md:hidden">
+        <header className="h-header-safe sticky top-0 z-30 flex items-center gap-3 border-b border-[#e2e5ed] bg-white px-4 dark:border-[#2e3347] dark:bg-[#1a1d27] md:hidden">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -37,7 +37,7 @@ export default function AppLayout() {
           </button>
           <span className="text-lg font-bold text-amber-500">HorecaSO</span>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto p-4 md:p-7">
+        <main className="pb-safe min-h-0 flex-1 overflow-y-auto p-4 md:p-7">
           <Outlet />
         </main>
       </div>
