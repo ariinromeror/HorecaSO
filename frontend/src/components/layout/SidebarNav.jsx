@@ -1,15 +1,21 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { isNavActive, NAV_ITEMS, navScrollStyle } from './constants/navConfig'
+import {
+  isNavActive,
+  NAV_ITEMS,
+  SUPERADMIN_NAV_ITEMS,
+  navScrollStyle,
+} from './constants/navConfig'
 
 export default function SidebarNav({ onClose }) {
   const { user } = useAuth()
   const location = useLocation()
   const rol = user?.rol
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => rol && item.roles.includes(rol)
-  )
+  const visibleItems =
+    rol === 'superadmin'
+      ? SUPERADMIN_NAV_ITEMS
+      : NAV_ITEMS.filter((item) => rol && item.roles.includes(rol))
 
   return (
     <nav

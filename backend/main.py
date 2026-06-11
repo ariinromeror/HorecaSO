@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -33,6 +34,7 @@ from routers.recetas.admin_recetas import router as admin_recetas_router
 from routers.recetas.admin_recetas_ingredientes import (
     router as admin_recetas_ingredientes_router,
 )
+from routers.costes.admin_gastos_operativos import router as admin_gastos_operativos_router
 from routers.auth import router as auth_router
 from routers.carta import router_publica as carta_publica_router
 from routers.carta import router_tpv as carta_tpv_router
@@ -61,6 +63,8 @@ from routers.appcc import router as appcc_router
 from routers.fifo.fifo import router as fifo_router
 from routers.fifo.fifo_consumo import router as fifo_consumo_router
 from routers.reportes.reportes import router as reportes_router
+from routers.admin_usuarios import router as admin_usuarios_router
+from routers.superadmin import router as superadmin_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,6 +74,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Cabeceras HTTP recomendadas en producción (§1.2 GUIA_PRODUCCION_COMPLETA)."""
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=()"
+        return response
 
 
 @asynccontextmanager
@@ -84,11 +101,14 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """App factory."""
+    is_prod = (settings.ENVIRONMENT or "").strip().lower() == "production"
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         lifespan=lifespan,
         redirect_slashes=False,
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
     )
 
     app.state.limiter = limiter
@@ -110,6 +130,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # Global exception handler — 500 sin stack trace (HTTPException se re-lanza)
     @app.exception_handler(Exception)
@@ -139,9 +160,11 @@ def create_app() -> FastAPI:
     app.include_router(carta_publica_router)
     app.include_router(admin_carta_router)
     app.include_router(admin_productos_router)
+    app.include_router(admin_usuarios_router)
     app.include_router(alergenos_router)
     app.include_router(admin_recetas_router)
     app.include_router(admin_recetas_ingredientes_router)
+    app.include_router(admin_gastos_operativos_router)
     app.include_router(inventario_router, prefix="/api")
     app.include_router(inventario_movimientos_router, prefix="/api")
     app.include_router(kds_router, prefix="/api")
@@ -165,6 +188,7 @@ def create_app() -> FastAPI:
     app.include_router(fifo_router, prefix="/api")
     app.include_router(fifo_consumo_router, prefix="/api")
     app.include_router(reportes_router, prefix="/api")
+    app.include_router(superadmin_router)
 
     @app.get("/api/health")
     async def health_check():

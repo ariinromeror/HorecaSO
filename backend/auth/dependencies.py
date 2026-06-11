@@ -46,6 +46,7 @@ def require_roles(allowed_roles: list[str]):
     """
     Factory: Depends(require_roles(['director', 'admin']))
     El JWT usa la clave 'role' (valor = rol de usuarios.rol).
+    tenant_id / negocio_id pueden ser None (p. ej. rol superadmin); no se validan aquí.
     """
 
     async def _check(current_user: dict = Depends(get_current_user)) -> dict:
@@ -63,3 +64,6 @@ def require_roles(allowed_roles: list[str]):
         return current_user
 
     return _check
+
+
+require_superadmin = require_roles(["superadmin"])

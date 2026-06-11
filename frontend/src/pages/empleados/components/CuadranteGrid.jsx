@@ -22,7 +22,7 @@ export default function CuadranteGrid({
       <div
         className={`hidden overflow-x-auto md:block ${CUADRANTE_SURFACE} p-2 lg:p-4`}
       >
-        <table className="w-full min-w-[900px] border-collapse text-left text-[14px]">
+        <table className="horeca-body-text w-full min-w-[900px] border-collapse text-left text-[14px]">
           <thead>
             <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
               <th className="sticky left-0 z-10 min-w-[140px] bg-white px-2 py-2 font-semibold dark:bg-[#1a1d27]">

@@ -209,6 +209,7 @@ export function useInventarioData() {
     filtroMovHasta,
     setFiltroMovHasta,
     feedback,
+    setFeedback,
     openNuevoArticulo,
     openEditarArticulo,
     submitArticulo,
@@ -220,5 +221,7 @@ export function useInventarioData() {
     aplicarFiltrosMovimientos,
     verTodosAlertas,
     alertasInline,
+    loadArticulos,
+    loadArticulosOpciones,
   }
 }

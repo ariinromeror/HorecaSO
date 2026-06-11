@@ -1,5 +1,6 @@
-import { ChefHat, Plus } from 'lucide-react'
-import RecetaDetalleModal from './components/RecetaDetalleModal'
+import { useEffect, useMemo } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { ChefHat, Layers, Plus } from 'lucide-react'
 import RecetaModal from './components/RecetaModal'
 import RecetasTable from './components/RecetasTable'
 import { formatEuro } from './recetasUtils'
@@ -8,6 +9,23 @@ import { useRecetas } from './hooks/useRecetas'
 
 export default function RecetasPage() {
   const r = useRecetas()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const detalleQ = searchParams.get('detalle')
+
+  useEffect(() => {
+    if (!detalleQ) return
+    navigate(
+      `/admin/recetas/elaboraciones?receta=${encodeURIComponent(detalleQ)}`,
+      { replace: true }
+    )
+  }, [detalleQ, navigate])
+
+  const platosSemaforo = useMemo(
+    () =>
+      (r.recetasSemaforo || []).filter((row) => row.es_elaboracion !== true),
+    [r.recetasSemaforo]
+  )
 
   return (
     <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[#111827] dark:text-[#e8eaf0]">
@@ -19,24 +37,37 @@ export default function RecetasPage() {
             className="text-amber-500"
             aria-hidden
           />
-          <h1 className="text-2xl font-bold">Recetas y costes</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Recetas de carta</h1>
+            <p className="mt-1 text-sm text-[#6b7280] dark:text-[#8b90a7]">
+              Solo aparecen platos marcados en carta con &quot;tiene receta&quot;
+              (cocina / coste). Bebidas embotelladas u otros sin ese marcador no
+              se listan aquí. Las elaboraciones tienen su propio panel.
+            </p>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            r.setModalError(null)
-            r.setFormCrear({
-              producto_id: r.productosSinReceta[0]?.id || '',
-              rendimiento: '1',
-              instrucciones: '',
-            })
-            r.setModalCrear(true)
-          }}
-          className={`flex h-12 items-center justify-center gap-2 self-end sm:self-auto ${BTN_PRIMARY}`}
-        >
-          <Plus size={20} strokeWidth={1.5} />
-          Nueva receta
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
+          <Link
+            to="/admin/costes"
+            className="flex h-12 items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] px-4 font-medium dark:border-[#2e3347]"
+          >
+            Gastos operativos
+          </Link>
+          <Link
+            to="/admin/recetas/elaboraciones"
+            className="flex h-12 items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] px-4 font-medium dark:border-[#2e3347]"
+          >
+            <Layers size={20} strokeWidth={1.5} />
+            Elaboraciones
+          </Link>
+          <Link
+            to="/admin/recetas/elaboraciones"
+            className={`flex h-12 items-center justify-center gap-2 ${BTN_PRIMARY}`}
+          >
+            <Plus size={20} strokeWidth={1.5} />
+            Nueva receta
+          </Link>
+        </div>
       </div>
 
       {r.feedback ? (
@@ -60,7 +91,7 @@ export default function RecetasPage() {
           contrastar con el desglose de cada receta al abrir un plato.
         </p>
         <div className="mt-3 max-h-56 overflow-y-auto overflow-x-auto rounded-lg border border-[#e2e5ed] dark:border-[#2e3347]">
-          <table className="w-full min-w-[480px] text-left text-[14px]">
+          <table className="horeca-body-text w-full min-w-[480px] text-left text-[14px]">
             <thead className="sticky top-0 bg-[#f0f2f5] dark:bg-[#222536]">
               <tr>
                 <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
@@ -89,7 +120,7 @@ export default function RecetasPage() {
                   </td>
                   <td className="px-3 py-2">{a.unidad_medida || '—'}</td>
                   <td className="px-3 py-2 font-medium">
-                    {formatEuro(a.coste_unitario)}
+                    {formatEuro(a.coste_unitario_efectivo ?? a.coste_unitario)}
                   </td>
                 </tr>
               ))}
@@ -100,30 +131,11 @@ export default function RecetasPage() {
 
       <RecetasTable
         loadingSemaforo={r.loadingSemaforo}
-        recetasSemaforo={r.recetasSemaforo}
+        recetasSemaforo={platosSemaforo}
         filtroColor={r.filtroColor}
         setFiltroColor={r.setFiltroColor}
         onCardClick={r.handleCardClick}
-      />
-
-      <RecetaDetalleModal
-        open={r.modalDetalle}
-        onClose={() => r.setModalDetalle(false)}
-        recetaDetalle={r.recetaDetalle}
-        modalError={r.modalError}
-        loadingDetalle={r.loadingDetalle}
-        formIngrediente={r.formIngrediente}
-        setFormIngrediente={r.setFormIngrediente}
-        articulos={r.articulos}
-        onSelectArticulo={r.onSelectArticulo}
-        reloadCoste={r.reloadCoste}
-        onAddIngrediente={r.handleAddIngrediente}
-        onDeleteIngrediente={r.handleDeleteIng}
-        loadingAddIngrediente={r.loadingAddIngrediente}
-        instruccionesDraft={r.instruccionesDraft}
-        setInstruccionesDraft={r.setInstruccionesDraft}
-        savingInstrucciones={r.savingInstrucciones}
-        onGuardarInstrucciones={r.handleGuardarInstrucciones}
+        onDeleteReceta={r.handleDeleteReceta}
       />
 
       <RecetaModal

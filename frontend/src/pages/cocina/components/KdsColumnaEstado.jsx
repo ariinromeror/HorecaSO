@@ -1,7 +1,9 @@
 import { ChefHat } from 'lucide-react'
+import { emptyKdsCopy } from '../kdsHelpers'
 import KdsTicketCard from './KdsTicketCard'
 
-export default function KdsColumnaEstado({ comandas, cambiarEstado }) {
+export default function KdsColumnaEstado({ comandas, cambiarEstado, rol }) {
+  const copy = emptyKdsCopy(rol)
   return (
     <>
       {comandas.length === 0 ? (
@@ -12,10 +14,10 @@ export default function KdsColumnaEstado({ comandas, cambiarEstado }) {
             aria-hidden
           />
           <p className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">
-            Sin comandas pendientes
+            {copy.title}
           </p>
           <p className="mt-2 text-base text-emerald-600/90 dark:text-emerald-400/90">
-            La cocina está al día
+            {copy.subtitle}
           </p>
         </div>
       ) : (

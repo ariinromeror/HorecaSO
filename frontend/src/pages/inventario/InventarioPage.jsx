@@ -1,10 +1,13 @@
 import {
   AlertTriangle,
+  ArrowLeftRight,
+  Calculator,
   ChevronDown,
   Package,
 } from 'lucide-react'
 import ArticuloModal from './components/ArticuloModal'
 import ArticulosTable from './components/ArticulosTable'
+import CalibracionMermaPanel from './components/CalibracionMermaPanel'
 import InventarioFisicoModal from './components/InventarioFisicoModal'
 import MovimientoModal from './components/MovimientoModal'
 import MovimientosTable from './components/MovimientosTable'
@@ -17,11 +20,51 @@ export default function InventarioPage() {
   return (
     <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
       <div className="mx-auto max-w-7xl min-w-0 space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Package {...ICON_PROPS} className="h-8 w-8 text-amber-500" />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#f5f5f5]">
-            Inventario
-          </h1>
+        <div className="mb-2 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Package {...ICON_PROPS} className="h-8 w-8 shrink-0 text-amber-500" />
+            <h1 className="text-2xl font-bold text-[#111827] dark:text-[#f5f5f5]">
+              Inventario
+            </h1>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => inv.setTab('articulos')}
+              className={`flex h-12 items-center gap-2 rounded-lg px-4 text-[15px] font-medium transition-colors ${
+                inv.tab === 'articulos'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-500'
+                  : 'bg-[#f0f2f5] text-[#6b7280] dark:bg-[#222536] dark:text-[#8b90a7]'
+              }`}
+            >
+              <Package size={20} strokeWidth={1.5} />
+              Artículos
+            </button>
+            <button
+              type="button"
+              onClick={() => inv.setTab('movimientos')}
+              className={`flex h-12 items-center gap-2 rounded-lg px-4 text-[15px] font-medium transition-colors ${
+                inv.tab === 'movimientos'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-500'
+                  : 'bg-[#f0f2f5] text-[#6b7280] dark:bg-[#222536] dark:text-[#8b90a7]'
+              }`}
+            >
+              <ArrowLeftRight size={20} strokeWidth={1.5} />
+              Movimientos
+            </button>
+            <button
+              type="button"
+              onClick={() => inv.setTab('calibracion')}
+              className={`flex h-12 items-center gap-2 rounded-lg px-4 text-[15px] font-medium transition-colors ${
+                inv.tab === 'calibracion'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-500'
+                  : 'bg-[#f0f2f5] text-[#6b7280] dark:bg-[#222536] dark:text-[#8b90a7]'
+              }`}
+            >
+              <Calculator size={20} strokeWidth={1.5} />
+              Calibración útil
+            </button>
+          </div>
         </div>
 
         {inv.feedback.msg ? (
@@ -85,37 +128,6 @@ export default function InventarioPage() {
           </div>
         ) : null}
 
-        <div className="flex gap-1 border-b border-[#e2e5ed] dark:border-[#2e3347]">
-          <button
-            type="button"
-            onClick={() => inv.setTab('articulos')}
-            className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
-              inv.tab === 'articulos'
-                ? 'text-amber-500'
-                : 'text-[#6b7280] dark:text-[#9ca3af]'
-            }`}
-          >
-            Artículos
-            {inv.tab === 'articulos' ? (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500" />
-            ) : null}
-          </button>
-          <button
-            type="button"
-            onClick={() => inv.setTab('movimientos')}
-            className={`relative px-4 py-3 text-sm font-semibold transition-colors ${
-              inv.tab === 'movimientos'
-                ? 'text-amber-500'
-                : 'text-[#6b7280] dark:text-[#9ca3af]'
-            }`}
-          >
-            Movimientos
-            {inv.tab === 'movimientos' ? (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500" />
-            ) : null}
-          </button>
-        </div>
-
         {inv.tab === 'articulos' ? (
           <ArticulosTable
             buscar={inv.buscar}
@@ -133,7 +145,7 @@ export default function InventarioPage() {
             openEditarArticulo={inv.openEditarArticulo}
             openMovimiento={inv.openMovimiento}
           />
-        ) : (
+        ) : inv.tab === 'movimientos' ? (
           <MovimientosTable
             filtroMovArticulo={inv.filtroMovArticulo}
             setFiltroMovArticulo={inv.setFiltroMovArticulo}
@@ -147,6 +159,17 @@ export default function InventarioPage() {
             articulosOpciones={inv.articulosOpciones}
             loadingMovimientos={inv.loadingMovimientos}
             movimientosEnriquecidos={inv.movimientosEnriquecidos}
+          />
+        ) : (
+          <CalibracionMermaPanel
+            articulos={inv.articulos}
+            loadingArticulos={inv.loadingArticulos}
+            canEdit={inv.canEditArticulo}
+            loadArticulos={inv.loadArticulos}
+            loadArticulosOpciones={inv.loadArticulosOpciones}
+            onFeedback={(msg, type) =>
+              inv.setFeedback({ msg, type: type === 'ok' ? 'ok' : 'err' })
+            }
           />
         )}
       </div>
