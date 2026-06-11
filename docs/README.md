@@ -4,6 +4,7 @@ Documentación interna del proyecto. El punto de entrada para desarrolladores nu
 
 | Documento | Contenido |
 |-----------|-----------|
+| [REFERENCIA_TECNICA.md](REFERENCIA_TECNICA.md) | README técnico exhaustivo: todos los endpoints, tablas, variables de entorno y scripts |
 | [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) | Deploy Render/Vercel, seguridad, gestión de tenants, smoke tests |
 | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) | Referencia de las 42 tablas PostgreSQL (columnas, FKs) |
 | [ARQUITECTURA_HORECASO.md](ARQUITECTURA_HORECASO.md) | Mapa técnico: routers FastAPI ↔ frontend React |
