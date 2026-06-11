@@ -30,6 +30,9 @@ from routers.dashboard import router as dashboard_router
 from routers.analytics.analytics_mesas import router as analytics_mesas_router
 from routers.analytics.analytics_menu import router as analytics_menu_router
 from routers.analytics.analytics_personal import router as analytics_personal_router
+from routers.analytics.analytics_predicciones import (
+    router as analytics_predicciones_router,
+)
 from routers.recetas.admin_recetas import router as admin_recetas_router
 from routers.recetas.admin_recetas_ingredientes import (
     router as admin_recetas_ingredientes_router,
@@ -173,6 +176,7 @@ def create_app() -> FastAPI:
     app.include_router(analytics_mesas_router, prefix="/api")
     app.include_router(analytics_menu_router, prefix="/api")
     app.include_router(analytics_personal_router, prefix="/api")
+    app.include_router(analytics_predicciones_router, prefix="/api")
     app.include_router(proveedores_router, prefix="/api")
     app.include_router(facturas_proveedor_router, prefix="/api")
     app.include_router(empleados_router, prefix="/api")
