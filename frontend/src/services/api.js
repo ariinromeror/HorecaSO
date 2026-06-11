@@ -361,6 +361,13 @@ export function patchKDSLineaEstado(id, estado) {
   return api.patch(`/kds/lineas/${id}/estado`, { estado })
 }
 
+// --- Predicciones IA (admin | director | almacen) ---
+
+/** GET /dashboard/prediccion-mermas — params: articulo_id, dias_historial, dias_horizonte */
+export function getPrediccionMermas(params = {}) {
+  return api.get('/dashboard/prediccion-mermas', { params })
+}
+
 // --- Superadmin (plataforma) ---
 
 export function getSuperadminTenants(page = 1, pageSize = 20) {

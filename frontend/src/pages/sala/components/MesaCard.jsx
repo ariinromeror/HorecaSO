@@ -87,10 +87,10 @@ export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando })
         >
           {mesa.numero}
         </span>
-        <span className="mt-1 text-[11px] text-[#6b7280] dark:text-[#8b90a7]">
+        <span className="mt-1 text-[11px] font-medium capitalize tracking-wide text-[#6b7280] dark:text-[#8b90a7]">
           {mesa.zona || '—'}
         </span>
-        <span className="mt-1 flex items-center gap-1 text-[11px] text-[#9ca3af]">
+        <span className="horeca-nums mt-1 flex items-center gap-1 text-[11px] font-medium text-[#9ca3af]">
           <Users size={11} strokeWidth={1.5} aria-hidden />
           {mesa.capacidad ?? '—'} pax
         </span>

@@ -106,7 +106,7 @@ export default function LoginPage() {
       <button
         type="button"
         onClick={toggleTheme}
-        className="fixed right-4 top-4 rounded-lg border border-[#e2e5ed] bg-white p-2 dark:border-[#2e3347] dark:bg-[#1a1d27]"
+        className="fixed right-4 top-[calc(1rem+env(safe-area-inset-top))] rounded-lg border border-[#e2e5ed] bg-white p-2 dark:border-[#2e3347] dark:bg-[#1a1d27]"
         aria-label={isDark ? 'Modo diurno' : 'Modo nocturno'}
       >
         {isDark ? (
