@@ -17,6 +17,8 @@ import AnalyticsPage from './pages/analytics/AnalyticsPage'
 import VentaLivePage from './pages/director/VentaLivePage'
 import CartaPage from './pages/admin/carta/CartaPage'
 import RecetasPage from './pages/admin/recetas/RecetasPage'
+import ElaboracionesPage from './pages/admin/recetas/ElaboracionesPage'
+import CostesPage from './pages/admin/costes/CostesPage'
 import GestionSalaPage from './pages/admin/sala/GestionSalaPage'
 import InventarioPage from './pages/inventario/InventarioPage'
 import MermasPage from './pages/inventario/MermasPage'
@@ -32,6 +34,11 @@ import NominasPage from './pages/empleados/NominasPage'
 import ReservasPage from './pages/reservas/ReservasPage'
 import ClientesPage from './pages/clientes/ClientesPage'
 import ReportesPage from './pages/reportes/ReportesPage'
+import SuperadminLayout from './pages/superadmin/SuperadminLayout'
+import TenantsListPage from './pages/superadmin/TenantsListPage'
+import TenantDetailPage from './pages/superadmin/TenantDetailPage'
+import PlatformLogsPage from './pages/superadmin/PlatformLogsPage'
+import UsuariosPage from './pages/admin/usuarios/UsuariosPage'
 
 function PrivateRoute({ children, allowedRoles }) {
   const { isLoading, isAuthenticated, user } = useAuth()
@@ -161,6 +168,24 @@ function ProveedoresRoute() {
   return <Outlet />
 }
 
+function AdminOnlyRoute() {
+  const { user, isLoading, isAuthenticated } = useAuth()
+
+  if (isLoading) {
+    return <Loader />
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (user?.rol !== 'admin') {
+    return <Navigate to="/mesas" replace />
+  }
+
+  return <Outlet />
+}
+
 /** Página mínima para rutas del menú aún no implementadas (cualquier usuario autenticado). */
 function ModulePlaceholder({ name }) {
   return (
@@ -179,6 +204,18 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/mesas" replace />} />
             <Route path="/login" element={<LoginPage />} />
+
+            <Route element={<PrivateRoute allowedRoles={['superadmin']} />}>
+              <Route path="/superadmin" element={<SuperadminLayout />}>
+                <Route
+                  index
+                  element={<Navigate to="/superadmin/tenants" replace />}
+                />
+                <Route path="tenants" element={<TenantsListPage />} />
+                <Route path="tenants/:id" element={<TenantDetailPage />} />
+                <Route path="logs" element={<PlatformLogsPage />} />
+              </Route>
+            </Route>
 
             <Route
               path="/kds"
@@ -226,8 +263,16 @@ export default function App() {
                 <Route element={<AdminDirectorRoute />}>
                   <Route path="/admin/carta" element={<CartaPage />} />
                 </Route>
+                <Route element={<AdminOnlyRoute />}>
+                  <Route path="/admin/usuarios" element={<UsuariosPage />} />
+                </Route>
                 <Route element={<AdminDirectorCocinaRoute />}>
                   <Route path="/admin/recetas" element={<RecetasPage />} />
+                  <Route
+                    path="/admin/recetas/elaboraciones"
+                    element={<ElaboracionesPage />}
+                  />
+                  <Route path="/admin/costes" element={<CostesPage />} />
                 </Route>
                 <Route path="/empleados" element={<EmpleadosPage />} />
                 <Route path="/fichajes" element={<FichajesPage />} />

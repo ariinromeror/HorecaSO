@@ -1,0 +1,10 @@
+-- Mantenimiento opcional (no se ejecuta solo al migrar).
+-- El endpoint GET /api/admin/recetas/semaforo solo lista productos con tiene_receta = true.
+-- Si en datos viejos un producto simple (ej. agua embotellada) quedó con tiene_receta = true
+-- y una receta vacía, puedes corregirlo por tenant:
+--
+-- UPDATE productos SET tiene_receta = false
+-- WHERE tenant_id = '...'::uuid AND nombre ILIKE '%agua mineral%';
+--
+-- Para borrar solo la receta y líneas (dejando el producto en carta), usa la app:
+-- Recetas de carta → icono papelera en la tarjeta, o DELETE /api/admin/recetas/{id}.

@@ -1,7 +1,25 @@
 import axios from 'axios'
 
+/**
+ * El backend monta todo bajo `/api/...`. En dev, Vite reenvía `/api` al puerto de uvicorn.
+ * Si defines `VITE_API_URL` con la URL absoluta del servidor (p. ej. `http://127.0.0.1:8000`),
+ * debe terminar en `/api` o se añade aquí; si no, las peticiones van a rutas inexistentes
+ * (`/dashboard/...` en lugar de `/api/dashboard/...`) y el panel queda vacío.
+ */
+function resolveApiBaseUrl() {
+  const raw = import.meta.env.VITE_API_URL
+  if (raw == null || String(raw).trim() === '') {
+    return '/api'
+  }
+  const s = String(raw).trim().replace(/\/$/, '')
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    return s.endsWith('/api') ? s : `${s}/api`
+  }
+  return s.startsWith('/') ? s : `/${s}`
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: resolveApiBaseUrl(),
 })
 
 api.interceptors.request.use((config) => {
@@ -15,6 +33,13 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (import.meta.env.DEV && !error.response && error.message) {
+      console.warn(
+        '[api] Sin respuesta del servidor. ¿Backend en marcha y URL correcta?',
+        resolveApiBaseUrl(),
+        error.message
+      )
+    }
     if (error.response?.status === 401) {
       localStorage.removeItem('horecaso_token')
       window.location.href = '/login'
@@ -191,8 +216,22 @@ export function createReceta(body) {
   return api.post('/admin/recetas', body)
 }
 
+/** Modelo A: artículo elaborado + receta (producto_id NULL). */
+export function createElaboracion(body) {
+  return api.post('/admin/elaboraciones', body)
+}
+
+/** Plato nuevo: producto en carta (precio 0) + receta en un solo paso. */
+export function createRecetaPlatoNuevo(body) {
+  return api.post('/admin/recetas/plato-nuevo', body)
+}
+
 export function updateReceta(id, body) {
   return api.put(`/admin/recetas/${id}`, body)
+}
+
+export function deleteReceta(id) {
+  return api.delete(`/admin/recetas/${id}`)
 }
 
 export function getRecetaCoste(id) {
@@ -209,6 +248,19 @@ export function deleteIngredienteReceta(recetaId, ingredienteId) {
   )
 }
 
+/** Gastos fijos mensuales (admin | director | cocina GET; mutaciones admin | director) */
+export function getGastosOperativos() {
+  return api.get('/admin/gastos-operativos')
+}
+
+export function createGastoOperativo(body) {
+  return api.post('/admin/gastos-operativos', body)
+}
+
+export function deleteGastoOperativo(id) {
+  return api.delete(`/admin/gastos-operativos/${id}`)
+}
+
 /** GET /inventario/articulos — params: buscar, categoria, alerta */
 export function getArticulos(params = {}) {
   return api.get('/inventario/articulos', { params })
@@ -220,6 +272,11 @@ export function createArticulo(body) {
 
 export function updateArticulo(id, body) {
   return api.put(`/inventario/articulos/${id}`, body)
+}
+
+/** Regla de tres: { comprado, util } en misma unidad; ambos null para borrar calibración. */
+export function putArticuloCalibracionMerma(id, body) {
+  return api.put(`/inventario/articulos/${id}/calibracion-merma`, body)
 }
 
 export function getStockAlertas() {
@@ -292,8 +349,8 @@ export function escanearFacturaIA(data) {
 
 // --- KDS (cocina) ---
 
-export function getKDSComandas() {
-  return api.get('/kds/comandas')
+export function getKDSComandas(params = {}) {
+  return api.get('/kds/comandas', { params })
 }
 
 export function getKDSEstadisticas(params = {}) {
@@ -302,6 +359,43 @@ export function getKDSEstadisticas(params = {}) {
 
 export function patchKDSLineaEstado(id, estado) {
   return api.patch(`/kds/lineas/${id}/estado`, { estado })
+}
+
+// --- Superadmin (plataforma) ---
+
+export function getSuperadminTenants(page = 1, pageSize = 20) {
+  return api.get('/superadmin/tenants', {
+    params: { page, page_size: pageSize },
+  })
+}
+
+export function getSuperadminTenantDetail(tenantId) {
+  return api.get(`/superadmin/tenants/${tenantId}`)
+}
+
+export function patchTenantActivo(tenantId, activo) {
+  return api.patch(`/superadmin/tenants/${tenantId}/activo`, { activo })
+}
+
+/**
+ * @param {Record<string, unknown>} filtros — page, page_size, fecha_desde, fecha_hasta (YYYY-MM-DD)
+ */
+export function getSuperadminPlatformLogs(filtros = {}) {
+  return api.get('/superadmin/platform-logs', { params: filtros })
+}
+
+// --- Admin tenant — usuarios ---
+
+export function getAdminUsuarios() {
+  return api.get('/admin/usuarios')
+}
+
+export function createAdminUsuario(data) {
+  return api.post('/admin/usuarios', data)
+}
+
+export function patchAdminUsuario(usuarioId, data) {
+  return api.patch(`/admin/usuarios/${usuarioId}`, data)
 }
 
 export default api

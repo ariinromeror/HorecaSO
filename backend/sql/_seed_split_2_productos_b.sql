@@ -1,0 +1,72 @@
+INSERT INTO productos (
+  id, tenant_id, categoria_id, nombre, precio, tiene_receta, activo,
+  descripcion, iva_porcentaje, es_bebida, es_menu, disponible_delivery,
+  tiempo_preparacion, precio_coste, destino_kds
+)
+VALUES
+  ('b0000001-0000-4000-8000-00000000001c', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000007',
+   'Mejillones a la marinera', 11.50, false, true, 'Tomate, vino blanco, perejil', 10.00, false, false, true, 14, 4.50, 'cocina'),
+  ('b0000001-0000-4000-8000-00000000001d', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000007',
+   'Fritura variada (ración)', 16.50, false, true, 'Boquerón, calamar, cazón — limón', 10.00, false, false, true, 12, 6.50, 'cocina'),
+  ('b0000001-0000-4000-8000-00000000001e', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000007',
+   'Paella de marisco (min. 2 pax)', 18.00, true, true, 'Por persona — encargar con antelación', 10.00, false, false, true, 40, 7.50, 'cocina'),
+  -- Arroces y pastas
+  ('b0000001-0000-4000-8000-00000000001f', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000008',
+   'Spaghetti carbonara', 11.00, true, true, 'Guanciale, huevo, pecorino', 10.00, false, false, true, 14, 3.80, 'cocina'),
+  ('b0000001-0000-4000-8000-000000000020', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000008',
+   'Risotto de setas porcini', 13.50, true, true, 'Arroz carnaroli, parmesano, trufa opcional (+3€)', 10.00, false, false, true, 22, 5.20, 'cocina'),
+  ('b0000001-0000-4000-8000-000000000021', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000008',
+   'Canelones de carne gratinados', 10.50, true, true, 'Bechamel, queso gratinado', 10.00, false, false, true, 20, 3.90, 'cocina'),
+  ('b0000001-0000-4000-8000-000000000022', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000008',
+   'Arroz negro con alioli', 14.00, true, true, 'Sepia, tinta — para mínimo 2', 10.00, false, false, true, 35, 5.80, 'cocina'),
+  -- Principales extra (categoría 2)
+  ('b0000001-0000-4000-8000-000000000023', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000002',
+   'Cordero asado al horno', 19.00, true, true, 'Paletilla, hierbas aromáticas, patatas asadas', 10.00, false, false, true, 40, 8.50, 'cocina'),
+  ('b0000001-0000-4000-8000-000000000024', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000002',
+   'Lasaña de la casa', 11.50, true, true, 'Carne, bechamel, gratinada', 10.00, false, false, true, 25, 4.20, 'cocina'),
+  -- Postres
+  ('b0000001-0000-4000-8000-000000000025', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000009',
+   'Tarta de queso casera', 6.50, false, true, 'Base galleta, coulis de frutos rojos', 10.00, false, false, true, 5, 2.10, 'cocina'),
+  ('b0000001-0000-4000-8000-000000000026', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000009',
+   'Brownie con helado de vainilla', 6.00, false, true, 'Chocolate intenso, helado artesanal', 10.00, false, false, true, 5, 1.90, 'cocina'),
+  ('b0000001-0000-4000-8000-000000000027', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000009',
+   'Flan de huevo casero', 4.50, false, true, 'Caramelo líquido', 10.00, false, false, true, 2, 1.20, 'cocina'),
+  ('b0000001-0000-4000-8000-000000000028', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000009',
+   'Fruta de temporada', 4.00, false, true, 'Consultar al equipo', 10.00, false, false, true, 3, 1.00, 'cocina'),
+  ('b0000001-0000-4000-8000-000000000029', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000009',
+   'Crema catalana', 5.00, false, true, 'Canela y limón — quemada al momento', 10.00, false, false, true, 8, 1.50, 'cocina'),
+  -- Refrescos y aguas (003)
+  ('b0000001-0000-4000-8000-00000000002a', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000003',
+   'Refresco lata', 2.80, false, true, 'Cola, naranja, limón — consultar', 10.00, true, false, true, 0, 0.55, 'barra'),
+  ('b0000001-0000-4000-8000-00000000002b', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000003',
+   'Zumo natural de naranja', 3.50, false, true, 'Exprimido al momento', 10.00, true, false, true, 3, 1.20, 'barra'),
+  ('b0000001-0000-4000-8000-00000000002c', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000003',
+   'Tónica premium 20 cl', 3.00, false, true, 'Para combinados', 10.00, true, false, true, 1, 0.70, 'barra'),
+  ('b0000001-0000-4000-8000-00000000002d', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000003',
+   'Limonada casera (jarra 1 L)', 7.00, false, true, 'Limón, menta, hielo', 10.00, true, false, true, 5, 1.80, 'barra'),
+  -- Vinos y cavas
+  ('b0000001-0000-4000-8000-00000000002e', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000a',
+   'Rioja crianza (copa)', 4.00, false, true, 'D.O. Rioja — 15 cl', 10.00, true, false, true, 1, 1.40, 'barra'),
+  ('b0000001-0000-4000-8000-00000000002f', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000a',
+   'Verdejo Rueda (copa)', 3.80, false, true, 'Blanco fresco — 15 cl', 10.00, true, false, true, 1, 1.30, 'barra'),
+  ('b0000001-0000-4000-8000-000000000030', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000a',
+   'Cava brut (copa)', 4.50, false, true, 'D.O. Cava — 12 cl', 10.00, true, false, true, 1, 1.60, 'barra'),
+  ('b0000001-0000-4000-8000-000000000031', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000a',
+   'Botella Rioja reserva', 22.00, false, true, '75 cl — consultar añada', 10.00, true, false, true, 1, 9.50, 'barra'),
+  -- Cafés y licores
+  ('b0000001-0000-4000-8000-000000000032', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000b',
+   'Café solo', 1.80, false, true, 'Arábica mezcla casa', 10.00, true, false, true, 2, 0.35, 'barra'),
+  ('b0000001-0000-4000-8000-000000000033', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000b',
+   'Café con leche', 2.20, false, true, 'Leche entera / avena (+0,30€)', 10.00, true, false, true, 3, 0.50, 'barra'),
+  ('b0000001-0000-4000-8000-000000000034', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000b',
+   'Cortado', 2.00, false, true, 'Espresso con poco leche', 10.00, true, false, true, 2, 0.42, 'barra'),
+  ('b0000001-0000-4000-8000-000000000035', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000b',
+   'Carajillo', 3.50, false, true, 'Café, brandy, cáscara de limón', 10.00, true, false, true, 3, 1.10, 'barra'),
+  ('b0000001-0000-4000-8000-000000000036', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000b',
+   'Infusiones', 2.00, false, true, 'Manzanilla, menta, rooibos', 10.00, true, false, true, 3, 0.40, 'barra'),
+  ('b0000001-0000-4000-8000-000000000037', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-00000000000b',
+   'Copa de Orujo o Pacharán', 4.00, false, true, 'Digestivo — 4 cl', 10.00, true, false, true, 1, 1.20, 'barra'),
+  -- Menú del día (marcado es_menu)
+  ('b0000001-0000-4000-8000-000000000038', '11111111-1111-1111-1111-111111111111', 'a0000001-0000-4000-8000-000000000002',
+   'Menú del día (L–V)', 14.50, false, true, 'Primeros, segundo, postre, pan y bebida — consultar carta del día', 10.00, false, true, true, 2, 6.00, 'cocina')
+ON CONFLICT (id) DO NOTHING;

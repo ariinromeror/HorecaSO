@@ -42,7 +42,7 @@ export default function FacturaDetalleModal({
           {loading ? (
             <Loader />
           ) : (
-            <table className="mt-4 w-full text-xs">
+            <table className="horeca-body-text mt-4 w-full text-xs">
               <thead>
                 <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                   <th className="py-2 text-left">Artículo</th>

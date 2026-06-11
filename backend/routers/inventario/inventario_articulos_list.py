@@ -55,7 +55,8 @@ async def list_articulos(
 
             sql = (
                 "SELECT id, nombre, sku, unidad_medida, stock_actual, stock_minimo, "
-                "stock_maximo, coste_unitario, categoria_almacen, created_at "
+                "stock_maximo, coste_unitario, calibracion_comprado, calibracion_util, "
+                "categoria_almacen, es_elaborado, created_at "
                 "FROM articulos WHERE "
                 + " AND ".join(where_clauses)
                 + " ORDER BY nombre"

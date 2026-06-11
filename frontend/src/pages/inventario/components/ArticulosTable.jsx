@@ -105,7 +105,7 @@ export default function ArticulosTable({
       ) : (
         <>
           <div className={`hidden overflow-x-auto md:block ${CARD_BASE}`}>
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="horeca-body-text w-full min-w-[900px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347] text-[#6b7280] dark:text-[#9ca3af]">
                   <th className="px-4 py-3 font-medium">Nombre</th>
@@ -246,7 +246,7 @@ export default function ArticulosTable({
                     {a.temperatura_almacen || 'ambiente'}
                   </span>
                 </div>
-                <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <dl className="horeca-body-text mt-3 grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <dt className="text-[#6b7280] dark:text-[#9ca3af]">
                       Stock

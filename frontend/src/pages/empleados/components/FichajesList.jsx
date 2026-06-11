@@ -76,7 +76,7 @@ export default function FichajesList({
             <div
               className={`hidden overflow-x-auto md:block ${FICHAJES_SURFACE} border-0`}
             >
-              <table className="w-full min-w-[800px] border-collapse text-left text-[15px]">
+              <table className="horeca-body-text w-full min-w-[800px] border-collapse text-left text-[15px]">
                 <thead>
                   <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                     <th className="px-3 py-2 font-semibold">Empleado</th>

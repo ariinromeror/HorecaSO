@@ -44,6 +44,7 @@ def _kds_vista_for_role(role: str | None) -> Literal["cocina", "barra", "complet
         return "cocina"
     if r == "barra":
         return "barra"
+    # Camarero: ve cocina + barra en un solo tablero. Gestión / sala amplia igual.
     if r in ("camarero", "jefe_sala", "admin", "director"):
         return "completa"
     return "cocina"
@@ -51,7 +52,7 @@ def _kds_vista_for_role(role: str | None) -> Literal["cocina", "barra", "complet
 
 def _resolve_vista(current_user: dict, vista_query: str | None) -> str:
     role = current_user.get("role")
-    if vista_query and role in ("admin", "director"):
+    if vista_query and role in ("admin", "director", "jefe_sala"):
         if vista_query not in ("cocina", "barra", "completa"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -64,6 +65,8 @@ def _resolve_vista(current_user: dict, vista_query: str | None) -> str:
 def _assert_patch_role_destino(role: str | None, destino_kds: str) -> None:
     r = role or ""
     dk = destino_kds or "cocina"
+    if r in ("camarero", "jefe_sala", "admin", "director"):
+        return
     if r == "cocina" and dk != "cocina":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

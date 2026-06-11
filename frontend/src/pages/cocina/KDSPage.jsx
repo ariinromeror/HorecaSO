@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import KdsColumnaEstado from './components/KdsColumnaEstado'
 import { useKdsComandas } from './hooks/useKdsComandas'
-import { ICON } from './kdsHelpers'
+import { ICON, tituloKdsPorRol } from './kdsHelpers'
 
 export default function KDSPage() {
   const { isDark, toggleTheme } = useTheme()
@@ -37,7 +37,7 @@ export default function KDSPage() {
               aria-hidden
             />
             <h1 className="text-xl font-bold text-[#111827] dark:text-[#f5f5f5]">
-              Cocina KDS
+              {tituloKdsPorRol(user?.role)}
             </h1>
             <div className="flex items-center gap-2 text-sm text-[#6b7280] dark:text-[#9ca3af]">
               <span className="relative flex h-2.5 w-2.5">
@@ -127,6 +127,7 @@ export default function KDSPage() {
           <KdsColumnaEstado
             comandas={k.comandas}
             cambiarEstado={k.cambiarEstado}
+            rol={user?.role}
           />
         </div>
       </main>

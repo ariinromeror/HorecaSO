@@ -73,7 +73,7 @@ export default function EmpleadosTable({
       ) : (
         <>
           <div className={`hidden overflow-x-auto md:block ${EMPLEADOS_SURFACE}`}>
-            <table className="w-full min-w-[720px] border-collapse text-left text-[15px]">
+            <table className="horeca-body-text w-full min-w-[720px] border-collapse text-left text-[15px]">
               <thead>
                 <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                   <th className="px-4 py-3 font-semibold text-[#111827] dark:text-[#e8eaf0]">

@@ -7,6 +7,7 @@ export default function RecetasTable({
   filtroColor,
   setFiltroColor,
   onCardClick,
+  onDeleteReceta,
 }) {
   const conteos = useMemo(() => {
     let v = 0
@@ -20,10 +21,24 @@ export default function RecetasTable({
     return { verde: v, amarillo: a, rojo: r }
   }, [recetasSemaforo])
 
+  const { sinReceta, conReceta } = useMemo(() => {
+    const sin = []
+    const con = []
+    for (const row of recetasSemaforo) {
+      if (row.semaforo === 'sin_receta' || row.receta_id == null) {
+        sin.push(row)
+      } else {
+        con.push(row)
+      }
+    }
+    return { sinReceta: sin, conReceta: con }
+  }, [recetasSemaforo])
+
   const cardsFiltradas = useMemo(() => {
-    if (filtroColor === 'todos') return recetasSemaforo
-    return recetasSemaforo.filter((row) => row.semaforo === filtroColor)
-  }, [recetasSemaforo, filtroColor])
+    const base = [...conReceta, ...sinReceta]
+    if (filtroColor === 'todos') return base
+    return base.filter((row) => row.semaforo === filtroColor)
+  }, [conReceta, sinReceta, filtroColor])
 
   return (
     <>
@@ -71,15 +86,61 @@ export default function RecetasTable({
         <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
           Cargando…
         </p>
+      ) : cardsFiltradas.length === 0 ? (
+        <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
+          No hay platos que coincidan con el filtro.
+        </p>
       ) : (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {cardsFiltradas.map((row) => (
-            <CosteSemaforo
-              key={`${row.producto_id}-${row.receta_id || 'nr'}`}
-              row={row}
-              onClick={onCardClick}
-            />
-          ))}
+        <div className="space-y-8">
+          {conReceta.some((r) => cardsFiltradas.includes(r)) ? (
+            <section>
+              <h3 className="mb-3 text-[15px] font-semibold text-[#111827] dark:text-[#e8eaf0]">
+                Con receta e ingredientes
+              </h3>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                {cardsFiltradas
+                  .filter((row) => row.receta_id != null)
+                  .map((row) => (
+                    <CosteSemaforo
+                      key={
+                        row.receta_id ||
+                        row.producto_id ||
+                        row.articulo_salida_id ||
+                        'row'
+                      }
+                      row={row}
+                      onClick={onCardClick}
+                      onDeleteReceta={onDeleteReceta}
+                    />
+                  ))}
+              </div>
+            </section>
+          ) : null}
+          {sinReceta.some((r) => cardsFiltradas.includes(r)) ? (
+            <section>
+              <h3 className="mb-1 text-[15px] font-semibold text-[#111827] dark:text-[#e8eaf0]">
+                Sin receta todavía
+              </h3>
+              <p className="mb-3 text-sm text-[#6b7280] dark:text-[#8b90a7]">
+                Pulsa la tarjeta para enlazar el producto a una receta nueva, o
+                abre Elaboraciones para el editor completo con ingredientes.
+              </p>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+                {cardsFiltradas
+                  .filter(
+                    (row) =>
+                      row.semaforo === 'sin_receta' || row.receta_id == null
+                  )
+                  .map((row) => (
+                    <CosteSemaforo
+                      key={row.producto_id || 'row'}
+                      row={row}
+                      onClick={onCardClick}
+                    />
+                  ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
     </>
