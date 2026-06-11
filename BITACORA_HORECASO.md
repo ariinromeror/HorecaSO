@@ -177,7 +177,7 @@ Detalle adicional: **`.cursorrules`** fija stack (FastAPI, asyncpg, sin ORM, Dec
 
 ## 7. PRÓXIMOS PASOS RECOMENDADOS
 
-**Convención para avanzar:** al retomar el proyecto o abrir un nuevo hilo con el agente, **leer (o pedir explícitamente que se lean)** los `.md` de referencia: esta bitácora, [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md), [STEP_HORECASO.md](STEP_HORECASO.md), [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md), [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) (incl. Anexo A para Fase B) y `PRD_HorecaSO.md` donde aplique. **Fase B superadmin:** `PRD_SUPERADMIN_TENANTS_PRUEBAS.md` solo redirige a la guía. Así se evita desalineación entre código, BD y documentación.
+**Convención para avanzar:** al retomar el proyecto o abrir un nuevo hilo con el agente, **leer (o pedir explícitamente que se lean)** los `.md` de referencia: esta bitácora, [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md), [STEP_HORECASO.md](STEP_HORECASO.md), [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md), [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) (incl. Anexo A para Fase B) y `PRD_HorecaSO.md` donde aplique. Así se evita desalineación entre código, BD y documentación.
 
 Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
@@ -192,6 +192,26 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 ---
 
 ## 8. REGISTRO BREVE (docs)
+
+### 11/06/2026 — **Fix deploy Render: Python 3.12**
+
+- **Causa:** Render usaba Python 3.14 por defecto; `Pillow==10.3.0` y `asyncpg` fallan al compilar.
+- **Fix:** `backend/.python-version`, `backend/runtime.txt` → `3.12.0`; `Pillow` → `11.1.0`.
+- **Render:** añadir env `PYTHON_VERSION=3.12.0` si el archivo no basta; redeploy.
+
+### 11/06/2026 — **PWA + archivos deploy + limpieza documentación**
+
+- **PWA:** `vite-plugin-pwa`, iconos `public/pwa-192.png` / `pwa-512.png`, `index.html` meta móvil, `registerSW` en `main.jsx`.
+- **Deploy:** `render.yaml`, `frontend/vercel.json` (SPA rewrites), `backend/.env.example`.
+- **Docs eliminados:** `script.md`, `frontend/README.md`, `PRD_SUPERADMIN_TENANTS_PRUEBAS.md` (stub), `docs/README.md`, `docs/archivo/*` (histórico).
+- **Docs activos:** README, BITACORA, BUGS, STEP, SCHEMA, PRD, GUIA_PRODUCCION, ARQUITECTURA, MANUAL_USUARIO, CREDENCIALES_PRUEBA.
+- **Resultado:** OK — pendiente deploy manual en Supabase + Render + Vercel por el usuario.
+
+### 11/06/2026 — **README.md regenerado (análisis completo del repo)**
+
+- **Qué:** `README.md` reescrito con las 15 secciones estándar (visión, stack, arquitectura, estructura, instalación, ejecución, scripts, env, API, BD, tests, deploy, contribución, licencia) + roles, rutas UI y documentación de referencia.
+- **Fuente:** `package.json`, `requirements.txt`, `main.py`, routers FastAPI, `App.jsx`, `config.py`, `SCHEMA_BASE_DATOS.md`, `GUIA_PRODUCCION_COMPLETA.md`.
+- **Resultado:** OK — documento listo para desarrolladores nuevos; sin Docker/CI/tests (no presentes en repo); licencia no declarada en disco.
 
 ### 27/03/2026 — **Inventario: calibración útil (regla de tres) y coste efectivo en recetas**
 

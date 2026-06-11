@@ -13,927 +13,793 @@
   <img src="https://img.shields.io/badge/Tailwind_CSS-4.2-06B6D4?logo=tailwindcss&logoColor=white" alt="Tailwind CSS 4"/>
   <img src="https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL 15"/>
   <img src="https://img.shields.io/badge/Supabase-Cloud-3FCF8E?logo=supabase&logoColor=white" alt="Supabase"/>
-  <img src="https://img.shields.io/badge/asyncpg-0.29-336791" alt="asyncpg"/>
-  <img src="https://img.shields.io/badge/Pydantic-2.9-E92063" alt="Pydantic 2"/>
-  <img src="https://img.shields.io/badge/JWT-HS256-000000" alt="JWT"/>
   <img src="https://img.shields.io/badge/Deploy-Render_%7C_Vercel-000000" alt="Render + Vercel"/>
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Gunicorn-22.0-499848" alt="Gunicorn"/>
-  <img src="https://img.shields.io/badge/Uvicorn-0.30-000000" alt="Uvicorn"/>
-  <img src="https://img.shields.io/badge/SlowAPI-rate_limit-CB3837" alt="SlowAPI"/>
-  <img src="https://img.shields.io/badge/Groq-vision_%7C_LLM-412991" alt="Groq API"/>
-  <img src="https://img.shields.io/badge/ReportLab-4.0-PDF-red" alt="ReportLab"/>
-  <img src="https://img.shields.io/badge/Axios-1.13-5A29E4?logo=axios&logoColor=white" alt="Axios"/>
-  <img src="https://img.shields.io/badge/React_Router-7.13-CA4245?logo=reactrouter&logoColor=white" alt="React Router 7"/>
-  <img src="https://img.shields.io/badge/lucide--react-0.577-000000" alt="lucide-react"/>
-</p>
+---
 
-> **Documento:** README de producción **completo** (Parte 1: visión, stack, estructura · Parte 2: seguridad, bugs, deploy, escala).  
-> Generado a partir del código fuente en disco y `GUIA_PRODUCCION_COMPLETA.md`, `BUGS_Y_SOLUCIONES.md`, `BITACORA_HORECASO.md`.  
-> **Nota:** este repositorio no incluye `framer-motion` ni ORM (SQLAlchemy/Django); el stack real es el indicado en los badges.
+## 1. Nombre y descripción del proyecto
+
+**HorecaSO** es un sistema operativo web (ERP) orientado al mercado español de hostelería — restaurantes medianos con 5–50 empleados. Unifica en una sola aplicación lo que habitualmente está fragmentado entre TPV de sala, pantallas de cocina, hojas de escandallo, Excel de almacén, RRHH en papel y herramientas fiscales desconectadas.
+
+### Qué hace
+
+| Área | Funcionalidad |
+|------|---------------|
+| **Sala y cobro** | Mapa de mesas, TPV con división de cuenta, múltiples métodos de pago |
+| **Cocina** | KDS (Kitchen Display System) con filtrado cocina/barra y polling en tiempo casi real |
+| **Fiscal** | Registros Verifactu encadenados (SHA-256), generados al completar el cobro |
+| **Carta y costes** | CRUD de productos, recetas, escandallos, semáforo de margen, gastos operativos |
+| **Inventario** | Artículos, movimientos, mermas, FIFO por lotes, APPCC |
+| **Compras** | Proveedores, facturas de compra, escaneo IA con Groq |
+| **RRHH** | Empleados, fichajes, cuadrantes, ausencias, nóminas (SS/IRPF España) |
+| **Clientes** | CRM, reservas, lista de espera, fidelización |
+| **Dirección** | Dashboard, venta live, analytics (mesas, menú BCG, coste personal), reportes PDF |
+| **Plataforma SaaS** | Panel superadmin para gestionar tenants (restaurantes clientes) |
+
+### Problema que resuelve
+
+Conecta la cadena operativa **ticket → producto → receta → artículo → stock → coste → margen → fiscal**, de modo que el dueño puede responder cuánto costó vender un plato sin exportar a Excel. El modelo es **SaaS multi-tenant**: una instancia de aplicación da servicio a múltiples restaurantes con aislamiento lógico por `tenant_id` en PostgreSQL.
+
+### Modelo de negocio
+
+Planes previstos: Básico / Profesional / Premium / Enterprise (`tenants.plan`). El onboarding de nuevos restaurantes es **manual** (SQL en Supabase o panel superadmin); no hay auto-registro público.
 
 ---
 
-## 📌 ¿Qué es HorecaSO? (Visión de producto SaaS)
+## 2. Tech stack
 
-HorecaSO es un **sistema operativo web** para restaurantes medianos en España: unifica en una sola aplicación lo que habitualmente está repartido entre TPV de sala, pantallas de cocina, Excel de almacén, hojas de escandallo, RRHH en papel y herramientas fiscales desconectadas. El producto está construido como **SaaS multi-tenant**: una única instancia de aplicación (un backend FastAPI, un frontend React, una base PostgreSQL en Supabase) da servicio a **múltiples restaurantes (tenants)** con datos lógicamente aislados, más un **operador de plataforma (superadmin)** que administra el parque de clientes sin pertenecer a ningún local.
+### Backend
 
-### Problemas que resuelve en hostelería
+| Tecnología | Versión | Uso |
+|------------|---------|-----|
+| Python | 3.12 | Runtime |
+| FastAPI | 0.115.0 | Framework HTTP / API REST |
+| Uvicorn | 0.30.6 | Servidor ASGI (desarrollo) |
+| Gunicorn | 22.0.0 | Proceso maestro en producción (Render) |
+| asyncpg | 0.29.0 | Driver PostgreSQL asíncrono (SQL raw, sin ORM) |
+| Pydantic | 2.9.0 | Validación de esquemas |
+| pydantic-settings | 2.5.2 | Configuración desde `.env` |
+| python-jose | 3.3.0 | JWT (HS256) |
+| passlib + bcrypt | 1.7.4 / 4.0.1 | Hash de contraseñas |
+| SlowAPI | 0.1.9 | Rate limiting global |
+| ReportLab | 4.0.8 | Generación de PDFs |
+| Groq SDK | ≥0.11.0 | IA visión para escaneo de facturas |
+| qrcode + Pillow | 7.4.2 / 10.3.0 | QR en documentos |
+| python-dotenv | 1.0.1 | Variables de entorno |
+| email-validator | 2.2.0 | Validación de emails |
 
-| Área operativa | Dolor en el sector | Cómo lo aborda HorecaSO en código |
-|----------------|-------------------|-----------------------------------|
-| **Cierre económico** | El dueño sabe ventas pero no coste real por plato | Recetas (`recetas`, `receta_ingredientes`), semáforo de margen, módulo Costes (`admin_gastos_operativos`), analytics BCG (`analytics_menu.py`) |
-| **Sala y cobro** | Mesas bloqueadas, divisiones de cuenta, cola en cocina | `tickets`, `ticket_lineas`, `ticket_pagos`, TPV (`tpv/`), KDS filtrado por `destino_kds` (`kds_shared.py`) |
-| **Fiscal** | Verifactu obligatorio; errores en cadena de huellas | `verifactu_engine.py` + `verifactu_registros`; cobro atómico en `tpv_cobro` / `tpv_cobrar.py` |
-| **Almacén** | Stock en hoja; merma mal entendida | `articulos`, `movimientos_stock`, calibración útil (`calibracion_comprado` / `calibracion_util`), FIFO (`fifo/`) |
-| **Compras** | Facturas a mano | `facturas_proveedor` + `POST /facturas-proveedor/escanear-ia` vía Groq (`proveedores_shared._groq_escanear_sync`) |
-| **Personal** | Fichajes y nóminas fuera del TPV | `turnos`, `fichajes.py`, `nominas.py` (SS 6,35 % / 29,9 % en lógica de nómina) |
-| **Plataforma SaaS** | Onboarding de nuevos locales | `tenants`, panel `/superadmin/*`, alta de usuarios por tenant en `/admin/usuarios` |
+### Frontend
 
-La propuesta de valor no es “un módulo más”, sino **trazabilidad entre capas**: un `ticket_lineas` enlaza a `productos` → `recetas` → `articulos` → `movimientos_stock` y, al cobrar, a `verifactu_registros`. Esa cadena es lo que permite responder “cuánto me costó vender X hoy” sin exportar a Excel.
+| Tecnología | Versión | Uso |
+|------------|---------|-----|
+| React | 19.2.4 | UI |
+| React DOM | 19.2.4 | Renderizado |
+| Vite | 8.0.1 | Build y dev server |
+| React Router DOM | 7.13.1 | Enrutamiento SPA |
+| Tailwind CSS | 4.2.2 | Estilos (vía `@tailwindcss/vite`) |
+| Axios | 1.13.6 | Cliente HTTP |
+| lucide-react | 0.577.0 | Iconos (strokeWidth 1.5) |
+| ESLint | 9.39.4 | Linting |
 
-### Modelo de negocio multi-tenant (cómo está implementado)
+### Base de datos e infraestructura
 
-El aislamiento no es microservicios por cliente ni bases de datos separadas por restaurante en el código actual: es **multi-tenancy a nivel de fila** en PostgreSQL, reforzado por **claims JWT** y **filtros SQL obligatorios** en cada router de negocio.
+| Componente | Detalle |
+|------------|---------|
+| PostgreSQL | 15 — esquema `public`, 42 tablas |
+| Supabase | Hosting gestionado, pooler pgbouncer (puerto 6543) |
+| Render | Deploy del backend API |
+| Vercel | Deploy del frontend estático |
 
-#### Entidades de tenancy (esquema real)
+### Decisiones explícitas del stack
 
-```
-tenants                    -- Restaurante / empresa (NIF, plan, activo)
-    └── outlets            -- Local físico (Sala Principal, terraza, etc.)
-            └── mesas, tickets, reservas, movimientos_stock, …
-    └── usuarios           -- Login; tenant_id NULL solo para superadmin
-    └── productos, articulos, empleados, clientes, proveedores, …
-```
-
-- **`tenants`**: unidad de facturación SaaS (`plan`: basico / profesional / premium / enterprise). La columna `activo` (Fase B) permite bloquear un cliente desde el panel de plataforma.
-- **`outlets`**: acota la operación diaria; `tickets.outlet_id`, `mesas.outlet_id` y la mayoría de movimientos de stock cuelgan del local, no solo del tenant.
-- **`usuarios`**: credenciales y `rol` con CHECK que incluye `superadmin`, `admin`, `director`, `jefe_sala`, `camarero`, `cocina`, `barra`, `almacen`.
-
-#### Dos planos de administración (separación en código)
-
-| Plano | Actor | JWT | Rutas API | UI |
-|-------|--------|-----|-----------|-----|
-| **Plataforma** | `superadmin` | `tenant_id: null`, `negocio_id: null` (explícito en login) | `/api/superadmin/tenants`, `…/platform-logs` | `/superadmin/tenants`, `/superadmin/logs` — layout `SuperadminLayout`, menú `SUPERADMIN_NAV_ITEMS` |
-| **Tenant (restaurante)** | `admin`, roles operativos | `negocio_id` = UUID de `usuarios.tenant_id` | Casi todo bajo `/api/*` con `WHERE tenant_id = $1` | `AppLayout` + `navConfig.js` filtrado por `user.rol` |
-
-**Login superadmin** (`backend/routers/auth.py`, líneas 59–67): tras validar bcrypt, si `rol == 'superadmin'` el payload del token es:
-
-```python
-token_data = {
-    "sub": str(row["id"]),
-    "user_id": str(row["id"]),
-    "role": "superadmin",
-    "negocio_id": None,
-    "tenant_id": None,
-}
-```
-
-**Login tenant**: mismo endpoint, pero `negocio_id` se rellena con `str(row["tenant_id"])`. El frontend guarda token y perfil en `localStorage` (`horecaso_token`, `horecaso_user`) y Axios inyecta `Authorization: Bearer` en cada petición (`frontend/src/services/api.js`).
-
-**Admin de tenant** (`admin_usuarios_router.py`): función `_tenant_uuid_from_jwt` exige `negocio_id` o `tenant_id` en el JWT; si faltan → **403** `"Sin tenant asignado en el token"`. Todas las consultas de usuarios llevan `WHERE tenant_id = $1 AND rol <> 'superadmin'`. No se puede crear un `superadmin` desde este router (`ROLES_OPERATIVOS_ADMIN`).
-
-**Superadmin** (`superadmin_router.py`): `Depends(require_superadmin)` en cada handler; listados como `SELECT … FROM tenants` **sin** filtro por tenant del JWT (por diseño: visión global). Un superadmin que llame a `/api/mesas` no tiene `negocio_id` en el token: los routers de negocio deben responder **403** (comportamiento esperado y probado en `GUIA_PRODUCCION_COMPLETA.md` §2.3).
-
-#### Auditoría de plataforma
-
-Al activar/desactivar un tenant, `PATCH /api/superadmin/tenants/{id}/activo` persiste en `platform_logs` (`nivel`, `modulo='superadmin'`, `accion='set_tenant_activo'`, `detalle` JSONB). La UI `PlatformLogsPage.jsx` consume `GET /api/superadmin/platform-logs` con paginación y filtros de fecha.
-
-#### Aislamiento de datos: capas de defensa
-
-1. **Aplicación (principal hoy):** cada query de negocio incluye `tenant_id` derivado del JWT (`negocio_id`), p. ej. listados de productos, clientes, empleados.
-2. **RBAC:** `require_roles([...])` en `auth/dependencies.py` impide que un `camarero` invoque `/api/nominas` aunque adivine la URL.
-3. **RLS en Supabase:** en la instancia documentada en `SCHEMA_BASE_DATOS.md`, Row Level Security está **desactivado** en las 42 tablas; la guía de producción recomienda activar políticas por `tenant_id` antes de clientes reales (defensa en profundidad, no sustituto del filtrado en Python).
-
-#### Alta de un nuevo restaurante (estado actual del código)
-
-- **No existe** `POST /api/superadmin/tenants` en `superadmin_router.py`: el alta de tenant nuevo se hace con **SQL** (`GUIA_PRODUCCION_COMPLETA.md` §5.1: bloque `DO $$` que inserta `tenants`, `outlets`, usuario `admin` y mesas iniciales).
-- El **seed reproducible** para desarrollo está en `backend/sql/migration_fase_b.sql` (tenant `Restaurante Prueba`, usuarios `@prueba.com`).
-- Tras el alta SQL, el **admin del tenant** gestiona el resto de usuarios en `UsuariosPage.jsx` → `GET/POST/PATCH /api/admin/usuarios`.
+- **Sin ORM** (no SQLAlchemy, no Prisma): SQL parametrizado con placeholders `$1, $2`.
+- **Sin WebSocket**: polling cada 30 s en pantallas live (KDS, venta live) por limitaciones del plan gratuito de Render.
+- **Sin TypeScript** en backend ni frontend.
+- **Sin framer-motion** en `package.json` actual (no está instalado).
+- **SendGrid** mencionado en la documentación de producto pero **no implementado** en el código backend actual.
 
 ---
 
-## 🏗️ Arquitectura de software y stack tecnológico
+## 3. Arquitectura
 
-### Patrón arquitectónico global
+### Patrón general
 
-HorecaSO sigue una **arquitectura en capas monolítica modular**:
+Monorepo con **dos aplicaciones** desacopladas:
 
-- **Cliente:** SPA React (CSR) desplegada en Vercel; comunicación REST JSON con el API.
-- **API:** monolito FastAPI con **routers por dominio** (paquetes bajo `backend/routers/`), sin capa ORM: SQL explícito con **asyncpg**.
-- **Datos:** PostgreSQL 15 administrado en Supabase; conexión vía **pooler** (`statement_cache_size=0` obligatorio por pgbouncer).
-- **Servicios transversales:** `backend/services/` para Verifactu y generación PDF (ReportLab), invocados desde routers.
-
-No hay cola de mensajes ni WebSocket en el código de producción actual: KDS y Venta Live usan **polling** (`setInterval` ~30 s en hooks como `useKdsComandas.js`, `useVentaLivePolling.js`).
-
-```mermaid
-flowchart TB
-  subgraph vercel [Vercel - frontend]
-    React[React 19 + Vite 8]
-    Axios[Axios api.js]
-    Router[react-router-dom 7]
-  end
-  subgraph render [Render - backend]
-    Gunicorn[gunicorn + uvicorn workers]
-    FastAPI[FastAPI create_app]
-    SlowAPI[SlowAPIMiddleware]
-    Routers[routers/* 38 include_router]
-    Services[services/ verifactu + pdf]
-  end
-  subgraph supabase [Supabase]
-    PG[(PostgreSQL 15)]
-    Pooler[pgbouncer :6543]
-  end
-  React --> Axios
-  Axios -->|HTTPS JWT| Gunicorn
-  Gunicorn --> FastAPI
-  FastAPI --> Routers
-  Routers --> Services
-  Routers -->|asyncpg pool| Pooler
-  Pooler --> PG
+```
+Navegador → React SPA (Vercel) → HTTPS + JWT Bearer → FastAPI (Render) → asyncpg pool → PostgreSQL (Supabase)
 ```
 
-### Tabla de stack por capa (dependencias reales del repo)
+No es MVC clásico ni clean architecture estricta. El backend sigue un patrón **Router + Service**:
 
-#### Backend — runtime y API
+- **`routers/`**: endpoints HTTP, validación Pydantic, `Depends(require_roles)`, SQL con `get_db()`.
+- **`services/`**: lógica reutilizable sin HTTP (Verifactu, generación PDF).
+- **`auth/`**: JWT y dependencias de autorización.
+- **`database.py`**: pool de conexiones y transacciones.
 
-| Componente | Versión en repo | Ubicación / uso | Justificación en producción |
-|------------|-----------------|-----------------|------------------------------|
-| **Python** | 3.12 | Entorno Render/local | Versión objetivo del proyecto; tipado y asyncio maduros |
-| **FastAPI** | 0.115.0 | `main.py` → `create_app()` | OpenAPI automático en dev, `Depends` para RBAC, validación Pydantic en bodies, `lifespan` para pool BD |
-| **Uvicorn** | 0.30.6 | Dev local | Servidor ASGI para desarrollo |
-| **Gunicorn** | 22.0.0 | Start command Render | Proceso maestro + workers Uvicorn; concurrencia en producción sin bloquear el event loop |
-| **asyncpg** | 0.29.0 | `database.py` | Driver nativo async; consultas SQL directas, rendimiento y control de transacciones sin overhead ORM |
-| **pydantic** | 2.9.0 | Routers (modelos request/response) | Validación estricta de entrada (EmailStr, UUID, límites numéricos) antes de tocar la BD |
-| **pydantic-settings** | 2.5.2 | `config.py` | Configuración tipada desde `.env` (`DATABASE_URL`, `SECRET_KEY_AUTH`, `ALLOWED_ORIGINS`, `ENVIRONMENT`) |
-| **python-jose** | 3.3.0 | `auth/jwt_handler.py` | JWT HS256; `jwt.encode` / `jwt.decode` con `SECRET_KEY_AUTH` |
-| **passlib + bcrypt** | 1.7.4 / 4.0.1 | `auth.py`, `admin_usuarios` | Hash de contraseñas; shim `bcrypt.__about__ = bcrypt` en `main.py` **antes** de importar passlib (compatibilidad 4.x) |
-| **slowapi** | 0.1.9 | `main.py` | Rate limiting por IP (`get_remote_address`); mitigación fuerza bruta en login |
-| **python-multipart** | 0.0.9 | Uploads si aplica | Soporte formularios multipart en FastAPI |
-| **email-validator** | 2.2.0 | Pydantic `EmailStr` | Validación de emails en alta de usuarios |
-| **reportlab** | 4.0.8 | `services/pdf_*.py` | PDFs server-side (nóminas, inventario, cierre, BCG) sin depender del navegador |
-| **groq** | ≥0.11.0 | `proveedores_shared.py` | Cliente oficial API Groq; visión para OCR de facturas (`asyncio.to_thread` en escaneo) |
-| **qrcode + Pillow** | 7.4.2 / 10.3.0 | Generación QR en reportes si aplica | Tickets / códigos en PDF |
-| **starlette** | (transitivo FastAPI) | `SecurityHeadersMiddleware`, CORS | Middleware estándar ASGI |
+El frontend es una **SPA** con guards por rol en `App.jsx`, estado de autenticación en `AuthContext`, y llamadas centralizadas en `services/api.js`.
 
-**Decisiones backend explícitas en código:**
+### Multi-tenancy
 
-- **`redirect_slashes=False`** en `FastAPI(...)`: evita HTTP 307 cuando Axios llama `/api/mesas` sin barra final (BUG-005 histórico).
-- **`get_db()`** con `async with conn.transaction()`: commit/rollback automático por request lógico.
-- **`statement_cache_size=0`** en `create_pool`: requisito documentado en `database.py` para Supabase pooler.
-- **`Decimal`** en cálculos de dinero (Verifactu, recetas, TPV); prohibición de `float` en lógica de negocio (`.cursorrules`).
-- **OpenAPI desactivado en prod:** `docs_url=None`, `redoc_url=None` si `ENVIRONMENT=production`.
+Aislamiento **a nivel de fila** en PostgreSQL:
 
-#### Frontend — SPA operativa
+```
+tenants (restaurante)
+  └── outlets (local físico)
+        └── mesas, tickets, reservas, movimientos_stock…
+  └── usuarios, productos, articulos, empleados, clientes…
+```
 
-| Componente | Versión en repo | Ubicación / uso | Justificación en producción |
-|------------|-----------------|-----------------|------------------------------|
-| **React** | 19.2.4 | `main.jsx`, páginas | UI por componentes; StrictMode en arranque |
-| **Vite** | 8.0.1 | `vite.config.js` | Build rápido, HMR en dev, proxy `/api` → `localhost:8000` |
-| **@vitejs/plugin-react** | 6.0.1 | Vite plugins | Fast Refresh |
-| **Tailwind CSS** | 4.2.2 | `index.css`, `@tailwindcss/vite` | Utility-first; tema `dark:` coherente; clase `.horeca-body-text` para tablas en modo oscuro |
-| **react-router-dom** | 7.13.1 | `App.jsx` | Rutas anidadas, guards (`PrivateRoute`, `AdminDirectorRoute`, …), layouts separados superadmin/TPV/KDS |
-| **Axios** | 1.13.6 | `services/api.js` | Cliente HTTP único; interceptores token y 401 → `/login`; `resolveApiBaseUrl()` para `VITE_API_URL` en Vercel |
-| **lucide-react** | 0.577.0 | `navConfig.js`, páginas | Iconografía SVG consistente (`strokeWidth={1.5}`); sin emojis como iconos de UI |
+Cada query de negocio filtra por `tenant_id` (del JWT `negocio_id`) y, en operaciones de sala, por `outlet_id`.
 
-**No presentes en `package.json` (no asumir en documentación):** framer-motion, Redux, TanStack Query, Next.js, TypeScript en frontend.
+### Dos planos de administración
 
-#### Base de datos
+| Plano | Rol | JWT | Rutas |
+|-------|-----|-----|-------|
+| **Plataforma** | `superadmin` | `tenant_id` y `negocio_id` = `null` | `/api/superadmin/*`, UI `/superadmin/*` |
+| **Tenant** | `admin`, roles operativos | `negocio_id` = UUID del tenant | `/api/*` con filtro SQL |
 
-| Componente | Detalle | Justificación |
-|------------|---------|---------------|
-| **PostgreSQL 15** | Esquema `public`, 42 tablas | JSONB en `platform_logs.detalle`, `numeric` para dinero, UUID PKs |
-| **Supabase** | Hosting gestionado + SQL Editor | Backups, pooler, migraciones manuales desde `backend/sql/` |
-| **Migraciones** | Archivos `.sql` versionados, no Alembic | El equipo aplica DDL explícito; trazabilidad en git (`migration_fase_b.sql`, `migration_kds_barra_destino.sql`, etc.) |
+### Seguridad transversal (`main.py`)
 
-#### Infraestructura y despliegue
+- CORS dinámico desde `ALLOWED_ORIGINS`.
+- `SecurityHeadersMiddleware` (X-Frame-Options, nosniff, etc.).
+- SlowAPI rate limiting global.
+- OpenAPI `/docs` y `/redoc` **desactivados** cuando `ENVIRONMENT=production`.
+- Handler global de excepciones → JSON 500 genérico (sin stack trace).
+- `lifespan`: init/close del pool asyncpg al arrancar/apagar workers.
 
-| Componente | Rol | Configuración real |
-|------------|-----|-------------------|
-| **Render** | Backend API | `Root Directory: backend`, `gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker`, health `GET /api/health` |
-| **Vercel** | Frontend estático | `VITE_API_URL=https://<backend>.onrender.com/api` |
-| **Variables críticas** | Seguridad | `SECRET_KEY_AUTH`, `ALLOWED_ORIGINS` (lista, no `*` con credentials), `DATABASE_URL` pooler, `GROQ_API_KEY`, `ENVIRONMENT=production` |
+### Tiempo real
 
-### Registro de aplicación (`main.py`) — piezas transversales
-
-El fichero `backend/main.py` es el **único punto de ensamblaje** de la API:
-
-1. Shim bcrypt → imports de ~30 routers.
-2. `Limiter` + `SlowAPIMiddleware` + handler `RateLimitExceeded`.
-3. `create_app()`: CORS desde `settings.allowed_origins_list`, `SecurityHeadersMiddleware` (X-Frame-Options DENY, nosniff, etc.).
-4. Handler global `Exception` → JSON 500 genérico; re-lanza `HTTPException`.
-5. `lifespan` → `init_connection_pool` / `close_connection_pool`.
-6. **38 llamadas** `app.include_router(...)` — algunas con `prefix="/api"` adicional porque el sub-router ya define `/inventario`, `/kds`, etc.
-7. `GET /api/health` → `SELECT 1` vía `get_db()`.
-
-### Contrato API — prefijos efectivos (muestra representativa)
-
-| Módulo | Prefijo router | Prefijo en `main` | URL efectiva ejemplo |
-|--------|----------------|-------------------|----------------------|
-| Auth | `/api/auth` | — | `POST /api/auth/login` |
-| Mesas | `/api/mesas` | — | `GET /api/mesas` |
-| TPV | `/api/tpv` | — | `POST /api/tpv/tickets` |
-| Cobro / pagos | `/api/tpv` | — | `POST /api/tpv/tickets/{id}/pagos` |
-| Verifactu | `/api/verifactu` | — | `GET /api/verifactu/registros` |
-| Inventario | `/inventario` | `/api` | `GET /api/inventario/articulos` |
-| KDS | `/kds` | `/api` | `GET /api/kds/comandas` |
-| Dashboard | `/api/dashboard` | — | `GET /api/dashboard/director` |
-| Analytics | `/dashboard` (interno) | `/api` | `GET /api/dashboard/rentabilidad-mesas` |
-| Superadmin | `/api/superadmin` | — | `GET /api/superadmin/tenants` |
-| Admin usuarios | `/api/admin` | — | `GET /api/admin/usuarios` |
+Polling cada **30 segundos** en KDS y Venta Live. Indicador «Actualizado hace X segundos» en UI. Migración a WebSocket prevista al contratar Render Starter.
 
 ---
 
-## 📂 Estructura real del proyecto
-
-Árbol generado del repositorio en disco (excluye `node_modules`, `__pycache__`, `.git`, `.venv`). Las carpetas con muchos artefactos de seed/MCP en `backend/sql/` se listan agrupadas.
+## 4. Estructura de carpetas
 
 ```
 HorecaSO/
-├── backend/
+├── backend/                          # API Python (FastAPI)
+│   ├── main.py                       # App factory: routers, middlewares, /api/health
+│   ├── config.py                     # Settings (pydantic-settings)
+│   ├── database.py                   # Pool asyncpg + get_db()
+│   ├── requirements.txt
 │   ├── auth/
-│   ├── routers/
-│   │   ├── admin_carta/
-│   │   ├── admin_usuarios/
-│   │   ├── analytics/
-│   │   ├── clientes/
-│   │   ├── costes/
-│   │   ├── empleados/
-│   │   ├── fifo/
-│   │   ├── inventario/
-│   │   ├── kds/
-│   │   ├── proveedores/
-│   │   ├── recetas/
-│   │   ├── reportes/
-│   │   ├── reservas/
-│   │   ├── superadmin/
-│   │   └── tpv/
-│   ├── scripts/
-│   ├── services/
-│   ├── sql/
-│   ├── config.py
-│   ├── database.py
-│   ├── main.py
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── context/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   └── utils/
+│   │   ├── dependencies.py           # get_current_user, require_roles, require_superadmin
+│   │   ├── jwt_handler.py            # create_access_token, verify_token
+│   │   └── schemas.py                # LoginRequest, TokenResponse
+│   ├── routers/                      # ~96 archivos .py — dominios HTTP
+│   │   ├── auth.py, mesas*.py, carta.py, dashboard.py, verifactu.py, nominas.py, appcc.py
+│   │   ├── admin_carta/              # CRUD categorías, productos, alérgenos
+│   │   ├── admin_usuarios/           # Gestión usuarios del tenant (solo admin)
+│   │   ├── superadmin/               # Panel plataforma (tenants, logs)
+│   │   ├── tpv/                      # Tickets, líneas, pagos, cobro
+│   │   ├── kds/                      # Comandas cocina/barra
+│   │   ├── inventario/               # Artículos, movimientos, alertas
+│   │   ├── recetas/                  # Escandallos, ingredientes, semáforo
+│   │   ├── costes/                   # Gastos operativos
+│   │   ├── proveedores/              # Proveedores + facturas + escaneo IA
+│   │   ├── empleados/                # RRHH: empleados, fichajes, cuadrantes, ausencias
+│   │   ├── reservas/                 # Reservas + lista de espera
+│   │   ├── clientes/                 # CRM + historial + puntos
+│   │   ├── fifo/                     # Lotes, consumo FIFO, valoración
+│   │   ├── analytics/                # Rentabilidad mesas, ingeniería menú, coste personal
+│   │   └── reportes/                 # PDFs (nómina, inventario, cierre, diferenciales)
+│   ├── services/                     # Lógica no-HTTP
+│   │   ├── verifactu_engine.py       # Huellas SHA-256, registro fiscal
+│   │   └── pdf_*.py                  # Generadores PDF (ReportLab)
+│   ├── sql/                          # Migraciones y seeds (aplicación manual en Supabase)
+│   │   ├── migration_*.sql
+│   │   └── seed_*.sql
+│   └── scripts/                      # Utilidades (hashes bcrypt, seeds, schema MD)
+│
+├── frontend/                         # SPA React
 │   ├── package.json
-│   └── vite.config.js
-├── docs/
-└── [documentación raíz: PRD, SCHEMA, GUIA, BITACORA, …]
+│   ├── vite.config.js                # Proxy /api → localhost:8000 en dev
+│   ├── .env.example
+│   └── src/
+│       ├── main.jsx                  # Punto de entrada
+│       ├── App.jsx                   # Rutas y guards por rol
+│       ├── index.css                 # Tailwind 4
+│       ├── context/                  # AuthContext, ThemeContext
+│       ├── components/
+│       │   ├── layout/               # AppLayout, Sidebar, SidebarNav, navConfig.js
+│       │   └── shared/               # Loader, StatCard, EmptyState
+│       ├── pages/                    # Pantallas por dominio (sala, tpv, admin, …)
+│       ├── services/api.js           # Axios + helpers por endpoint
+│       ├── constants/uiTokens.js
+│       └── utils/
+│
+├── docs/                             # Documentación archivada
+├── .cursorrules                      # Convenciones obligatorias del proyecto
+├── SCHEMA_BASE_DATOS.md              # Referencia de 42 tablas PostgreSQL
+├── ARQUITECTURA_HORECASO.md            # Mapa routers ↔ frontend
+├── GUIA_PRODUCCION_COMPLETA.md       # Deploy, seguridad, tenants
+├── BITACORA_HORECASO.md              # Registro de trabajo por sesión
+├── BUGS_Y_SOLUCIONES.md              # Bugs reproducibles documentados
+├── STEP_HORECASO.md                  # Estado global del proyecto por módulo
+├── PRD_HorecaSO.md                   # Especificación de producto
+└── CREDENCIALES_PRUEBA.MD            # Usuarios de desarrollo (no producción)
 ```
 
-### Raíz del monorepo
+---
 
-| Elemento | Responsabilidad |
-|----------|-----------------|
-| `.cursorrules` | Convenciones obligatorias del equipo (Decimal, SQL, Tailwind, roles, Verifactu) |
-| `PRD_HorecaSO.md` | Especificación de producto y schema SQL de referencia |
-| `SCHEMA_BASE_DATOS.md` | Volcado de 42 tablas Supabase (columnas, FKs) |
-| `ARQUITECTURA_HORECASO.md` | Mapa routers ↔ frontend |
-| `GUIA_PRODUCCION_COMPLETA.md` | Deploy Render/Vercel, seguridad, tenants, Anexo A Fase B |
-| `BITACORA_HORECASO.md` / `BUGS_Y_SOLUCIONES.md` | Estado real del código e historial de fixes |
-| `STEP_HORECASO.md` | State of the project por módulo |
+## 5. Requisitos previos
+
+| Requisito | Versión / detalle |
+|-----------|-------------------|
+| **Python** | 3.12 |
+| **Node.js** | 18+ recomendado (compatible con Vite 8) |
+| **npm** | Incluido con Node.js |
+| **PostgreSQL** | 15 — vía proyecto Supabase (local no obligatorio si usas Supabase remoto) |
+| **Git** | Para clonar el repositorio |
+| **Cuenta Supabase** | Base de datos y SQL Editor para migraciones |
+| **Cuenta Groq** | Opcional — solo para escaneo IA de facturas (`GROQ_API_KEY`) |
+
+**No requerido en el repositorio actual:**
+
+- Docker / docker-compose (no incluidos).
+- Alembic ni herramienta de migraciones automática (SQL manual en `backend/sql/`).
 
 ---
 
-### `backend/` — API y persistencia
+## 6. Instalación y configuración
 
-#### `backend/main.py`
+### 6.1 Clonar el repositorio
 
-Factory de aplicación FastAPI: ensambla middlewares, registra todos los routers, expone `/` (metadatos app) y `/api/health`. Es el artefacto que importa Gunicorn (`main:app`).
+```bash
+git clone <url-del-repositorio> HorecaSO
+cd HorecaSO
+```
 
-#### `backend/config.py`
+### 6.2 Backend
 
-Clase `Settings` (pydantic-settings): lee `.env`. Campos obligatorios `DATABASE_URL`, `SECRET_KEY_AUTH`; opcionales `ALLOWED_ORIGINS` (CSV), `ENVIRONMENT`, `GROQ_API_KEY` (con fallback `os.getenv`), `ACCESS_TOKEN_EXPIRE_MINUTES` (default 1440). Propiedad `allowed_origins_list` alimenta CORS.
+```bash
+cd backend
+python -m venv .venv
 
-#### `backend/database.py`
+# Windows (PowerShell)
+.\.venv\Scripts\Activate.ps1
 
-Pool global asyncpg (`min_size=2`, `max_size=10`, `command_timeout=60`, `statement_cache_size=0`). Context manager `get_db()` adquiere conexión, abre transacción, hace yield, commit o rollback.
+# macOS / Linux
+source .venv/bin/activate
 
-#### `backend/auth/`
+pip install -r requirements.txt
+```
 
-| Archivo | Responsabilidad exacta |
-|---------|------------------------|
-| `jwt_handler.py` | `create_access_token`, `verify_token`; normalización `tenant_id`/`negocio_id` null para `role==superadmin` |
-| `dependencies.py` | `HTTPBearer` → `get_current_user`; factories `require_roles`, alias `require_superadmin` |
-| `schemas.py` | `LoginRequest`, `TokenResponse` (contratos Pydantic del login) |
+Crear `backend/.env` (no está versionado; ver sección 9):
 
-#### `backend/routers/` — dominios HTTP (84 ficheros `.py`)
+```env
+DATABASE_URL=postgresql://postgres:[PASSWORD]@[HOST]:6543/postgres
+SECRET_KEY_AUTH=tu_clave_secreta_minimo_32_caracteres
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+ALLOWED_ORIGINS=http://localhost:5173
+ENVIRONMENT=development
+GROQ_API_KEY=
+APP_NAME=HorecaSO
+APP_VERSION=1.0.0
+```
 
-Patrón recurrente: **orquestador** (`*.py` en raíz o paquete) define `APIRouter` con `prefix`, importa submódulos `*_list`, `*_mutations`, `*_shared` y hace `include_router` interno.
+> Usa el **pooler** de Supabase (puerto `6543`) con `statement_cache_size=0` ya configurado en `database.py`.
 
-| Ruta / paquete | Archivos clave | Qué hace en código |
-|----------------|----------------|-------------------|
-| **`auth.py`** | Único | `POST /api/auth/login` (bcrypt + JWT), `GET /api/auth/perfil` (incluye subquery `empleado_id` para fichaje automático) |
-| **`mesas.py`** + `mesas_list.py` + `mesas_mutations.py` + `mesas_shared.py` | Orquestador monta listado (`list_mesas_handler` con `ROLES_LISTADO_OPERATIVO`), CRUD, `PATCH …/estado` |
-| **`tpv/`** | `tpv.py` orquesta `tpv_tickets_create`, `tpv_tickets_list`, `tpv_tickets_detalle`, `tpv_lineas` | Ciclo de vida del ticket y líneas bajo `/api/tpv` |
-| | `tpv_pagos.py` | División de cuenta: `ticket_pagos` |
-| | `tpv_cobro.py`, `tpv_cobrar.py` | Cobro simple y cierre; invoca `verifactu_engine.crear_registro_verifactu` en transacción |
-| | `tpv_shared.py` | Helpers compartidos (totales, estados mesa, KDS al cobrar) |
-| **`verifactu.py`** | | Listado registros, verificar cadena, export CSV; delega huella a `services/verifactu_engine.py` |
-| **`carta.py`** | `router_tpv` + `router_publica` | Carta agrupada para TPV (`/api/tpv/...`) y carta pública (`/api/carta`) |
-| **`admin_carta/`** | `admin_carta.py`, `admin_productos.py`, `admin_carta_shared.py` | CRUD categorías/productos, alérgenos, campo `destino_kds`, saneo emoji |
-| **`recetas/`** | `admin_recetas.py`, `admin_recetas_ingredientes.py`, `admin_recetas_shared.py`, **`recetas_unidades.py`** | CRUD recetas, ingredientes, semáforo margen, conversión kg/g/l/ml, coste con calibración |
-| **`costes/`** | `admin_gastos_operativos.py` | `GET/POST/DELETE /api/admin/gastos-operativos` — tabla `gastos_operativos` |
-| **`inventario/`** | `inventario.py` → `inventario_articulos_list`, `inventario_articulos_mutations` | Artículos, stock, `PUT …/calibracion-merma` |
-| | `inventario_movimientos.py` + `*_core`, `*_alertas`, `*_schemas` | Movimientos, alertas caducidad, inventario físico |
-| | `inventario_shared.py` | `_articulo_to_dict` con `coste_unitario_efectivo`, `merma_calibracion_porcentaje` |
-| **`kds/`** | `kds.py`, `kds_estados.py`, `kds_shared.py` | `GET /api/kds/comandas` filtrado por rol y `destino_kds`; PATCH estados cocina/barra; parámetro `incluir_servidos` |
-| **`dashboard.py`** | | KPIs director, cierre día — alimenta `DashboardPage` y venta live |
-| **`analytics/`** | `analytics_mesas.py`, `analytics_menu.py`, `analytics_personal.py`, `analytics_shared.py` | Endpoints bajo `/api/dashboard/…` (rentabilidad mesas, ingeniería menú BCG, coste personal) |
-| **`proveedores/`** | `proveedores.py` → list/mutations | CRUD proveedores |
-| | `facturas_proveedor*.py`, **`facturas_proveedor_escaneo.py`** | Facturas compra; `POST /facturas-proveedor/escanear-ia` → Groq |
-| **`empleados/`** | `empleados.py`, `fichajes.py`, `cuadrantes.py`, `ausencias.py` | RRHH; prefijos `/empleados`, `/turnos`, `/cuadrantes`, `/ausencias` montados con `prefix="/api"` en main |
-| **`nominas.py`** | | Cálculo nómina SS/IRPF, rutas bajo `/api/nominas` |
-| **`reservas/`** | `reservas.py` → `reservas_read`, `reservas_write`, `lista_espera.py` | Reservas + lista de espera |
-| **`clientes/`** | `clientes.py`, `clientes_historial.py` | CRM, historial tickets, puntos fidelidad |
-| **`appcc.py`** | | Registros APPCC temperaturas |
-| **`fifo/`** | `fifo.py`, `fifo_consumo.py`, `fifo_shared.py` | Lotes FIFO, consumos, valoración |
-| **`reportes/`** | `reportes.py`, `reportes_dif_*.py` | Endpoints PDF; registran handlers que llaman `services/pdf_*` |
-| **`admin_usuarios/`** | `admin_usuarios_router.py` | Gestión usuarios del tenant; `require_roles(['admin'])` |
-| **`superadmin/`** | `superadmin_router.py` | Tenants paginados, detalle, `PATCH …/activo`, `platform_logs` |
+### 6.3 Base de datos (Supabase)
 
-#### `backend/services/` — lógica no HTTP reutilizable
+Ejecutar en **Supabase → SQL Editor** (en orden, según necesidad):
 
-| Archivo | Invocado desde | Función |
-|---------|----------------|---------|
-| `verifactu_engine.py` | `tpv_cobro`, `verifactu.py` | `generar_huella` (SHA-256 HAC), `generar_numero_serie`, `crear_registro_verifactu` |
-| `pdf_nomina.py` | `reportes.py` | PDF nómina |
-| `pdf_inventario.py` | reportes | PDF inventario |
-| `pdf_reportes.py` | reportes | Cierre caja, ventas periodo |
-| `pdf_diferenciales.py`, `pdf_diferenciales_2.py`, `pdf_diferenciales_bcg.py`, `pdf_diferenciales_shared.py` | `reportes_dif_*` | Cuadrante, rentabilidad platos, APPCC, comparativa proveedores |
-| `pdf_generator.py` | Utilidades base PDF | |
-
-#### `backend/sql/`
-
-Migraciones y seeds **manuales** (no hay runner automático en el arranque de la app):
-
-| Archivo | Propósito |
-|---------|-----------|
-| `migration_kds_barra_destino.sql` | `productos.destino_kds`, columnas barra en `ticket_lineas`, rol `barra` |
-| `migration_fase_b.sql` | Superadmin, `platform_logs`, `tenant_audit_log`, `usuario_permisos`, seed tenant prueba |
-| `migration_gastos_operativos.sql` | Tabla gastos fijos mensuales |
-| `migration_articulos_calibracion_merma.sql` | Columnas calibración en `articulos` |
-| `migration_articulos_elaborados_receta.sql` | Elaboraciones |
-| `seed_demo_tenant_prueba_abcd.sql`, `seed_despensa_articulos_prueba.sql` | Datos demo |
-| `_seed_split_*.sql`, `_mcp_*.json` | Artefactos de ejecución batch vía MCP/shell (desarrollo) |
-
-#### `backend/scripts/`
-
-| Script | Función |
-|--------|---------|
-| `generate_test_hashes.py` | Genera hashes bcrypt para pegar en `migration_fase_b.sql` |
-| `schema_mcp_json_to_markdown.py` | Regenera `SCHEMA_BASE_DATOS.md` desde volcado MCP |
-| `apply_seed_shell_batches.py`, `generate_seed_despensa_articulos.py` | Automatización de seeds |
-
----
-
-### `frontend/` — SPA React
-
-#### `frontend/vite.config.js`
-
-Plugins `@vitejs/plugin-react` y `@tailwindcss/vite`. **Proxy dev y preview:** `/api` → `http://localhost:8000` (evita CORS en local; en Vercel se usa `VITE_API_URL` absoluta).
-
-#### `frontend/src/main.jsx`
-
-Monta `<App />` en `#root` con `StrictMode`; import global `index.css` (Tailwind 4 + tokens tema).
-
-#### `frontend/src/App.jsx`
-
-**Árbol de rutas completo** (~290 líneas): envuelve con `ThemeProvider` → `AuthProvider` → `BrowserRouter`.
-
-| Grupo de rutas | Guard | Páginas |
-|----------------|-------|---------|
-| `/login` | Público | `LoginPage` |
-| `/superadmin/*` | `PrivateRoute` + `allowedRoles: ['superadmin']` | `SuperadminLayout` → `TenantsListPage`, `TenantDetailPage`, `PlatformLogsPage` |
-| `/kds` | Roles cocina, barra, sala, admin, director, camarero, jefe_sala | `KDSPage` — **sin** `AppLayout` |
-| `/tpv/:mesaId` | Autenticado | `TPVPage` — pantalla completa |
-| Grupo `AppLayout` | `PrivateRoute` (+ guards por módulo) | Mesas, dashboard, inventario, admin, RRHH, etc. |
-
-Guards definidos en el mismo archivo: `AdminDirectorRoute`, `AdminDirectorJefeSalaRoute`, `AdminDirectorCocinaRoute`, `InventarioRoute`, `ProveedoresRoute`, `AdminOnlyRoute` (solo `/admin/usuarios`).
-
-#### `frontend/src/context/`
-
-| Archivo | Responsabilidad |
+| Archivo | Obligatorio si… |
 |---------|-----------------|
-| `AuthContext.jsx` | Estado `user`, `token`, `isAuthenticated`; `login()` → API + `getPerfil()`; opcional `POST /turnos/fichaje-entrada` si `empleado_id` y rol en `ROLES_FICHAJE_AUTO`; persistencia `localStorage` |
-| `ThemeContext.jsx` | Tema claro/oscuro (`horecaso_theme` en `localStorage`), clase `dark` en `<html>` |
+| `backend/sql/migration_kds_barra_destino.sql` | Usas KDS/TPV con destino cocina/barra |
+| `backend/sql/migration_fase_b.sql` | Panel superadmin y tenant de prueba |
+| `backend/sql/migration_gastos_operativos.sql` | Módulo Costes |
+| `backend/sql/migration_articulos_calibracion_merma.sql` | Calibración de merma en inventario |
+| `backend/sql/migration_articulos_elaborados_receta.sql` | Elaboraciones (artículos elaborados) |
 
-#### `frontend/src/services/api.js`
+Para hashes bcrypt del seed Fase B:
 
-Cliente Axios único (~400 líneas): `resolveApiBaseUrl()`, interceptores, funciones nombradas por dominio (`getMesas`, `createTicket`, `getSuperadminTenants`, `getAdminUsuarios`, `putArticuloCalibracionMerma`, `getKDSComandas`, etc.). **Contrato:** todas las rutas son relativas a base `/api` (p. ej. `api.get('/mesas')` → `/api/mesas`).
+```bash
+python backend/scripts/generate_test_hashes.py
+```
 
-#### `frontend/src/components/`
+Pegar los hashes en `migration_fase_b.sql` antes de ejecutarlo.
 
-| Ruta | Responsabilidad |
-|------|-----------------|
-| `layout/AppLayout.jsx` | Shell con sidebar fijo `ml-64`, outlet hijas |
-| `layout/Sidebar.jsx` + `SidebarNav.jsx` | Si `user.rol === 'superadmin'` renderiza solo `SUPERADMIN_NAV_ITEMS`; si no, `NAV_ITEMS` filtrados por rol |
-| `layout/constants/navConfig.js` | Fuente de verdad de menú: rutas, iconos lucide, array `roles` permitidos |
-| `shared/Loader.jsx`, `EmptyState.jsx`, `StatCard.jsx` | UI transversal |
+### 6.4 Frontend
 
-#### `frontend/src/pages/` — pantallas por dominio (111 ficheros `.jsx`)
+```bash
+cd frontend
+npm install
+cp .env.example .env.local   # opcional
+```
 
-| Carpeta | Página raíz | Hooks / componentes notables |
-|---------|-------------|------------------------------|
-| `sala/` | `MesasPage.jsx` | `MesaCard`, `useMesasSala`, `patchMesaEstado` |
-| `tpv/` | `TPVPage.jsx` | `useTicketTPV`, `CobroModal`, `CobroDivisionForm`, `CartaPanel`, `TpvMesaOcupadaAlert` |
-| `cocina/` | `KDSPage.jsx` | `useKdsComandas`, `KdsTicketCard`, `KdsColumnaEstado`, `kdsHelpers.js` |
-| `director/` | `DashboardPage.jsx`, `VentaLivePage.jsx` | `useDashboard`, `useVentaLivePolling` (30 s) |
-| `admin/carta/` | `CartaPage.jsx` | `useCarta`, `ProductosPanel`, `CategoriasPanel`, modales alérgenos |
-| `admin/recetas/` | `RecetasPage.jsx`, `ElaboracionesPage.jsx` | `useRecetas`, `RecetaDetalleIngredientesSection`, `CosteSemaforo`, `recetasUtils.js` |
-| `admin/costes/` | `CostesPage.jsx` | Resumen semáforo + gastos operativos API |
-| `admin/sala/` | `GestionSalaPage.jsx` | CRUD mesas admin, `useMesasAdmin` |
-| `admin/usuarios/` | `UsuariosPage.jsx` | Tabla + modales crear/editar → `/api/admin/usuarios` |
-| `inventario/` | `InventarioPage.jsx`, `MermasPage.jsx`, `APPCCPage.jsx`, `FIFOPage.jsx` | `useInventarioData`, `CalibracionMermaPanel`, `useFIFO`, `useAPPCC` |
-| `proveedores/` | `ProveedoresPage.jsx`, `FacturasPage.jsx` | `EscaneoIAModal`, `useFacturas`, Groq |
-| `empleados/` | `EmpleadosPage`, `FichajesPage`, `CuadrantePage`, `NominasPage` | `useFichajes`, toggle fichar al login, `NominasList` |
-| `reservas/` | `ReservasPage.jsx` | Tabs reservas / lista espera |
-| `clientes/` | `ClientesPage.jsx` | `HistorialPanel`, `PuntosPanel` |
-| `analytics/` | `AnalyticsPage.jsx` | `RentabilidadMesasPanel`, `IngenieriaMenuPanel`, `CostPersonalPanel` |
-| `reportes/` | `ReportesPage.jsx` | Tabs PDF, `utilsPdf.js` (blob download) |
-| `superadmin/` | `TenantsListPage`, `TenantDetailPage`, `PlatformLogsPage` | `SuperadminLayout`, PATCH activo tenant |
+El proxy de Vite reenvía `/api` a `http://localhost:8000` en desarrollo; normalmente **no hace falta** `VITE_API_URL` en local.
 
-#### `frontend/src/utils/`
+### 6.5 Verificación de instalación
 
-| Archivo | Uso |
-|---------|-----|
-| `textSanitize.js` | `stripEmojis` — carta y tabs TPV |
-| `pagos.js` | Helpers métodos de pago en cobro |
+```bash
+# Backend — debe importar sin errores
+cd backend
+python -c "from main import create_app; create_app()"
+
+# Frontend — build limpio
+cd frontend
+npm run build
+```
 
 ---
 
-### `docs/`
+## 7. Cómo ejecutar el proyecto
 
-Índice de documentación (`docs/README.md`); histórico en `docs/archivo/` si existe.
+### Desarrollo local
+
+**Terminal 1 — Backend** (desde `backend/` con venv activo):
+
+```bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+- API: `http://localhost:8000`
+- OpenAPI: `http://localhost:8000/docs` (solo si `ENVIRONMENT != production`)
+- Health: `http://localhost:8000/api/health`
+
+**Terminal 2 — Frontend** (desde `frontend/`):
+
+```bash
+npm run dev
+```
+
+- UI: `http://localhost:5173`
+- Login de prueba: ver `CREDENCIALES_PRUEBA.MD` (tenant Restaurante Prueba o demo legacy `admin@test.com` si existe en tu BD).
+
+### Preview de producción (frontend)
+
+```bash
+cd frontend
+npm run build
+npm run preview
+```
+
+`vite.config.js` incluye proxy `/api` también en `preview`.
+
+### Producción
+
+| Capa | Comando / plataforma |
+|------|----------------------|
+| Backend | Render — ver sección 13 |
+| Frontend | Vercel — `npm run build`, output `dist/` |
+
+**No hay** `docker-compose.yml` ni imagen Docker en el repositorio.
 
 ---
 
-# PARTE 2 — Seguridad, ingeniería de producción y escala
+## 8. Scripts disponibles
 
-Documento anexo a la Parte 1. Fuentes: código en disco, `GUIA_PRODUCCION_COMPLETA.md` v1.2.0, `BUGS_Y_SOLUCIONES.md`, `BITACORA_HORECASO.md`, `PRD_SUPERADMIN_TENANTS_PRUEBAS.md` (redirección a Anexo A de la guía).
+### Frontend (`frontend/package.json`)
+
+| Script | Comando | Descripción |
+|--------|---------|-------------|
+| `dev` | `vite` | Servidor de desarrollo con HMR en puerto 5173 |
+| `build` | `vite build` | Compila la SPA a `frontend/dist/` |
+| `preview` | `vite preview` | Sirve el build localmente (con proxy `/api`) |
+| `lint` | `eslint .` | Analiza código JS/JSX con ESLint 9 flat config |
+
+### Backend (scripts Python en `backend/scripts/`)
+
+| Script | Descripción |
+|--------|-------------|
+| `generate_test_hashes.py` | Genera hashes bcrypt para seeds SQL |
+| `schema_mcp_json_to_markdown.py` | Regenera `SCHEMA_BASE_DATOS.md` desde volcado MCP |
+| `apply_seed_shell_batches.py` | Aplica seeds por lotes (desarrollo) |
+| `generate_seed_despensa_articulos.py` | Genera SQL de artículos de prueba |
+
+### Comandos operativos habituales (no en package.json)
+
+```bash
+# Verificar app factory
+cd backend && python -c "from main import create_app; create_app()"
+
+# Arrancar API en desarrollo
+cd backend && uvicorn main:app --reload
+
+# Producción local (simular Render)
+cd backend && gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 120
+```
 
 ---
 
-## 🔐 Seguridad Operativa y Aislamiento Multi-tenant
+## 9. Variables de entorno
 
-HorecaSO no implementa bases de datos por cliente ni esquemas PostgreSQL separados. El aislamiento es **lógico**: una sola instancia de aplicación, un pool asyncpg compartido, y **cada consulta de negocio acota el alcance** mediante el identificador de tenant (y, cuando aplica, de outlet) derivado del JWT o re-leído desde `usuarios` en la misma transacción.
+### Backend (`backend/.env`)
 
-### Flujo del contexto de seguridad en una petición
+| Variable | Descripción | Obligatoria |
+|----------|-------------|-------------|
+| `DATABASE_URL` | Connection string PostgreSQL (Supabase pooler `:6543`) | **Sí** |
+| `SECRET_KEY_AUTH` | Clave para firmar JWT (mín. 32 caracteres aleatorios en prod) | **Sí** |
+| `ALGORITHM` | Algoritmo JWT | No (default: `HS256`) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Duración del token en minutos | No (default: `1440`) |
+| `ALLOWED_ORIGINS` | Orígenes CORS separados por coma | No (default: `http://localhost:5173`) |
+| `ENVIRONMENT` | `development` \| `production` — controla `/docs` | No (default: `development`) |
+| `GROQ_API_KEY` | API key Groq para escaneo IA de facturas | No (vacío desactiva IA) |
+| `APP_NAME` | Nombre mostrado en metadatos | No (default: `HorecaSO`) |
+| `APP_VERSION` | Versión de la app | No (default: `1.0.0`) |
 
+### Frontend (`frontend/.env` / `.env.local`)
+
+| Variable | Descripción | Obligatoria |
+|----------|-------------|-------------|
+| `VITE_API_URL` | URL base del API. Debe terminar en `/api` o se añade automáticamente. Ej: `https://tu-backend.onrender.com/api` | No en dev (usa proxy `/api`). **Sí en Vercel** |
+
+Ejemplo (`frontend/.env.example`):
+
+```env
+# VITE_API_URL=http://127.0.0.1:8000/api
 ```
-Cliente (Axios + Bearer)
-    → FastAPI: SlowAPIMiddleware (rate limit global)
-    → CORS (ALLOWED_ORIGINS)
-    → SecurityHeadersMiddleware (cabeceras en respuesta)
-    → HTTPBearer → verify_token (jose) → dict current_user
-    → require_roles([...]) o require_superadmin
-    → get_db() → asyncpg con placeholders $1, $2, …
-    → SQL filtrado por tenant_id / outlet_id
-```
-
-El JWT **no sustituye** la validación en base de datos en operaciones sensibles (p. ej. comprobar que un `usuario_id` del path pertenece al mismo `tenant_id` que el token), pero sí define el **ámbito por defecto** de todos los listados y mutaciones.
-
-### Aislamiento por `tenant_id` y `outlet_id` en SQL (asyncpg)
-
-#### Origen del tenant en el token
-
-Tras `POST /api/auth/login`, el claim operativo para restaurantes es **`negocio_id`** (UUID del `usuarios.tenant_id`). El rol `superadmin` recibe además `tenant_id: null` y `negocio_id: null` en el payload (`backend/routers/auth.py`).
-
-Los routers no confían en que el cliente envíe `tenant_id` en el body para filtrar: lo extraen de `current_user`.
-
-#### Patrón A — Tenant directo en tablas con `tenant_id`
-
-Entidades maestras del restaurante llevan columna `tenant_id`: `productos`, `articulos`, `clientes`, `empleados`, `proveedores`, `categorias_menu`, etc.
-
-Ejemplo real en `backend/routers/clientes/clientes.py` (listado con búsqueda dinámica):
-
-```python
-conds = ["tenant_id = $1"]
-args = [tenant_id]
-if buscar:
-    args.append(f"%{buscar}%")
-    conds.append(f"nombre ILIKE ${len(args)}")
-sql = "SELECT * FROM clientes WHERE " + " AND ".join(conds)
-rows = await conn.fetch(sql, *args)
-```
-
-Las cláusulas `WHERE` se **concatenan**; los valores van **siempre** en `args` con numeración `$n`. Esto es la convención obligatoria del proyecto (prohibidos f-strings con datos de usuario).
-
-En **`admin_usuarios_router.py`**, el listado de usuarios del tenant es explícito:
-
-```sql
-SELECT id, nombre, email, rol, outlet_id, activo, created_at
-FROM usuarios
-WHERE tenant_id = $1
-  AND rol <> 'superadmin'
-ORDER BY nombre ASC
-```
-
-El parámetro `$1` es `tenant_id` obtenido de `_tenant_uuid_from_jwt(current_user)`, que lee `negocio_id` o `tenant_id` del JWT y devuelve **403** si ambos faltan (caso incompatible con admin de restaurante).
-
-#### Patrón B — Tenant vía JOIN con `outlets`
-
-Operación diaria (mesas, tickets abiertos, KDS) cuelga de `outlet_id`, pero el acotado al restaurante pasa por `outlets.tenant_id`.
-
-**Mesas** (`mesas_list.py` → `_get_user_tenant_outlet` en `mesas_shared.py`):
-
-1. Se lee `tenant_id` y `outlet_id` de `usuarios` con el `sub` del JWT.
-2. Si el usuario tiene **`outlet_id`** (camarero, cocina acotada al local): solo mesas de ese outlet.
-3. Si **no** tiene outlet (típico admin/director): todas las mesas del tenant:
-
-```sql
-SELECT m.* FROM mesas m
-JOIN outlets o ON m.outlet_id = o.id
-WHERE o.tenant_id = $1
-ORDER BY m.numero
-```
-
-**Tickets abiertos** (`tpv_tickets_list.py`): misma bifurcación — por `outlet_id` del usuario o, si es null, `JOIN outlets` con `o.tenant_id = $1`.
-
-**KDS** (`kds.py`): el outlet se resuelve en `kds_shared._get_user_outlet`; la query base incluye `WHERE t.outlet_id = $1 AND t.estado = 'abierto'`, de modo que un ticket cobrado **desaparece** del listado de cocina (ver BUG-003 en sección de bugs).
-
-#### Patrón C — Tenant vía empleado / nómina
-
-**Nóminas** (`nominas.py`): helper `_tenant_id(current_user)` exige `negocio_id` en el JWT; cada operación valida que el `empleado_id` pertenece al tenant:
-
-```sql
-SELECT 1 FROM empleados WHERE id = $1 AND tenant_id = $2
-```
-
-Y al leer una nómina:
-
-```sql
-WHERE n.id = $1 AND e.tenant_id = $2
-```
-
-Un token de otro restaurante no puede leer nóminas ajenas aunque conozca el UUID de la fila.
-
-#### Patrón D — Re-lectura de tenant desde BD (analytics)
-
-En `analytics_shared.py`, `_tenant_id_usuario(conn, user_id)` hace `SELECT tenant_id FROM usuarios WHERE id = $1` en lugar de confiar solo en el claim del JWT. Esto alinea analytics con el estado actual del usuario en BD (útil si hubiera cambios de asignación; también falla con **400** si el usuario no tiene tenant — coherente con superadmin que no debe usar rutas de restaurante).
-
-`_outlet_id_usuario` exige outlet asignado para métricas que dependen del local.
-
-#### Patrón E — Plataforma sin filtro tenant (superadmin)
-
-`superadmin_router.py` ejecuta `SELECT … FROM tenants` **sin** `WHERE tenant_id = $jwt`, porque el actor es operador de plataforma. Los endpoints de negocio (`/api/mesas`, `/api/inventario/...`) deben seguir fallando para ese rol por falta de `negocio_id` o por `require_roles` que no incluye `superadmin`.
-
-#### Anti-IDOR en recursos por UUID
-
-Algunos `GET /{id}` históricos (p. ej. detalle de mesa en `mesas_list.get_mesa`) consultan solo por `id`. La guía de producción (ATAQUE 4) exige que, en auditoría, **toda** lectura/mutación por UUID valide pertenencia al tenant del JWT. El patrón correcto — ya usado en nóminas, clientes PATCH, admin usuarios — es:
-
-```sql
-WHERE id = $1 AND tenant_id = $2
-```
-
-### Transacciones y concurrencia (`get_db`)
-
-`database.py` envuelve cada uso del pool en:
-
-```python
-async with conn.transaction():
-    yield conn
-```
-
-Cobro TPV + Verifactu + actualización de mesa comparten la misma transacción cuando el handler usa un único `async with get_db()`. Si `crear_registro_verifactu` falla, el rollback revierte el cobro — requisito fiscal del producto.
-
-El pool usa `min_size=2`, `max_size=10`, `command_timeout=60`. En Supabase producción la URL apunta al **pooler** (`:6543`).
-
-### RBAC: factoría `require_roles` y rutas críticas
-
-Implementación en `backend/auth/dependencies.py`:
-
-```python
-def require_roles(allowed_roles: list[str]):
-    async def _check(current_user: dict = Depends(get_current_user)) -> dict:
-        role = current_user.get("role")
-        if role not in allowed_roles:
-            raise HTTPException(status_code=403, detail="No autorizado para esta operación")
-        return current_user
-    return _check
-
-require_superadmin = require_roles(["superadmin"])
-```
-
-`get_current_user` usa `HTTPBearer`: sin header → 401; token inválido o expirado → 401 con log `"Token inválido o expirado"`.
-
-#### Matriz: rol vs rutas sensibles (comportamiento real del código)
-
-| Ruta / dominio | Roles permitidos (backend) | Roles **sin** acceso (ejemplos) |
-|----------------|----------------------------|----------------------------------|
-| `/api/superadmin/*` | Solo `superadmin` (`require_superadmin`) | `admin`, `director`, `camarero`, `cocina`, `barra`, `almacen` → **403** |
-| `/api/admin/usuarios` | Solo `admin` (`require_roles(['admin'])`) | `director`, `camarero`, … → **403** |
-| `/api/nominas/*` | `ROLES_RRHH = ["admin", "director"]` | `camarero`, `jefe_sala`, `cocina`, `barra`, `almacen` → **403** |
-| `/api/dashboard/rentabilidad-mesas`, ingeniería menú, coste personal | `ROLES_ANALYTICS = ["admin", "director"]` | Resto de roles operativos → **403** |
-| `/api/mesas` (listado) | `ROLES_LISTADO_OPERATIVO` (8 roles incl. camarero, cocina, barra, almacen) | `superadmin` (sin tenant en práctica) → fallo de contexto o lista vacía/403 en otros endpoints |
-| `/api/kds/comandas` | `ROLES_KDS_LECTURA` en `kds_shared` | Roles no incluidos → **403** |
-| Facturas escaneo IA | `ROLES_ADMIN_ALMACEN` en proveedores | Camarero → **403** |
-
-**Ejemplo explícito — camarero y nóminas:**
-
-Un usuario con `role: "camarero"` obtiene JWT válido. Cualquier `GET` o `POST` a `/api/nominas/...` monta `Depends(require_roles(ROLES_RRHH))` con `ROLES_RRHH = ["admin", "director"]` → respuesta **403** `"No autorizado para esta operación"`. El frontend puede ocultar el menú (`navConfig.js`), pero la autoridad es el backend.
-
-**Ejemplo explícito — admin de tenant y superadmin:**
-
-`GET /api/superadmin/tenants` con token de `admin@prueba.com` → `require_superadmin` → **403**. Inversamente, token `superadmin` en `GET /api/mesas`: el listado intenta resolver tenant/outlet desde `usuarios` para ese `sub`; sin tenant asignado → **403** `"Usuario sin tenant asignado"` (comportamiento documentado en guía §2.3 PRUEBA 4).
-
-#### Frontend: guards complementarios (no sustitutivos)
-
-`App.jsx` define `PrivateRoute`, `AdminOnlyRoute`, `AdminDirectorRoute`, etc. Un usuario sin rol adecuado es redirigido a `/mesas`. Esto **no** reemplaza el RBAC del API: un cliente malicioso puede llamar al backend directamente.
-
-`SidebarNav.jsx`: si `user.rol === 'superadmin'`, solo renderiza `SUPERADMIN_NAV_ITEMS` (Tenants, Logs) — no ve Sala, TPV ni Inventario del restaurante.
-
-### SlowAPI y fuerza bruta en login
-
-En `main.py`:
-
-```python
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
-```
-
-- **Clave de límite:** IP remota (`get_remote_address`).
-- **Alcance actual:** middleware global SlowAPI; en el código del repo **no** hay decoradores `@limiter.limit("5/minute")` en `auth.py` todavía.
-- **Implicación operativa:** la infraestructura está montada; la guía de producción (§2.3 PRUEBA 5) espera respuestas **429** tras intentos repetidos de login fallido. Si todos los intentos devuelven solo **401**, conviene añadir rate limit explícito en `POST /api/auth/login` (ítem checklist §1.1 ítem 18).
-
-### Cabeceras de seguridad (Starlette)
-
-`SecurityHeadersMiddleware` en `main.py` añade en **cada respuesta**:
-
-| Cabecera | Valor | Efecto |
-|----------|-------|--------|
-| `X-Content-Type-Options` | `nosniff` | Reduce MIME sniffing |
-| `X-Frame-Options` | `DENY` | Impide embedding en iframes (clickjacking) |
-| `X-XSS-Protection` | `1; mode=block` | Filtro XSS legacy en navegadores |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` | Limita fuga de URL en Referer |
-| `Permissions-Policy` | `geolocation=(), microphone=()` | Deshabilita APIs de sensor por defecto |
-
-### CORS y superficie de documentación
-
-`CORSMiddleware` usa `settings.allowed_origins_list` desde `ALLOWED_ORIGINS` (CSV en `.env`). Si la lista está vacía, el código cae a `origins = ["*"]` con `allow_credentials=False` — en producción debe configurarse la URL exacta de Vercel.
-
-Con `ENVIRONMENT=production`, `create_app()` fija `docs_url=None` y `redoc_url=None` → **404** en `/docs` y `/redoc`.
-
-### Row Level Security (estado y recomendación)
-
-`SCHEMA_BASE_DATOS.md` (volcado MCP 27/03/2026): **RLS desactivado** en las 42 tablas de `public`. El aislamiento depende del código Python. Antes de clientes reales, la guía recomienda políticas RLS por `tenant_id` como segunda línea de defensa si un endpoint regresara sin filtro por error humano.
-
-### Referencia Fase B (superadmin / admin usuarios)
-
-El contenido técnico unificado está en `GUIA_PRODUCCION_COMPLETA.md` **Anexo A** (sustituye a `PRD_SUPERADMIN_TENANTS_PRUEBAS.md`, que solo redirige). Checklist Anexo A.5: ningún endpoint superadmin sin `require_superadmin`; ningún `/api/admin/usuarios` sin filtro `tenant_id` del JWT; nunca devolver `password_hash`.
 
 ---
 
-## 🛠️ Desafíos Técnicos y Solución de Errores Complejos
+## 10. API / Endpoints
 
-Registro autoritativo: `BUGS_Y_SOLUCIONES.md` (BUG-001 … BUG-013, MEJ-*) y `BITACORA_HORECASO.md` (verificaciones MCP 27/03/2026). A continuación, **tres incidentes críticos** de producción o pre-producción, cada uno con desglose obligatorio en tres apartados.
+Base URL en desarrollo: `http://localhost:8000`. Todas las rutas de negocio bajo `/api/...` salvo `GET /` (metadatos) y `GET /api/health`.
+
+**Autenticación:** `Authorization: Bearer <JWT>` en endpoints protegidos (excepto login y carta pública).
+
+**Autorización:** `require_roles([...])` por endpoint. Respuestas estándar: `401` sin token válido, `403` rol no permitido, `500` con `{"detail":"Error interno"}`.
+
+### Auth — `/api/auth`
+
+| Método | Ruta | Roles | Descripción |
+|--------|------|-------|-------------|
+| POST | `/login` | Público | Login email/password → JWT |
+| GET | `/perfil` | Autenticado | Perfil del usuario actual |
+| GET | `/verify` | Autenticado | Verificación de token |
+
+### Mesas — `/api/mesas`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listado de mesas del outlet |
+| GET | `/{mesa_id}` | Detalle de mesa |
+| POST | `/` | Crear mesa |
+| PUT | `/{mesa_id}` | Actualizar mesa |
+| PATCH | `/{mesa_id}/estado` | Cambiar estado (`libre`, `ocupada`, `reservada`) |
+| DELETE | `/{mesa_id}` | Eliminar mesa |
+
+### TPV — `/api/tpv`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/carta` | Productos agrupados por categoría |
+| GET | `/carta/productos` | Lista plana de productos |
+| POST | `/tickets` | Crear ticket (`mesa_id`, `outlet_id`) |
+| GET | `/tickets/abiertos` | Tickets abiertos |
+| GET | `/tickets/hoy` | Tickets del día (venta live) |
+| GET | `/tickets/{ticket_id}` | Ticket resumido |
+| GET | `/tickets/{ticket_id}/detalle` | Ticket con líneas y pagos |
+| POST | `/tickets/{ticket_id}/lineas` | Añadir línea (`producto_id`, `cantidad`) |
+| DELETE | `/tickets/{ticket_id}/lineas/{linea_id}` | Eliminar línea |
+| POST | `/tickets/{ticket_id}/pagos` | Registrar pago parcial (`importe`, `metodo_pago`) |
+| GET | `/tickets/{ticket_id}/pagos` | Listar pagos del ticket |
+| DELETE | `/tickets/{ticket_id}/pagos/{pago_id}` | Anular pago |
+| POST | `/tickets/{ticket_id}/cobrar` | Cobro (simple o cierre tras pagos) |
+
+**Métodos de pago válidos:** `efectivo`, `tarjeta_credito`, `tarjeta_debito`, `bizum`, `transferencia`, `invitacion`.
+
+### Verifactu — `/api/verifactu`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/registros` | Listado de registros fiscales |
+| GET | `/registros/{registro_id}` | Detalle de registro |
+| GET | `/verificar-cadena` | Verificación de cadena de huellas |
+| GET | `/exportar` | Exportación de registros |
+
+> Regla inamovible: **nunca** UPDATE ni DELETE en `verifactu_registros`.
+
+### Carta pública — `/api/carta`
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/publica/{outlet_slug}` | No | Carta pública para QR |
+
+### Admin carta — `/api/admin`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET/POST | `/categorias` | CRUD categorías |
+| PUT/DELETE | `/categorias/{id}` | |
+| GET/POST | `/productos` | CRUD productos |
+| PUT/DELETE | `/productos/{id}` | |
+| POST | `/productos/{id}/alergenos` | Asignar alérgenos |
+| GET | `/alergenos` | Catálogo de alérgenos (`/api/alergenos`) |
+
+### Admin recetas — `/api/admin`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/recetas` | Listado de recetas |
+| GET | `/recetas/semaforo` | Semáforo de margen |
+| POST | `/recetas` | Crear receta |
+| POST | `/elaboraciones` | Artículo elaborado + receta |
+| POST | `/recetas/plato-nuevo` | Producto carta + receta en un paso |
+| PUT | `/recetas/{id}` | Actualizar receta |
+| DELETE | `/recetas/{id}` | Eliminar receta |
+| POST | `/recetas/{id}/ingredientes` | Añadir ingrediente |
+| DELETE | `/recetas/{id}/ingredientes/{ingrediente_id}` | Quitar ingrediente |
+| GET | `/recetas/{id}/coste` | Coste calculado de la receta |
+
+### Admin costes — `/api/admin`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/gastos-operativos` | Gastos fijos mensuales |
+| POST | `/gastos-operativos` | Crear gasto |
+| DELETE | `/gastos-operativos/{gasto_id}` | Eliminar gasto |
+
+### Admin usuarios — `/api/admin` (solo `admin`)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/usuarios` | Usuarios del tenant |
+| POST | `/usuarios` | Alta de usuario operativo |
+| PATCH | `/usuarios/{usuario_id}` | Modificar usuario |
+
+### Superadmin — `/api/superadmin` (solo `superadmin`)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/tenants` | Listado paginado de tenants |
+| GET | `/tenants/{tenant_id}` | Detalle de tenant |
+| PATCH | `/tenants/{tenant_id}/activo` | Activar/desactivar tenant |
+| GET | `/platform-logs` | Logs de plataforma (filtros fecha) |
+
+### Dashboard — `/api/dashboard`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/director` | KPIs del panel director |
+| GET | `/cierre-dia` | Cierre del día (`?fecha=YYYY-MM-DD`) |
+
+### Analytics — `/api/dashboard`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/rentabilidad-mesas` | Rentabilidad por mesa |
+| GET | `/ingenieria-menu` | Análisis BCG del menú |
+| GET | `/coste-personal` | Coste de personal |
+
+### Inventario — `/api/inventario`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/articulos` | Listado (`?buscar`, `?categoria`, `?alerta`) |
+| POST | `/articulos` | Crear artículo |
+| PUT | `/articulos/{articulo_id}` | Actualizar artículo |
+| PUT | `/articulos/{articulo_id}/calibracion-merma` | Calibración merma (`comprado`, `util`) |
+| GET | `/stock-alertas` | Alertas de stock bajo |
+| POST | `/movimientos` | Movimiento (`entrada`, `salida`, `ajuste`, `merma`) |
+| GET | `/movimientos` | Historial (`?articulo_id`, `?tipo`, `?desde`, `?hasta`) |
+| POST | `/inventario-fisico` | Ajuste por inventario físico |
+
+### KDS — `/api/kds`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/comandas` | Comandas pendientes (filtro cocina/barra por rol) |
+| PATCH | `/lineas/{linea_id}/estado` | Cambiar estado de línea |
+| GET | `/estadisticas` | Estadísticas KDS |
+
+### FIFO — `/api/fifo`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/lotes` | Lotes de inventario |
+| POST | `/lotes` | Crear lote |
+| POST | `/consumir` | Consumo FIFO |
+| GET | `/alertas-caducidad` | Alertas de caducidad |
+| GET | `/valoracion-stock` | Valoración de stock |
+
+### Proveedores — `/api`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/proveedores` | Listado |
+| GET | `/proveedores/{proveedor_id}` | Detalle |
+| POST | `/proveedores` | Crear |
+| PUT | `/proveedores/{proveedor_id}` | Actualizar |
+| DELETE | `/proveedores/{proveedor_id}` | Eliminar |
+| GET | `/facturas-proveedor` | Listado facturas |
+| GET | `/facturas-proveedor/pendientes-pago` | Pendientes de pago |
+| GET | `/facturas-proveedor/{factura_id}` | Detalle factura |
+| POST | `/facturas-proveedor` | Registrar factura |
+| PATCH | `/facturas-proveedor/{factura_id}/pagar` | Marcar como pagada |
+| POST | `/facturas-proveedor/escanear-ia` | Escaneo con Groq vision |
+
+### Empleados / RRHH — `/api`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/empleados` | Listado (`?buscar`, `?activo`, `?cargo`) |
+| POST | `/empleados` | Alta empleado |
+| GET | `/empleados/{empleado_id}` | Detalle |
+| PUT | `/empleados/{empleado_id}` | Actualizar |
+| POST | `/turnos/fichaje-entrada` | Fichar entrada |
+| POST | `/turnos/fichaje-salida` | Fichar salida |
+| GET | `/turnos/horas-extra/{empleado_id}` | Horas extra |
+| GET | `/turnos` | Historial de turnos |
+| GET | `/cuadrantes` | Cuadrantes |
+| POST | `/cuadrantes` | Crear cuadrante |
+| GET | `/ausencias` | Ausencias |
+| POST | `/ausencias` | Solicitar ausencia |
+| PATCH | `/ausencias/{ausencia_id}/estado` | Aprobar/rechazar |
+
+### Nóminas — `/api/nominas`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/calcular` | Calcular nómina (SS 6,35 % empleado / 29,9 % empresa) |
+| GET | `/{empleado_id}` | Nóminas de un empleado |
+| GET | `/{nomina_id}/detalle` | Detalle de nómina |
+
+### Reservas — `/api`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/reservas` | Listado |
+| GET | `/reservas/{reserva_id}` | Detalle |
+| POST | `/reservas` | Crear reserva |
+| PUT | `/reservas/{reserva_id}` | Actualizar |
+| PATCH | `/reservas/{reserva_id}/estado` | Cambiar estado |
+| GET | `/lista-espera` | Lista de espera |
+| POST | `/lista-espera` | Añadir a lista de espera |
+| PATCH | `/lista-espera/{entrada_id}/estado` | Actualizar entrada |
+
+### Clientes — `/api/clientes`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Listado |
+| POST | `/` | Crear cliente |
+| GET | `/{cliente_id}` | Detalle |
+| PUT | `/{cliente_id}` | Actualizar |
+| GET | `/{cliente_id}/historial` | Historial de visitas/tickets |
+| POST | `/{cliente_id}/puntos` | Ajustar puntos fidelidad |
+
+### APPCC — `/api/appcc`
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/registros` | Registros de control |
+| GET | `/registros/no-conformes` | No conformidades |
+| POST | `/registros` | Nuevo registro (temperatura, etc.) |
+| GET | `/resumen-dia` | Resumen del día |
+
+### Reportes PDF — `/api/reportes`
+
+| Método | Ruta | Respuesta |
+|--------|------|-----------|
+| GET | `/nomina/{nomina_id}` | PDF nómina |
+| GET | `/inventario` | PDF inventario |
+| GET | `/cierre-caja/{fecha}` | PDF cierre de caja |
+| GET | `/ventas` | PDF ventas por periodo |
+| GET | `/cuadrante/{semana}` | PDF cuadrante semanal |
+| GET | `/rentabilidad-platos` | PDF rentabilidad carta |
+| GET | `/comparativa-proveedores/{articulo_id}` | PDF comparativa proveedores |
+| GET | `/appcc` | PDF registros APPCC |
+
+### Sistema
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/` | Metadatos (`app`, `version`) |
+| GET | `/api/health` | Health check — `SELECT 1` en BD → `{"status":"ok"}` o `503` |
 
 ---
 
-### Desafío 1 — Supabase pgbouncer y caché de sentencias preparadas en asyncpg
+## 11. Base de datos
 
-**Referencia:** Infraestructura documentada en `database.py`, `.cursorrules`, `STEP_HORECASO.md` (pooler `:6543`).
+### Motor y hosting
 
-**1. El Síntoma**
+- **PostgreSQL 15** en **Supabase**.
+- **42 tablas** en esquema `public` (documentadas en [`SCHEMA_BASE_DATOS.md`](SCHEMA_BASE_DATOS.md)).
+- **RLS (Row Level Security):** desactivado en la instancia auditada; el aislamiento multi-tenant se aplica en la capa de aplicación (`WHERE tenant_id = $1`).
+- **Pool:** asyncpg con `statement_cache_size=0` (obligatorio para pgbouncer de Supabase).
 
-- En entornos enlazados a Supabase vía **connection pooler** (`aws-1-eu-west-1.pooler.supabase.com:6543`), las peticiones a la API fallaban de forma **intermitente** bajo carga o tras despliegues en Render.
-- Los logs de asyncpg/PostgreSQL podían mostrar errores relacionados con sentencias preparadas inválidas o desincronización entre la conexión lógica del cliente y la conexión física reasignada por pgbouncer.
-- El fallo no era reproducible en un único `SELECT` local contra Postgres directo (puerto 5432), solo tras pasar por el pooler en modo transaction pooling.
+### Entidades principales
 
-**2. La Causa Raíz**
+| Dominio | Tablas clave |
+|---------|--------------|
+| Core | `tenants`, `outlets`, `usuarios`, `configuracion` |
+| Sala / TPV | `mesas`, `tickets`, `ticket_lineas`, `ticket_pagos`, `cierres_caja` |
+| Carta | `categorias_menu`, `productos`, `alergenos`, `producto_alergenos` |
+| Recetas | `recetas`, `receta_ingredientes` |
+| Inventario | `articulos`, `lotes_inventario`, `movimientos_stock`, `mermas` |
+| Fiscal | `verifactu_registros` (solo INSERT) |
+| Compras | `proveedores`, `facturas_proveedor`, `facturas_proveedor_lineas`, `pedidos_proveedor` |
+| RRHH | `empleados`, `turnos`, `cuadrantes`, `cuadrante_asignaciones`, `ausencias`, `nominas` |
+| Clientes | `clientes`, `reservas`, `lista_espera` |
+| Analytics | `rentabilidad_mesas`, `ingenieria_menu` |
+| Plataforma | `platform_logs`, `tenant_audit_log`, `usuario_permisos` |
+| APPCC | `registros_appcc` |
 
-- Supabase expone PostgreSQL 15 a aplicaciones serverless/contenedores mediante **PgBouncer** en modo *transaction pooling*: una misma conexión TCP del pooler atiende transacciones de distintos clientes de forma secuencial.
-- **asyncpg**, por defecto, habilita un **caché de sentencias preparadas** por conexión (`statement_cache_size` > 0) para reutilizar planes de ejecución.
-- Cuando pgbouncer devuelve al pool una conexión de backend y la reasigna a otro cliente, el caché de prepared statements del lado asyncpg deja de corresponder con el estado real del servidor → errores impredecibles.
-- Este comportamiento es independiente del multi-tenant: afecta a **todas** las consultas del pool compartido de HorecaSO.
+### Roles (`usuarios.rol`)
 
-**3. La Solución Implementada**
+`superadmin`, `admin`, `director`, `jefe_sala`, `camarero`, `cocina`, `barra`, `almacen`
 
-En `backend/database.py`, la creación del pool fija explícitamente `statement_cache_size=0`:
+### Migraciones versionadas (`backend/sql/`)
 
-```python
-_pool = await asyncpg.create_pool(
-    settings.DATABASE_URL,
-    min_size=2,
-    max_size=10,
-    command_timeout=60,
-    statement_cache_size=0,  # Obligatorio para Supabase pgbouncer
-)
-```
+| Archivo | Contenido |
+|---------|-----------|
+| `migration_kds_barra_destino.sql` | `destino_kds` en productos, columnas barra en líneas |
+| `migration_fase_b.sql` | Superadmin, logs plataforma, seed tenant prueba |
+| `migration_gastos_operativos.sql` | Tabla `gastos_operativos` |
+| `migration_articulos_calibracion_merma.sql` | Calibración de merma en artículos |
+| `migration_articulos_elaborados_receta.sql` | Elaboraciones vinculadas a recetas |
 
-**Variables de entorno asociadas:** `DATABASE_URL` en Render debe usar el host del **pooler** (puerto **6543**), no la conexión directa de sesión, coherente con `GUIA_PRODUCCION_COMPLETA.md` §1.2.
+Las migraciones se aplican **manualmente** en Supabase SQL Editor. No hay runner automático al arrancar la app.
 
-**Estado:** Condición obligatoria de producción; sin este parámetro el ERP no cumple el contrato de despliegue documentado en la bitácora.
+### Datos de prueba
 
----
+| Entidad | UUID |
+|---------|------|
+| Tenant demo (legacy en docs) | `00000000-0000-0000-0000-000000000001` |
+| Outlet demo | `00000000-0000-0000-0000-000000000002` |
+| Tenant Restaurante Prueba (Fase B) | `11111111-1111-1111-1111-111111111111` |
 
-### Desafío 2 — BUG-005 y BUG-007: HTTP 307 y 405 por trailing slash (FastAPI + Axios)
-
-**Referencia:** `BUGS_Y_SOLUCIONES.md` sesión 24/03/2026; bitácora rápida en `mesas.py`, `empleados.py`, `reservas.py`, `clientes.py`, `fichajes.py`.
-
-**1. El Síntoma**
-
-- El frontend (`frontend/src/services/api.js`) invoca rutas **sin barra final**: `api.get('/mesas')`, `api.get('/empleados')`, equivalente a `GET /api/mesas` y `GET /api/empleados` con base URL `/api`.
-- En la primera fase del incidente, el navegador/Axios recibía **307 Temporary Redirect** hacia la variante con barra (`/api/mesas/`). Las pantallas de Sala, RRHH o Reservas quedaban vacías o con errores de red según cómo el cliente seguía el redirect.
-- Tras desactivar redirects en FastAPI, el síntoma mutó a **405 Method Not Allowed** en listados como `GET /api/empleados`, `GET /api/clientes`, `GET /api/cuadrantes`: la ruta existía solo como `GET /api/empleados/` en el registro interno de Starlette.
-
-**2. La Causa Raíz**
-
-- **Starlette/FastAPI** con `redirect_slashes=True` (valor por defecto histórico) normaliza paths añadiendo `/` final mediante redirect 307. Los clientes HTTP pueden cambiar el tratamiento del método en redirects (especialmente en combinación con CORS y preflight).
-- Al fijar `redirect_slashes=False` (fix BUG-005), la coincidencia de ruta pasa a ser **literal**: solo el path registrado exactamente es válido.
-- El refactor de routers en subpaquetes (`empleados/`, `clientes/`, `reservas/`) registraba handlers únicamente con `@router.get("/")` en sub-routers incluidos bajo prefijo `/empleados`. Esa ruta interna se monta como `/api/empleados/` pero **no** como `/api/empleados` sin barra → 405 (BUG-007).
-
-**3. La Solución Implementada**
-
-**Paso A — Desactivar redirects automáticos** en `backend/main.py`, función `create_app()`:
-
-```python
-app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    lifespan=lifespan,
-    redirect_slashes=False,
-    docs_url=None if is_prod else "/docs",
-    redoc_url=None if is_prod else "/redoc",
-)
-```
-
-**Paso B — Registrar rutas duplicadas `""` y `"/"`** en handlers de listado. Ejemplo real en `backend/routers/empleados/empleados.py`:
-
-```python
-r_empleados = APIRouter(prefix="/empleados")
-
-@r_empleados.get("", include_in_schema=False)
-@r_empleados.get("/")
-async def list_empleados(
-    buscar: Optional[str] = Query(None),
-    activo: Optional[bool] = Query(None),
-    cargo: Optional[str] = Query(None),
-    current_user: dict = Depends(require_roles(ROLES_RRHH)),
-):
-```
-
-**Paso C — Orquestadores con prefijo en el router padre** (`mesas.py`, `reservas.py`): ruta `GET ""` que delega al mismo handler que `GET "/"`:
-
-```python
-@router.get("")
-async def list_mesas_root(
-    current_user: dict = Depends(require_roles(ROLES_LISTADO_OPERATIVO)),
-):
-    return await list_mesas_handler(current_user)
-```
-
-**Archivos corregidos (según bitácora):** `main.py`, `mesas.py`, `mesas_list.py`, `reservas.py`, `reservas_read.py`, `empleados.py`, `cuadrantes.py`, `clientes.py`, `fichajes.py`, `lista_espera.py`.
-
-**Estado:** ✅ Cerrado en repo; el contrato HTTP queda alineado con Axios sin depender de redirects.
+Credenciales: [`CREDENCIALES_PRUEBA.MD`](CREDENCIALES_PRUEBA.MD).
 
 ---
 
-### Desafío 3 — BUG-003: cola KDS fantasma y coordinación transaccional en el cobro (TPV + cocina concurrente)
+## 12. Tests
 
-**Referencia:** BUG-003, MEJ-001 en `BUGS_Y_SOLUCIONES.md`; migración `backend/sql/migration_kds_barra_destino.sql`; `BITACORA_HORECASO.md` §8 (25/03/2026).
+**El repositorio no incluye actualmente una suite de tests automatizados** (no hay `pytest`, `jest`, `vitest` ni carpetas `tests/` / `__tests__/` configuradas).
 
-#### 1. El Síntoma
+### Verificación manual recomendada
 
-- Tras **cobrar** un ticket en TPV, las líneas seguían apareciendo en `KDSPage` (polling a `GET /api/kds/comandas`) como si el servicio de cocina o barra siguiera activo.
-- Cocina mostraba **bebidas** sin elaborar en cocina; barra mostraba **platos** de cocina — un solo flujo KDS para todo el menú.
-- En horas punta, cocina y TPV operan **concurrentemente** sobre las mismas filas (`ticket_lineas`, `tickets`): el usuario percibía desincronización entre “ya cobrado en caja” y “sigue en pantalla de cocina”.
+```bash
+# Importación del backend
+cd backend && python -c "from main import create_app; create_app()"
 
-**2. La Causa Raíz**
+# Build frontend
+cd frontend && npm run build
 
-- **Query KDS incompleta:** el listado no restringía `tickets.estado = 'abierto'`, por lo que tickets ya cobrados seguían alimentando la query si las líneas no tenían estado terminal.
-- **Sin partición cocina/barra:** todos los productos se trataban como envío a cocina; no existía `productos.destino_kds` ni columnas `estado_barra` / `enviado_barra` en `ticket_lineas` hasta aplicar la migración SQL.
-- **Cobro sin cierre de línea KDS:** el handler de cobro actualizaba `tickets` y `mesas`, pero no forzaba `estado_cocina` / `estado_barra` a `servido` en líneas ya enviadas.
-- **Concurrencia:** el cobro y el polling KDS son transacciones independientes en el pool asyncpg; sin actualización atómica en el mismo `async with get_db()` del cobro, el KDS podía leer estado intermedio entre commits.
+# Lint frontend
+cd frontend && npm run lint
 
-**3. La Solución Implementada**
-
-**A. Migración SQL** (`migration_kds_barra_destino.sql`): columna `productos.destino_kds` (`cocina` | `barra` | `ninguno`), columnas de línea para barra, rol `barra` en `usuarios.rol`.
-
-**B. Filtro en lectura KDS** — fragmento de `_SQL_COMANDAS_BASE` en `backend/routers/kds/kds.py`:
-
-```sql
-FROM ticket_lineas tl
-JOIN tickets t ON tl.ticket_id = t.id
-JOIN productos p ON tl.producto_id = p.id
-WHERE t.outlet_id = $1
-  AND t.estado = 'abierto'
-  AND COALESCE(p.destino_kds, 'cocina') <> 'ninguno'
+# Health check (con backend en marcha)
+curl http://localhost:8000/api/health
 ```
 
-Filtrado adicional por **rol** en `kds_shared._resolve_vista`: cocina solo ve `destino_kds = 'cocina'`; barra solo `barra`; sala/admin/director ven vista `completa`.
+### Smoke tests post-deploy
 
-**C. Cierre de líneas en la misma transacción del cobro** — `backend/routers/tpv/tpv_cobrar.py` documenta: *“Todo en la misma transacción.”* Dentro del único `async with get_db() as conn:`:
+Documentados en [`GUIA_PRODUCCION_COMPLETA.md`](GUIA_PRODUCCION_COMPLETA.md) §1.2 y §2.3: login, mesas con JWT, aislamiento tenant, superadmin sin acceso a datos de negocio, KDS 200, `/docs` → 404 en producción.
 
-```python
-await conn.execute(
-    """
-    UPDATE tickets
-    SET estado = 'cobrado', metodo_pago = $1, cobrado_at = NOW()
-    WHERE id = $2
-    """,
-    body.metodo_pago,
-    ticket_id,
-)
-await _marcar_lineas_kds_servido(conn, ticket_id)
-await conn.execute(
-    "UPDATE mesas SET estado = 'libre' WHERE id = $1",
-    ticket_row["mesa_id"],
-)
-```
+### Registro de bugs
 
-Implementación de `_marcar_lineas_kds_servido` en `backend/routers/tpv/tpv_shared.py`:
-
-```python
-async def _marcar_lineas_kds_servido(conn, ticket_id: UUID) -> None:
-    await conn.execute(
-        """
-        UPDATE ticket_lineas
-        SET estado_cocina = CASE
-                WHEN enviado_cocina = true THEN 'servido'
-                ELSE estado_cocina
-            END,
-            estado_barra = CASE
-                WHEN COALESCE(enviado_barra, false) = true THEN 'servido'
-                ELSE estado_barra
-            END
-        WHERE ticket_id = $1
-        """,
-        ticket_id,
-    )
-```
-
-El context manager `get_db()` en `database.py` envuelve todo en `async with conn.transaction():`, de modo que cobro, líneas KDS y mesa libre **commitan o hacen rollback juntos**.
-
-**Estado:** ✅ BUG-008 (columna `destino_kds` inexistente) resuelto tras migración en Supabase; `GET /api/kds/comandas` verificado 200 (25/03/2026, bitácora).
+Fallos reproducibles en [`BUGS_Y_SOLUCIONES.md`](BUGS_Y_SOLUCIONES.md).
 
 ---
 
-## 🚀 Despliegue e Infraestructura Cloud
+## 13. Despliegue
 
-Orden operativo alineado con `GUIA_PRODUCCION_COMPLETA.md` §0 (Fases A → B → C) y `BITACORA_HORECASO.md`.
-
-### Diagrama de infraestructura objetivo
+### Arquitectura de producción
 
 ```
-[Usuario navegador]
-       │
-       ▼
-[Vercel CDN] ── VITE_API_URL ──► [Render: Gunicorn + 2× UvicornWorker]
-                                        │
-                                        ▼
-                              [Supabase Pooler :6543]
-                                        │
-                                        ▼
-                              [PostgreSQL 15]
+Usuario → Vercel (React estático) → HTTPS → Render (Gunicorn + Uvicorn workers) → Supabase PostgreSQL
 ```
 
-### Fase previa al deploy (SQL en Supabase — por instancia)
-
-| Fase | Archivo | Bloqueante si |
-|------|---------|----------------|
-| **A** | `migration_kds_barra_destino.sql` | Usas KDS/TPV con barra y `destino_kds` |
-| **B1** | `migration_fase_b.sql` (+ hashes de `generate_test_hashes.py`) | Panel superadmin y tenant prueba |
-| Opcional | `migration_gastos_operativos.sql` | Módulo Costes |
-| Opcional | `migration_articulos_calibracion_merma.sql` | Inventario + coste efectivo en recetas |
-
-Repetir **las mismas migraciones** en el proyecto Supabase de **producción** aunque ya estén en desarrollo.
-
-### Backend — Render (Gunicorn + Uvicorn workers)
+### Backend — Render
 
 | Parámetro | Valor |
 |-----------|-------|
-| **Root Directory** | `backend` |
-| **Build Command** | `pip install -r requirements.txt` |
-| **Start Command** | `gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120` |
-| **Health Check Path** | `/api/health` |
+| Root Directory | `backend` |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120` |
+| Health Check Path | `/api/health` |
 
-**Arquitectura del proceso en producción:**
-
-1. **Gunicorn** (`gunicorn==22.0.0` en `requirements.txt`) actúa como **proceso maestro (arbiter)**. Escucha en `0.0.0.0:$PORT` (puerto inyectado por Render). No ejecuta la lógica ASGI directamente: supervisa workers hijos y los reinicia si caen.
-2. **`-w 2`** levanta **dos workers** independientes. Cada worker es un proceso OS con su propio event loop asyncio. Bajo carga concurrente (TPV + KDS + listados), dos workers reparten peticiones HTTP sin bloquear el event loop con trabajo CPU-bound prolongado (p. ej. generación PDF).
-3. **`-k uvicorn.workers.UvicornWorker`** selecciona el worker class de **Uvicorn** compatible con ASGI. Cada worker importa `main:app` (instancia `app = create_app()` al final de `main.py`) y atiende el ciclo request/response de FastAPI de forma **asíncrona** (`async def` + asyncpg).
-4. **`--timeout 120`**: si un worker no responde en 120 s, Gunicorn lo termina y lo sustituye — relevante para operaciones pesadas (informes, IA Groq en facturas).
-5. **`lifespan` de FastAPI** (`main.py`): al arrancar cada worker se ejecuta `init_connection_pool()` (pool asyncpg `min_size=2`, `max_size=10`); al apagarse, `close_connection_pool()`. Cada worker mantiene su propio pool hacia Supabase pooler `:6543`.
-
-**Health check operativo de Render:** `GET /api/health` — no es un ping TCP vacío; valida la cadena completa aplicación → pool → PostgreSQL.
-
-**Variables de entorno (producción):**
+**Variables de entorno en Render:**
 
 ```env
 DATABASE_URL=postgresql://postgres:[PASSWORD]@aws-1-eu-west-1.pooler.supabase.com:6543/postgres
-SECRET_KEY_AUTH=[python -c "import secrets; print(secrets.token_hex(32))"]
+SECRET_KEY_AUTH=[generar con: python -c "import secrets; print(secrets.token_hex(32))"]
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
 ALLOWED_ORIGINS=https://tu-app.vercel.app
@@ -943,214 +809,142 @@ APP_NAME=HorecaSO ERP
 APP_VERSION=1.0.0
 ```
 
-**Comportamiento de `/api/health`:** definido en `main.py`; ejecuta `SELECT 1` dentro de `get_db()`. Si el pool falla → **503** `{"status":"error","detail":"DB no disponible"}`.
-
-**Verificación local antes de push:**
-
-```bash
-cd backend
-python -c "from main import create_app; create_app()"
-```
-
 ### Frontend — Vercel
 
 | Parámetro | Valor |
 |-----------|-------|
-| **Framework Preset** | Vite |
-| **Build** | `npm run build` (directorio `frontend`) |
-| **Variable crítica** | `VITE_API_URL=https://tu-backend.onrender.com/api` |
+| Framework Preset | Vite |
+| Root Directory | `frontend` |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Variable crítica | `VITE_API_URL=https://tu-backend.onrender.com/api` |
 
-`frontend/src/services/api.js` — `resolveApiBaseUrl()`:
+### Checklist pre-producción
 
-- Si `VITE_API_URL` está vacío → base `/api` (dev con proxy en `vite.config.js`).
-- Si es URL absoluta sin sufijo → añade `/api` automáticamente.
+1. Migraciones SQL aplicadas en Supabase de producción (KDS, Fase B, etc.).
+2. `SECRET_KEY_AUTH` aleatoria (no la de desarrollo).
+3. `ALLOWED_ORIGINS` solo con dominio Vercel (no `*`).
+4. `ENVIRONMENT=production` → `/docs` devuelve 404.
+5. Credenciales de prueba rotadas o eliminadas.
+6. Superadmin de producción creado manualmente en SQL (no usar seed).
+7. Smoke tests: health, login, TPV → cobro → fila en `verifactu_registros`.
 
-**Proxy local** (`vite.config.js`):
-
-```javascript
-server: {
-  proxy: { '/api': 'http://localhost:8000' },
-},
-preview: {
-  proxy: { '/api': 'http://localhost:8000' },
-},
-```
-
-En Vercel **no** hay proxy: la URL del API debe ser absoluta y pública (HTTPS).
-
-### Smoke tests post-deploy (orden de la guía §1.2)
-
-```bash
-curl https://tu-backend.onrender.com/api/health
-
-curl -X POST https://tu-backend.onrender.com/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@tudominio.com","password":"***"}'
-
-curl https://tu-backend.onrender.com/api/mesas \
-  -H "Authorization: Bearer TOKEN"
-
-curl -o /dev/null -w "%{http_code}" https://tu-backend.onrender.com/docs
-# Esperado: 404 en production
-```
-
-Batería de aislamiento tenant y superadmin: `GUIA_PRODUCCION_COMPLETA.md` §2.3 (6 pruebas curl).
-
-### Superadmin de producción (sin seed)
-
-No usar `superadmin@horecaso.com` ni contraseñas de `CREDENCIALES_PRUEBA.MD` en clientes reales.
-
-1. `python backend/scripts/generate_test_hashes.py` (o script `hash_password.py` de §5.1).
-2. SQL en Supabase:
-
-```sql
-INSERT INTO usuarios (id, tenant_id, outlet_id, nombre, email, password_hash, rol, activo)
-VALUES (
-  gen_random_uuid(), NULL, NULL,
-  'Superadmin HorecaSO',
-  'superadmin@tudominio.com',
-  'HASH_BCRYPT_AQUI',
-  'superadmin',
-  true
-);
-```
-
-3. Verificar login y panel `https://tu-app.vercel.app/superadmin/tenants`.
-
-### Aprovisionamiento manual de un nuevo restaurante (Tenant)
-
-**Decisión de diseño deliberada:** HorecaSO es un ERP B2B con onboarding controlado por el operador de plataforma. **No existe** endpoint público de auto-registro, ni `POST /api/superadmin/tenants` en `superadmin_router.py` (solo `GET` listado/detalle y `PATCH` de `activo`). Esto evita:
-
-- Creación masiva de tenants sin contrato ni verificación fiscal (NIF).
-- Fuga de datos si un atacante obtuviera un token superadmin (superficie mínima: lectura y activación).
-- Inconsistencias en catálogo inicial (mesas, outlet por defecto, admin raíz) sin transacción atómica.
-
-El alta de un restaurante cliente se ejecuta en **Supabase SQL Editor** (o MCP con permisos de escritura) mediante un bloque **`DO $$`** transaccional (guía §5.1, espejo de `migration_fase_b.sql` para tenant de prueba).
-
-Script `DO $$` documentado (valores a sustituir):
-
-```sql
-DO $$
-DECLARE
-  v_tenant_id   UUID := gen_random_uuid();
-  v_outlet_id   UUID := gen_random_uuid();
-  v_admin_id    UUID := gen_random_uuid();
-  v_nombre_restaurante TEXT := 'Restaurante El Ejemplo';
-  v_nif               TEXT := 'B12345678';
-  v_plan              TEXT := 'profesional';
-  v_email_admin       TEXT := 'manager@ejemplo.com';
-  v_password_hash     TEXT := '$2b$12$...';  -- generate_test_hashes.py
-BEGIN
-  INSERT INTO tenants (id, nombre, nif, plan, activo, created_at)
-  VALUES (v_tenant_id, v_nombre_restaurante, v_nif, v_plan, true, NOW());
-
-  INSERT INTO outlets (id, tenant_id, nombre, num_mesas, created_at)
-  VALUES (v_outlet_id, v_tenant_id, 'Sala Principal', 10, NOW());
-
-  INSERT INTO usuarios (id, tenant_id, outlet_id, nombre, email, password_hash, rol, activo)
-  VALUES (v_admin_id, v_tenant_id, v_outlet_id, 'Manager', v_email_admin, v_password_hash, 'admin', true);
-
-  INSERT INTO mesas (id, outlet_id, numero, capacidad, estado, zona)
-  SELECT gen_random_uuid(), v_outlet_id, num, 4, 'libre', 'interior'
-  FROM generate_series(1, 10) AS num;
-END $$;
-```
-
-**Workflow post-alta (guía §5.7):**
-
-1. Cliente recibe URL Vercel + credenciales del admin inicial.
-2. Admin entra en `/admin/usuarios` y crea camareros, cocina, barra, etc. (`POST /api/admin/usuarios` — contraseña ≥ 8 caracteres, roles en `ROLES_OPERATIVOS_ADMIN`).
-3. Superadmin monitoriza en `/superadmin/tenants` y activa/desactiva locales.
-4. Configuración operativa: carta, mesas, empleados en la UI del tenant.
-
-**Tenant de prueba reproducible:** `migration_fase_b.sql` inserta tenant `11111111-1111-1111-1111-111111111111` (Restaurante Prueba) y usuarios `@prueba.com` — solo dev/staging; rotar contraseñas antes de producción (checklist §1.1 ítems 10, 14, 15).
-
-### Onboarding checklist crítico pre-cliente
-
-| # | Verificación |
-|---|--------------|
-| 1 | Migración KDS aplicada — `GET /api/kds/comandas` → 200 |
-| 2 | `SECRET_KEY_AUTH` y CORS producción |
-| 3 | `/docs` → 404 |
-| 4 | Flujo TPV → cobro → fila en `verifactu_registros` |
-| 5 | §2.3 aislamiento tenant / superadmin |
-| 6 | Credenciales demo eliminadas o rotadas |
+Guía completa: [`GUIA_PRODUCCION_COMPLETA.md`](GUIA_PRODUCCION_COMPLETA.md).
 
 ---
 
-## 📊 Escala del Proyecto
+## 14. Contribución
 
-Medición física del repositorio en disco (mayo 2026), excluyendo `node_modules`, `__pycache__`, `.venv` y artefactos SQL auxiliares `_seed_*` / `_mcp_*`.
+### Convenciones obligatorias
 
-### Tabla de métricas por capa
+Leer y seguir [`.cursorrules`](.cursorrules) antes de contribuir. Resumen:
 
-| Capa | Métrica | Valor medido | Detalle técnico |
-|------|---------|--------------|-----------------|
-| **Backend Python** | Líneas de código | **~13.438** | Todos los `.py` bajo `backend/` |
-| **Backend Python** | Ficheros `.py` totales | **~120** | Incluye `main.py`, `auth/`, `services/`, scripts |
-| **Backend routers** | Ficheros `.py` en `routers/` | **96** | Inventario completo del árbol `backend/routers/` |
-| **Backend routers** | Módulos de dominio (sin `__init__.py`) | **80** | Handlers HTTP por dominio (TPV, KDS, inventario, …) |
-| **Backend routers** | Montajes en `main.py` | **38** | Llamadas `app.include_router(...)` — superficie REST efectiva |
-| **Backend routers** | Referencia documental Parte 1 | **~84** | Conteo agregado en árbol de routers (paquetes + orquestadores); en disco hay 80 módulos de lógica + 16 `__init__.py` |
-| **Frontend React** | Líneas en `frontend/src/` | **~24.867** | `.jsx`, `.js`, `.css` |
-| **Frontend React** | Ficheros JSX en `pages/` | **111** | Pantallas y componentes colocados bajo `src/pages/**` |
-| **Frontend React** | Rutas protegidas en `App.jsx` | **30+** | `PrivateRoute`, `AdminOnlyRoute`, guards por rol |
-| **PostgreSQL** | Tablas en esquema `public` | **42** | Volcado `SCHEMA_BASE_DATOS.md` (MCP 27/03/2026) |
-| **PostgreSQL** | RLS activo | **0 tablas** | Aislamiento tenant vía aplicación (ver sección Seguridad) |
-| **Dominio** | Roles `usuarios.rol` | **9** | `superadmin` + 8 operativos de restaurante |
-| **Dominio** | Alérgenos precargados | **14** | Seed de catálogo regulatorio |
-| **SQL versionado** | Migraciones `migration_*.sql` | **6+** | KDS, Fase B, gastos, calibración merma, elaborados, … |
-| **Servicios backend** | Módulos en `services/` | **9** | Verifactu, PDF (carta, cuadrante, inventario, …) |
-| **Aplicación** | Líneas totales (backend + frontend `src/`) | **~38.305** | Sin documentación `.md` |
+**Backend:**
+- SQL con placeholders `$1, $2` — nunca f-strings con valores de usuario.
+- Dinero siempre con `Decimal` de Python.
+- `async with get_db() as conn` en todos los endpoints.
+- `Depends(require_roles([...]))` en endpoints protegidos.
+- Patrón try/except: re-lanzar `HTTPException`, log + 500 genérico para el resto.
+- Filtrar por `tenant_id` y `outlet_id` donde aplique.
 
-### Base de datos y dominio
+**Frontend:**
+- Mobile first (Tailwind responsive).
+- Dark/light mode obligatorio en todos los componentes.
+- Iconos: `lucide-react` con `strokeWidth={1.5}` — nunca emojis como iconos UI.
+- Botones táctiles mínimo `h-12` (excepción `h-9` en cards de producto TPV).
+- Sin `<form submit>` — usar `onClick` handlers.
+- Polling 30 s en pantallas live (no WebSocket).
 
-| Métrica | Valor |
-|---------|-------|
-| **Tablas PostgreSQL (`public`)** | **42** |
-| **Alérgenos precargados** | **14** |
-| **Roles en CHECK `usuarios.rol`** | **9** (`superadmin` + 8 operativos) |
-| **Módulos funcionales con UI + API** | **15+** (TPV, KDS, inventario, RRHH, analytics, superadmin, …) |
-| **Endpoints REST bajo `/api/*`** | **Centenar** (listados, CRUD, PDF, IA, fiscal) |
+### Flujo de trabajo
 
-### Complejidad arquitectónica (indicadores cualitativos)
+1. Crear rama desde `main` para tu cambio.
+2. Implementar siguiendo patrones existentes en el router/página más cercano.
+3. Verificar `python -c "from main import create_app; create_app()"` y `npm run build`.
+4. Documentar trabajo relevante en [`BITACORA_HORECASO.md`](BITACORA_HORECASO.md).
+5. Si aparece un bug reproducible, registrarlo en [`BUGS_Y_SOLUCIONES.md`](BUGS_Y_SOLUCIONES.md).
+6. Abrir pull request con descripción del cambio y plan de prueba manual.
 
-| Dimensión | Envergadura |
-|-----------|-------------|
-| **Transaccionalidad fiscal** | Cobro + Verifactu en misma transacción `get_db()` |
-| **Tiempo real operativo** | Polling 30 s (KDS, venta live), sin WebSocket |
-| **Multi-tenant** | Dos planos admin (plataforma + tenant) + filtrado SQL sistemático |
-| **Integraciones** | Groq (visión facturas), Supabase, Render, Vercel |
-| **Documentación viva** | PRD, SCHEMA, GUIA v1.2, BITACORA, BUGS, STEP, ARQUITECTURA |
+### Documentación viva
 
-### Fases de producto (estado bitácora 27/03/2026)
-
-| Fase | Alcance | Estado repo |
-|------|---------|-------------|
-| **1** | TPV, mesas, Verifactu, carta, KDS, dashboard | ✅ |
-| **2** | Inventario, recetas, semáforo, mermas | ✅ |
-| **3** | Proveedores, RRHH, reservas, clientes | ✅ |
-| **4** | Analytics, PDF, FIFO, APPCC | ✅ parcial / avanzado |
-| **B** | Superadmin, admin usuarios, SQL Fase B | ✅ código + SQL |
-| **C** | Deploy producción Render/Vercel | ⏳ operativo pendiente |
-| **5** | Delivery, AEAT real, WebSocket, enterprise | ⏳ roadmap |
+| Documento | Cuándo actualizar |
+|-----------|-------------------|
+| `BITACORA_HORECASO.md` | Tras cada bloque de trabajo relevante |
+| `STEP_HORECASO.md` | Cambios de roadmap o estado de fase |
+| `ARQUITECTURA_HORECASO.md` | Nuevo router, ruta React o migración crítica |
+| `SCHEMA_BASE_DATOS.md` | Cambios de esquema en Supabase |
 
 ---
 
-## Documentación de referencia
+## 15. Licencia
+
+**No existe archivo `LICENSE` en el repositorio.** El código no declara una licencia open source explícita. Contacta al autor (**Arin Romero**) para condiciones de uso, distribución o contribución externa.
+
+---
+
+## Información adicional
+
+### Roles del sistema y acceso UI
+
+| Rol | Acceso principal |
+|-----|------------------|
+| `superadmin` | Panel plataforma `/superadmin/*` |
+| `admin` | Todo el tenant + `/admin/usuarios` |
+| `director` | Dashboard, analytics, configuración, reportes, nóminas |
+| `jefe_sala` | Mesas, reservas, TPV, venta live, KDS, gestión sala |
+| `camarero` | TPV, mesas |
+| `cocina` | KDS cocina, recetas, inventario (lectura) |
+| `barra` | KDS barra |
+| `almacen` | Inventario, proveedores, mermas |
+
+La navegación se define en [`frontend/src/components/layout/constants/navConfig.js`](frontend/src/components/layout/constants/navConfig.js) y se filtra por `user.rol`.
+
+### Rutas frontend principales
+
+| Ruta | Pantalla |
+|------|----------|
+| `/login` | Login |
+| `/mesas` | Mapa de sala |
+| `/tpv/:mesaId` | TPV (sin sidebar) |
+| `/kds` | KDS pantalla completa |
+| `/dashboard` | Panel director |
+| `/venta-live` | Venta en tiempo casi real |
+| `/analytics` | Analytics avanzado |
+| `/admin/carta` | Gestión de carta |
+| `/admin/recetas` | Escandallos |
+| `/admin/costes` | Gastos operativos |
+| `/admin/sala` | Gestión de mesas |
+| `/admin/usuarios` | Usuarios del tenant |
+| `/inventario`, `/inventario/mermas` | Inventario y mermas |
+| `/fifo`, `/appcc` | FIFO y APPCC |
+| `/proveedores`, `/proveedores/facturas` | Compras |
+| `/empleados`, `/fichajes`, `/cuadrante`, `/nominas` | RRHH |
+| `/reservas`, `/clientes` | Clientes y reservas |
+| `/reportes` | Descarga de informes |
+| `/superadmin/tenants` | Gestión de tenants |
+
+### Reglas de negocio críticas
+
+- **Verifactu:** cobro + registro en la misma transacción; huella SHA-256 en mayúsculas; IVA hostelería 10 % general, 21 % alcohol/tabaco.
+- **División de cuenta:** tabla `ticket_pagos`; ticket cobrado cuando `suma(pagos) >= total`.
+- **Semáforo recetas:** verde >65 % margen, amarillo 40–65 %, rojo <40 %.
+- **Merma:** `cantidad_bruta = cantidad_neta / (1 - porcentaje_merma / 100)`.
+- **Nóminas España:** SS empleado 6,35 %, SS empresa 29,9 %.
+
+### Documentación de referencia
 
 | Documento | Contenido |
 |-----------|-----------|
-| [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) | Deploy, seguridad §2, tenants §5, Anexo A Fase B |
-| [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) | Registro BUG-001 … BUG-013, MEJ-*, bitácora detallada |
-| [BITACORA_HORECASO.md](BITACORA_HORECASO.md) | Estado real routers, rutas, migraciones |
+| [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) | Deploy, seguridad, tenants, smoke tests |
 | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) | 42 tablas, columnas, FKs |
-| [STEP_HORECASO.md](STEP_HORECASO.md) | State of the project por módulo |
 | [ARQUITECTURA_HORECASO.md](ARQUITECTURA_HORECASO.md) | Mapa técnico routers ↔ frontend |
+| [STEP_HORECASO.md](STEP_HORECASO.md) | Estado del proyecto por módulo |
 | [PRD_HorecaSO.md](PRD_HorecaSO.md) | Especificación de producto |
-| [PRD_SUPERADMIN_TENANTS_PRUEBAS.md](PRD_SUPERADMIN_TENANTS_PRUEBAS.md) | Redirección → Guía Anexo A |
+| [BITACORA_HORECASO.md](BITACORA_HORECASO.md) | Historial de implementación |
+| [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) | Bugs documentados |
+| [MANUAL_USUARIO_HORECASO.md](MANUAL_USUARIO_HORECASO.md) | Manual de usuario |
+| [CREDENCIALES_PRUEBA.MD](CREDENCIALES_PRUEBA.MD) | Usuarios de desarrollo |
 
 ---
 
-**HorecaSO** — README de producción (Parte 1 + Parte 2) — Arin Romero  
-*Generado a partir del código fuente y documentación del repositorio (PRD, GUIA v1.2.0, BUGS, BITACORA, SCHEMA).*
+**HorecaSO** — Desarrollado por Arin Romero  
+*README generado a partir del análisis del código fuente, `package.json`, `requirements.txt`, routers FastAPI, rutas React y documentación del repositorio.*
