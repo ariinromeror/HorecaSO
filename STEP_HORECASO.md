@@ -1,12 +1,114 @@
-# HorecaSO — STEP v3.4
+# HorecaSO — STEP v3.6
 ## State of The Entire Project
-### Última actualización: 24/03/2026 — Limpieza documentación (docs/archivo, índice, Fase B); routers en ARQUITECTURA
+### Última actualización: 26/03/2026 — Ruta paso a paso (fácil→complejo): cadena superadmin / tenants / manager / usuarios; SQL en `backend/sql/`; cierre proyecto
+
+---
+
+## RUTA PASO A PASO — Cierre del proyecto (de lo más fácil a lo más complejo)
+
+### Cómo encajan los roles (cadena operativa)
+
+| Quién | Dónde entra | Qué hace |
+|-------|-------------|----------|
+| **Superadmin** (plataforma) | Login normal → menú **Panel plataforma** (`/superadmin/...`) | Ve **todos los restaurantes (tenants)** registrados en la base de datos, su detalle, **activa o desactiva** un local, y consulta **registros de actividad**. **No tiene** restaurante asignado (`tenant` nulo en el token). |
+| **Admin del restaurante** (“manager”) | Login → menú del local | Es el **administrador de un solo tenant**. Desde **Usuarios** (`/admin/usuarios`) da de alta y edita **camareros, cocina, barra, director**, etc. (roles operativos del mismo local). |
+| **Director, jefe de sala, camarero…** | Login → según rol | Trabajan el día a día; no gestionan la lista de usuarios salvo que tengáis otro proceso. |
+
+**Importante (estado del código hoy):** el panel superadmin **lista** tenants y **cambia el estado activo**; **no existe** todavía un formulario en la app para **crear un tenant nuevo** desde cero. Los altas de restaurante nuevas se hacen con **SQL en Supabase** (insert en `tenants` + `outlets` mínimo) o usando el **bloque de seed** incluido en `migration_fase_b.sql` (Restaurante Prueba + usuarios @prueba.com). Un **POST /api/superadmin/tenants** sería mejora futura.
+
+**Sí hay que ejecutar SQL** en la carpeta del repo `backend/sql/` (en el editor SQL de **Supabase**, no solo “en local”): las migraciones alteran la base de datos remota. El backend lee `DATABASE_URL`; local y producción deben tener las mismas migraciones aplicadas según el entorno.
+
+---
+
+### Fase A — Lo más fácil: comprobar que el código arranca (sin tocar Supabase aún)
+
+1. Clonar repo, crear `backend/.env` con `DATABASE_URL`, `SECRET_KEY_AUTH`, etc. (ver `.env.example` o [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md)).
+2. Entorno Python: `pip install -r backend/requirements.txt` (o venv).
+3. `cd backend` → `python -c "from main import create_app; create_app()"` → debe terminar sin error.
+4. `cd frontend` → `npm install` → `npm run build` → sin errores.
+5. Opcional local: backend `uvicorn` + frontend `npm run dev` con `VITE_API_URL` apuntando al backend; login con un usuario que ya exista en tu BD.
+
+*Si esto falla, no tiene sentido pasar a SQL remoto.*
+
+---
+
+### Fase B — SQL obligatorio para KDS cocina/barra (si usáis barra y `destino_kds`)
+
+1. En **Supabase → SQL Editor**, ejecutar el archivo completo  
+   **`backend/sql/migration_kds_barra_destino.sql`**  
+   (una vez por proyecto / base de datos).
+2. Comprobar que columnas `destino_kds` / líneas barra existen según el script.
+3. Probar con token: `GET /api/kds/comandas` → 200.
+
+*Sin esto, KDS puede fallar en entornos donde la BD no tenía aún esas columnas.*
+
+---
+
+### Fase C — SQL Fase B: superadmin en BD + tablas de plataforma + tenant de prueba (bloqueante para “usuario superadmin” y panel plataforma)
+
+1. **Generar hashes bcrypt** (mismos algoritmos que el login):  
+   `python backend/scripts/generate_test_hashes.py`  
+   desde la raíz del repo (o `cd backend` y ajustar ruta). Copia los hashes que imprime.
+2. **Editar** `backend/sql/migration_fase_b.sql`:
+   - Sustituir `REEMPLAZAR_CON_HASH_DE_generate_test_hashes.py` del **superadmin** por el hash de `superadmin@horecaso.com`.
+   - Sustituir cada `PLACEHOLDER_HASH` de los usuarios `@prueba.com` por el hash correspondiente a cada email del script (mismo orden que en `generate_test_hashes.py`).
+3. **Ejecutar el archivo completo** en **Supabase → SQL Editor** (copiar/pegar o subir).
+4. **Verificar** (consultas SQL):
+   - `SELECT rol FROM usuarios WHERE email = 'superadmin@horecaso.com';` → `superadmin`
+   - Tablas `platform_logs`, `tenant_audit_log`, `usuario_permisos` creadas.
+   - Tenant `Restaurante Prueba` y usuarios `admin@prueba.com`, etc., si el bloque DO $$ del script no falló.
+
+**Credenciales** (las contraseñas son las del script `generate_test_hashes.py`, por defecto en el propio archivo: `SuperAdmin2024!`, `Admin1234!`, … — **cámbialas en producción**).
+
+---
+
+### Fase D — Probar la cadena de usuarios en la app
+
+1. **Superadmin:** login con `superadmin@horecaso.com` → debe abrirse el menú del **panel plataforma** → **Tenants** y **Logs**.  
+   - Listar tenants, entrar en detalle, probar activar/desactivar (queda registro en `platform_logs`).
+2. **Manager (admin del tenant):** logout → login con `admin@prueba.com` (tenant de prueba del seed) → menú **Usuarios** → crear un usuario nuevo (camarero/cocina/…) con contraseña ≥ 8 caracteres.
+3. **Usuario operativo:** logout → login con el usuario recién creado → comprobar sala, TPV o KDS según rol.
+
+*Si un tenant nuevo no está en el seed, créalo con SQL en `tenants` + `outlets` y un usuario `admin` con hash generado igual que arriba.*
+
+---
+
+### Fase E — Deploy (cuando local + Supabase estén alineados)
+
+1. Variables de entorno en **Render** (backend) y **Vercel** (frontend): `DATABASE_URL`, `SECRET_KEY_AUTH`, `ALLOWED_ORIGINS`, `VITE_API_URL`, `ENVIRONMENT=production`, etc.  
+   Seguir [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) §1.
+2. **Volver a ejecutar las mismas migraciones SQL** en la instancia de Supabase que use **producción** (o usar una rama/BD de staging primero).
+3. Smoke test: login, TPV, KDS, panel superadmin.
+
+---
+
+### Fase F — Producto “terminado” al 100 % (roadmap; lo más complejo al final)
+
+Orden sugerido de dificultad creciente:
+
+| Orden | Tema | Notas |
+|-------|------|--------|
+| 1 | Proveedores: stock al registrar factura IA; PDF en escaneo; cámara móvil | Mejora flujo compras |
+| 2 | Analytics: previsión IA (Groq) | Requiere API key y diseño |
+| 3 | PDF ticket con QR Verifactu + modelo 303 / informes fiscales | Legal + ReportLab |
+| 4 | `food_cost` real vs teórico agregado | Servicio o endpoints nuevos |
+| 5 | SendGrid: emails reservas y alertas | Cuenta y plantillas |
+| 6 | **POST /api/superadmin/tenants** (UI alta tenant) | Opcional si queréis no usar SQL para altas |
+| 7 | Fase 5: delivery, Verifactu envío AEAT real, enterprise | Muy largo plazo |
+
+**Deploy** debe quedar **después** de que local + migraciones + pruebas de superadmin/cadena manager sean estables.
 
 ---
 
 ## CONTEXTO DEL PROYECTO
 
+**Estado del repo (snapshot):** [BITACORA_HORECASO.md](BITACORA_HORECASO.md) — módulos, routers `main.py`, rutas `App.jsx`, migraciones en disco, Fase B.
+
 **Mapa técnico detallado (radiografía):** [ARQUITECTURA_HORECASO.md](ARQUITECTURA_HORECASO.md) — routers, prefijos API, flujos TPV/Verifactu/KDS, frontend ↔ backend.
+
+**Schema tablas Supabase (referencia):** [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md)
+
+**Bugs y fixes (detalle):** [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) — convención: leer bitácora, bugs, STEP y schema antes de cambios amplios (alineado con [BITACORA_HORECASO.md](BITACORA_HORECASO.md) §7).
 
 **Producto:** HorecaSO — ERP web SaaS para hostelería española
 **Desarrollador:** Arin Romero — autodidacta, 2 meses de experiencia, usa IA como herramienta principal
@@ -130,14 +232,17 @@ HorecaSO/
 │   ├── services/
 │   │   ├── verifactu_engine.py      ✅ testeado
 │   │   ├── food_cost.py             ⏳ módulo dedicado real vs teórico (no creado; coste en recetas)
-│   │   ├── ia_facturas.py           ✅ Groq vision implementado
+│   │   ├── (IA facturas)            ✅ Groq vision en routers/proveedores/ (no hay ia_facturas.py en services/)
 │   │   ├── pdf_generator.py         ✅ + pdf_nomina, pdf_inventario, pdf_reportes, pdf_diferenciales*
 │   ├── config.py                    ✅
 │   ├── database.py                  ✅
 │   ├── main.py                      ✅ routers + `redirect_slashes=False` (evita 307 en APIs)
 │   ├── requirements.txt             ✅
-│   └── sql/
-│       └── migration_kds_barra_destino.sql  ✅ en repo — aplicar en Supabase (destino_kds, barra, líneas)
+│   ├── sql/
+│   │   ├── migration_kds_barra_destino.sql  ✅ en repo — aplicar en Supabase (destino_kds, barra, líneas)
+│   │   └── migration_fase_b.sql             ✅ en repo — Fase B DDL + seed tenant prueba + superadmin (hashes: ver script)
+│   └── scripts/
+│       └── generate_test_hashes.py          ✅ bcrypt/passlib para rellenar hashes en migration_fase_b.sql
 ├── frontend/
 │   └── src/
 │       ├── components/
@@ -146,7 +251,9 @@ HorecaSO/
 │       │   │   ├── Loader.jsx           ✅
 │       │   │   └── EmptyState.jsx       ✅
 │       │   └── layout/
-│       │       ├── Sidebar.jsx          ✅ módulos por rol + KDS cocina/barra/sala + Recetas y Costes
+│       │       ├── Sidebar.jsx          ✅ shell + tema + logout
+│       │       ├── SidebarNav.jsx       ✅ enlaces por rol
+│       │       ├── constants/navConfig.js ✅ NAV_ITEMS, roles
 │       │       └── AppLayout.jsx        ✅ ml-64 fijo
 │       ├── constants/
 │       │   └── uiTokens.js              ✅
@@ -167,9 +274,9 @@ HorecaSO/
 │       │   │   ├── DashboardPage.jsx    ✅
 │       │   │   └── VentaLivePage.jsx    ✅ polling 30s
 │       │   ├── admin/
-│       │   │   ├── CartaPage.jsx        ✅ sin emoji; destino_kds; refetch
-│       │   │   ├── RecetasPage.jsx      ✅ + carpeta recetas/ (utils + ingredientes)
-│       │   │   └── GestionSalaPage.jsx  ✅ + móvil
+│       │   │   ├── carta/CartaPage.jsx  ✅ sin emoji; destino_kds; refetch
+│       │   │   ├── recetas/RecetasPage.jsx ✅ + ingredientes / utils
+│       │   │   └── sala/GestionSalaPage.jsx ✅ + móvil
 │       │   ├── inventario/
 │       │   │   ├── InventarioPage.jsx   ✅ + selects/filtros móvil seguros
 │       │   │   ├── MermasPage.jsx       ✅ + filtros móvil
@@ -198,12 +305,18 @@ HorecaSO/
 │       │   └── api.js                   ✅
 │       ├── App.jsx                      ✅ todas las rutas registradas
 │       └── index.css                    ✅
-├── ARQUITECTURA_HORECASO.md        ✅ radiografía técnica (routers, flujos, mapa repo)
-├── BUGS_Y_SOLUCIONES.md            ✅ bugs + fixes (incl. BUG-005…008 routing 24/03)
-├── docs/archivo/REFACTOR_SPLIT_ESTADO.md   📁 histórico — refactor backend/frontend cerrado (marzo 2026)
-├── (deuda técnica: ver sección final + plan roadmap Cursor)
-├── .cursorrules                         ✅ v2.1
-└── .gitignore                           ✅
+├── PRD_HorecaSO.md                 ✅ producto + schema SQL (especificación)
+├── PRD_SUPERADMIN_TENANTS_PRUEBAS.md ✅ redirección → GUIA Anexo A (spec Fase B unificada)
+├── SCHEMA_BASE_DATOS.md            ✅ 39 tablas `public` (MCP 26/03/2026); regenerar con backend/scripts/schema_mcp_json_to_markdown.py
+├── BITACORA_HORECASO.md            ✅ estado real repo (routers, rutas, Fase B)
+├── ARQUITECTURA_HORECASO.md        ✅ radiografía técnica (routers, flujos)
+├── BUGS_Y_SOLUCIONES.md            ✅ bugs + fixes (BUG-005…008, …)
+├── GUIA_PRODUCCION_COMPLETA.md     ✅ deploy, seguridad, tenants
+├── CREDENCIALES_PRUEBA.MD          ⚠️ solo dev / prueba — no usar en producción
+├── docs/README.md                  ✅ índice documentación activa vs archivo/
+├── docs/archivo/                   📁 histórico (guía inicio, auditoría, Penientes, …)
+├── .cursorrules                    ✅ v2.1
+└── .gitignore                      ✅
 ```
 
 ---
@@ -262,7 +375,7 @@ HorecaSO/
 ### MÓDULO 7 — INVENTARIO ✅ COMPLETO
 - Backend: artículos, movimientos, alertas, inventario físico ✅
 - Frontend: InventarioPage + MermasPage ✅
-- **FIFO:** [`routers/fifo.py`](backend/routers/fifo.py) + [`FIFOPage.jsx`](frontend/src/pages/inventario/FIFOPage.jsx) ✅ (lotes, consumos, valoración)
+- **FIFO:** [`routers/fifo/`](backend/routers/fifo/) + [`FIFOPage.jsx`](frontend/src/pages/inventario/FIFOPage.jsx) ✅ (lotes, consumos, valoración)
 - **APPCC:** [`routers/appcc.py`](backend/routers/appcc.py) + [`APPCCPage.jsx`](frontend/src/pages/inventario/APPCCPage.jsx) ✅
 
 ### MÓDULO 8 — DASHBOARD ✅ COMPLETO (básico)
@@ -273,10 +386,10 @@ HorecaSO/
 
 ### MÓDULO 9 — PROVEEDORES Y COMPRAS ✅ COMPLETO (parcial)
 - Backend: CRUD proveedores + facturas + IA escaneo Groq vision ✅
-- Frontend: ProveedoresPage + FacturasPage ✅
-- **PENDIENTE refactor final:** flujo confirmación modal IA completo
-- **PENDIENTE refactor final:** soporte PDF en escaneo
-- **PENDIENTE refactor final:** capture="environment" cámara móvil
+- Frontend: ProveedoresPage + FacturasPage ✅; modal IA con confirmación y `POST /api/facturas-proveedor` ✅
+- **PENDIENTE:** movimientos de **stock automáticos** al registrar factura desde IA (backend)
+- **PENDIENTE:** soporte PDF en escaneo + conversión backend
+- **PENDIENTE:** `capture="environment"` cámara móvil
 
 ### MÓDULO 10 — EMPLEADOS Y RRHH ✅ COMPLETO
 - empleados.py: CRUD + fichajes + turnos + cuadrantes + ausencias ✅ (+ rol **barra** donde aplica en cuadrante/fichajes)
@@ -303,7 +416,7 @@ HorecaSO/
 - Widget embebible online: Fase 5
 
 ### MÓDULO 12 — ANALYTICS ✅ PARCIAL (Fase 4)
-- **✅ Backend+frontend:** `GET /api/dashboard/rentabilidad-mesas`, `ingenieria-menu`, `coste-personal` ([`analytics.py`](backend/routers/analytics.py) + [`AnalyticsPage.jsx`](frontend/src/pages/analytics/AnalyticsPage.jsx))
+- **✅ Backend+frontend:** `GET /api/dashboard/rentabilidad-mesas`, `ingenieria-menu`, `coste-personal` ([`routers/analytics/`](backend/routers/analytics/) + [`AnalyticsPage.jsx`](frontend/src/pages/analytics/AnalyticsPage.jsx))
 - **✅ Copy BCG en pantalla:** claves API sin cambio; etiquetas UI — **Ganador**, **Motor de ventas**, **Bajo rendimiento**, **Interrogante** ✅
 - **✅ PDF rentabilidad platos:** leyenda alineada en [`pdf_diferenciales.py`](backend/services/pdf_diferenciales.py) ✅
 - Filtros Analytics: layout móvil seguro (`min-w-0`, etc.) ✅
@@ -346,7 +459,7 @@ FASE 2 — Carta y Recetas:                   100% ✅
 FASE 2 — Inventario y Mermas:               100% ✅
 FASE 2 — KDS:                               100% ✅ (cocina/barra/sala, Ya salió, tickets abiertos, rol barra)
 FASE 2 — Gestión Sala:                      100% ✅
-FASE 3 — Proveedores + IA facturas:          85% ✅ (modal IA, PDF escaneo, cámara)
+FASE 3 — Proveedores + IA facturas:          ~90% ✅ (falta stock al alta factura IA, PDF escaneo, cámara)
 FASE 3 — Empleados + RRHH:                  100% ✅
 FASE 3 — Reservas + Clientes:               100% ✅
 ────────────────────────────────────────────────────
@@ -365,6 +478,8 @@ TOTAL PROYECTO REAL: ~84% (estimación post-roadmap bugs/KDS/UX)
 
 ## ORDEN DE TRABAJO ACORDADO
 
+**Orden operativo para “terminar” despliegue y cadena multi-tenant:** ver sección superior **[RUTA PASO A PASO — Cierre del proyecto](#ruta-paso-a-paso--cierre-del-proyecto-de-lo-más-fácil-a-lo-más-complejo)** (Fases A→F: validar código → SQL KDS → SQL Fase B + hashes → probar superadmin + admin usuarios → deploy → roadmap producto).
+
 ```
 1. ✅ Fase 1 — Core completo
 2. ✅ Fase 2 — Inventario, KDS, Carta, Recetas, GestionSala
@@ -379,7 +494,7 @@ TOTAL PROYECTO REAL: ~84% (estimación post-roadmap bugs/KDS/UX)
 10. ⏳ Fase 5 — Delivery + Enterprise (según prioridad)
 ─────────────────────────────────────────────────────
 11. ✅ Refactor parcial recetas + **bugs plan** (mesa libre, emoji carta, KDS cobrado/servido, selects móvil, fichaje login, BCG UI, rol barra)
-12. 🔧 Pendientes Proveedores (modal IA, PDF escaneo, cámara)
+12. 🔧 Pendientes Proveedores (stock tras factura IA, PDF escaneo, cámara)
 13. ✅ **cursorrules** v2.1 + fila rol **barra** en tabla roles
 14. 🚀 **Deploy Render + Vercel — AL FINAL** (cuando local OK)
 ```
@@ -536,11 +651,11 @@ GET    /api/delivery/pedidos
 
 ```
 ✅ CREADAS Y VERIFICADAS:
-tenants, outlets, usuarios (rol puede incluir **barra** tras migración KDS)
+tenants, outlets, usuarios (rol puede incluir **barra** tras migración KDS; **superadmin** + `tenant_id` NULL tras `migration_fase_b.sql` en Supabase)
 mesas
-categorias_menu, alergenos, productos (+ **destino_kds** tras migración), producto_alergenos
+categorias_menu, alergenos, productos (+ **destino_kds** tras migración KDS), producto_alergenos
 menus_dia, menu_dia_platos
-tickets, ticket_lineas (+ **enviado_barra**, **estado_barra** tras migración), ticket_pagos, cierres_caja
+tickets, ticket_lineas (+ **enviado_barra**, **estado_barra** tras migración KDS), ticket_pagos, cierres_caja
 verifactu_registros
 articulos, lotes_inventario, movimientos_stock, mermas
 recetas, receta_ingredientes
@@ -554,6 +669,9 @@ clientes, reservas, lista_espera
 rentabilidad_mesas (analytics)
 registros_appcc
 lotes_inventario (FIFO)
+
+⏳ Fase B (tras ejecutar `migration_fase_b.sql` en Supabase — ver también [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md)):
+platform_logs, tenant_audit_log, usuario_permisos
 ```
 
 ---
@@ -657,6 +775,13 @@ lotes_inventario (FIFO)
 
 ## BITÁCORA DE TRABAJO (sesiones recientes)
 
+### 25/03/2026 — Sincronización documentación raíz (STEP v3.5)
+
+| Campo | Detalle |
+|-------|---------|
+| **Enfoque** | Alinear STEP, BITÁCORA, ARQUITECTURA, docs/README, [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) Anexo A (Fase B) y SCHEMA con el árbol real del repo (routers `analytics/`, `fifo/`, layout `SidebarNav` + `navConfig`, SQL Fase B + script hashes). |
+| **Fase B** | Distinción explícita: artefactos en disco vs ejecución en Supabase vs routers/UI aún no implementados. |
+
 ### 24/03/2026 — Refactor routers + routing FastAPI (STEP v3.3)
 
 | Campo | Detalle |
@@ -710,11 +835,11 @@ Detalle ampliado y seguimiento día a día: **[BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLU
 | Área | Estado |
 |------|--------|
 | Deploy Render + Vercel | ⏳ **Último paso** cuando local estable |
-| Supabase | ⏳ Confirmar migración **KDS barra/destino** aplicada en tu proyecto (si no, TPV/KDS fallan en esas columnas) |
+| Supabase | ⏳ **KDS barra/destino** y **Fase B** (`migration_fase_b.sql`) aplicadas en tu proyecto cuando toque |
 | Analytics | ⏳ IA previsión/sugerencias; comparativas tiempo ampliadas |
 | PDF | ⏳ Ticket venta + QR; informes fiscales (303) |
 | food_cost agregado | ⏳ Servicio “real vs teórico” si se quiere aparte de recetas |
-| Proveedores | ⏳ Modal IA completo, PDF en escaneo, `capture="environment"` |
+| Proveedores | ⏳ Stock al registrar factura IA, PDF en escaneo, `capture="environment"` |
 | Recetas UX | ⏳ Panel compositor “tipo post” + sub-recetas (plan Cursor Fase 1/2) |
 | Refactor JSX | ⏳ TPV, Carta, Analytics, Dashboard (páginas muy largas) |
 | Fase 5 | ⏳ Delivery, Verifactu envío real AEAT, WS, etc. |
@@ -734,24 +859,21 @@ Detalle ampliado y seguimiento día a día: **[BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLU
 
 ## FASE B — Superadmin, Gestión Usuarios, Tenant Prueba
 
-**Estado:** ❌ No iniciado
+**Estado repo (26–27/03/2026):** SQL + script + **routers y UI** implementados; **ejecutar** `migration_fase_b.sql` en Supabase (hashes reales) para que BD coincida con API superadmin y `platform_logs`. Detalle: [BITACORA_HORECASO.md](BITACORA_HORECASO.md) §5 y §8.
 
 | Ítem | Estado |
 |------|--------|
-| Rol superadmin en BD | ❌ |
-| Tabla platform_logs | ❌ |
-| Tabla tenant_audit_log | ❌ |
-| Tabla usuario_permisos | ❌ |
-| Router /api/superadmin | ❌ |
-| Router /api/admin/usuarios | ❌ |
-| Frontend pages/superadmin/ | ❌ |
-| Frontend pages/admin/usuarios/ | ❌ |
-| Tenant restauranteprueba (SQL seed) | ❌ |
-| Script generate_test_hashes.py | ❌ |
+| SQL `migration_fase_b.sql` (DDL + seed tenant prueba + usuario superadmin) | ✅ en repo — ⏳ ejecutar en cada instancia Supabase que deba tener Fase B |
+| Script `backend/scripts/generate_test_hashes.py` (bcrypt para hashes del seed) | ✅ en repo |
+| Rol superadmin + tablas `platform_logs`, `tenant_audit_log`, `usuario_permisos` en BD | ⏳ tras aplicar migración en Supabase |
+| Router `/api/superadmin` | ✅ `routers/superadmin/` |
+| Router `/api/admin/usuarios` | ✅ `routers/admin_usuarios/` |
+| Frontend `pages/superadmin/` | ✅ |
+| Frontend `pages/admin/usuarios/` | ✅ |
 
-**Referencia completa:** [PRD_SUPERADMIN_TENANTS_PRUEBAS.md](PRD_SUPERADMIN_TENANTS_PRUEBAS.md)
+**Referencia completa:** [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) **Anexo A** (contrato Fase B) · [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) (regenerar tras migración Fase B)
 
 ---
 
-*STEP v3.4 — HorecaSO — Arin Romero — 24/03/2026*
-*Estado: Fase 3 ✅ · Fase 4 ✅ parcial · Roadmap bugs/KDS/UX ✅ en código · Fase B ❌ no iniciada · Deploy al final*
+*STEP v3.6 — HorecaSO — Arin Romero — 27/03/2026*
+*Estado: Fase 3 ✅ · Fase 4 ✅ parcial · Roadmap bugs/KDS/UX ✅ en código · Fase B ✅ código en repo, ⏳ DDL/seed aplicado en Supabase por entorno · Deploy al final*

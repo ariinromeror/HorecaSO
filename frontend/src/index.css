@@ -1,2 +1,12 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+
+@layer components {
+  /**
+   * Primary body text on surfaces (tables, definition lists).
+   * Apply on <table> so <td> inherits; thead <th> keeps its own colors.
+   */
+  .horeca-body-text {
+    @apply text-[#111827] dark:text-[#e8eaf0];
+  }
+}

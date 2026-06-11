@@ -3,11 +3,13 @@ Helpers compartidos inventario (artículos y movimientos).
 """
 
 import logging
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
+
+from routers.recetas.recetas_unidades import coste_unitario_efectivo_calibracion
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,23 @@ def _articulo_to_dict(r: Any) -> dict:
     smax = None
     if r.get("stock_maximo") is not None:
         smax = _serialize_stock_qty(r["stock_maximo"])
+    base_coste = Decimal(str(r.get("coste_unitario") or 0))
+    cc = r.get("calibracion_comprado")
+    cu = r.get("calibracion_util")
+    coste_eff = coste_unitario_efectivo_calibracion(base_coste, cc, cu)
+    merma_pct = None
+    if cc is not None and cu is not None:
+        try:
+            cdec = Decimal(str(cc))
+            udec = Decimal(str(cu))
+            if cdec > 0 and udec > 0 and udec <= cdec:
+                merma_pct = float(
+                    ((cdec - udec) / cdec * Decimal("100")).quantize(
+                        Decimal("0.01"), ROUND_HALF_UP
+                    )
+                )
+        except Exception:
+            merma_pct = None
     return {
         "id": str(r["id"]),
         "nombre": r["nombre"],
@@ -57,7 +76,14 @@ def _articulo_to_dict(r: Any) -> dict:
         "stock_minimo": _serialize_stock_qty(sm),
         "stock_maximo": smax,
         "coste_unitario": _serialize_coste_json(r.get("coste_unitario")),
+        "coste_unitario_efectivo": _serialize_coste_json(coste_eff),
+        "calibracion_comprado": _serialize_stock_qty(cc)
+        if cc is not None
+        else None,
+        "calibracion_util": _serialize_stock_qty(cu) if cu is not None else None,
+        "merma_calibracion_porcentaje": merma_pct,
         "categoria_almacen": r.get("categoria_almacen"),
+        "es_elaborado": bool(r.get("es_elaborado")),
         "created_at": created_iso,
         "alerta_stock": alerta,
     }

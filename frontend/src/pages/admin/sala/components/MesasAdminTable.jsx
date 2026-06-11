@@ -97,7 +97,7 @@ export default function MesasAdminTable({
       ) : (
         <>
           <div className={`hidden overflow-x-auto md:block ${CARD_BASE}`}>
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="horeca-body-text w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e2e5ed] text-[#6b7280] dark:border-[#2e3347] dark:text-[#9ca3af]">
                   <th className="px-4 py-3 font-medium">Nº</th>
@@ -201,7 +201,7 @@ export default function MesasAdminTable({
                         {estadoLabel(m.estado)}
                       </span>
                     </div>
-                    <dl className="mt-3 space-y-2 text-sm">
+                    <dl className="horeca-body-text mt-3 space-y-2 text-sm">
                       <div className="flex justify-between gap-2">
                         <dt className="text-[#6b7280] dark:text-[#9ca3af]">
                           Capacidad

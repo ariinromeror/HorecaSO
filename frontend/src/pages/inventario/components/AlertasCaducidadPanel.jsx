@@ -60,7 +60,7 @@ export function AlertasCaducidadPanel({
       ) : (
         <>
           <div className={`${SURFACE_FIFO} hidden overflow-x-auto md:block`}>
-            <table className="w-full min-w-[640px] border-collapse">
+            <table className="horeca-body-text w-full min-w-[640px] border-collapse">
               <thead>
                 <tr>
                   <th className={`${TABLE_HEAD_FIFO} px-4 py-3`}>Artículo</th>
@@ -109,7 +109,7 @@ export function AlertasCaducidadPanel({
                 <p className="font-semibold text-[#111827] dark:text-[#e8eaf0]">
                   {row.nombre_articulo}
                 </p>
-                <dl className="mt-3 space-y-2 text-sm">
+                <dl className="horeca-body-text mt-3 space-y-2 text-sm">
                   <div className="flex justify-between gap-2">
                     <dt className="text-[#6b7280] dark:text-[#8b90a7]">
                       Lote

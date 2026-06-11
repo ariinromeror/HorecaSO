@@ -34,7 +34,7 @@ export default function NominasList({
       ) : (
         <>
           <div className={`hidden overflow-x-auto md:block ${NOMINAS_SURFACE}`}>
-            <table className="w-full min-w-[640px] border-collapse text-left text-[15px]">
+            <table className="horeca-body-text w-full min-w-[640px] border-collapse text-left text-[15px]">
               <thead>
                 <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                   <th className="px-4 py-3 font-semibold">Empleado</th>
@@ -111,7 +111,7 @@ export default function NominasList({
                 <p className="mt-1 text-[14px] text-[#6b7280] dark:text-[#8b90a7]">
                   {MESES[n.mes - 1]} {n.anio}
                 </p>
-                <dl className="mt-3 space-y-1 text-[14px]">
+                <dl className="horeca-body-text mt-3 space-y-1 text-[14px]">
                   <div className="flex justify-between">
                     <dt className="text-[#6b7280] dark:text-[#8b90a7]">
                       Bruto

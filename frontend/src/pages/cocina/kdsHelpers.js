@@ -59,6 +59,9 @@ export function estadoBadgeClass(estado) {
   if (e === 'listo') {
     return 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400'
   }
+  if (e === 'servido') {
+    return 'bg-slate-500/15 text-slate-600 dark:text-slate-400'
+  }
   return 'bg-gray-500/10 text-gray-500 dark:text-gray-400'
 }
 
@@ -66,8 +69,39 @@ export function estadoLabel(estado) {
   const e = (estado || 'pendiente').toLowerCase()
   if (e === 'preparando') return 'Preparando'
   if (e === 'listo') return 'Listo'
-  if (e === 'servido') return 'Servido'
+  if (e === 'servido') return 'Ya terminado'
   return 'Pendiente'
+}
+
+export function destinoKdsBadgeClass(destino) {
+  const d = String(destino || 'cocina').toLowerCase()
+  if (d === 'barra') {
+    return 'bg-violet-500/15 text-violet-700 dark:text-violet-300'
+  }
+  if (d === 'cocina') {
+    return 'bg-amber-500/15 text-amber-800 dark:text-amber-300'
+  }
+  return 'bg-gray-500/10 text-gray-600 dark:text-gray-400'
+}
+
+export function emptyKdsCopy(rol) {
+  const r = String(rol || '').toLowerCase()
+  if (r === 'barra') {
+    return {
+      title: 'Sin comandas en barra',
+      subtitle: 'No hay líneas pendientes para barra',
+    }
+  }
+  if (r === 'cocina') {
+    return {
+      title: 'Sin comandas en cocina',
+      subtitle: 'No hay líneas pendientes para cocina',
+    }
+  }
+  return {
+    title: 'Sin comandas activas',
+    subtitle: 'Cocina y barra al día en este ticket',
+  }
 }
 
 export function minutosDesde(iso) {

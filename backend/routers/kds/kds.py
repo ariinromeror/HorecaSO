@@ -64,37 +64,81 @@ _SQL_COMANDAS_BASE = """
                 LEFT JOIN mesas m ON t.mesa_id = m.id
                 WHERE t.outlet_id = $1
                   AND t.estado = 'abierto'
+                  AND COALESCE(p.destino_kds, 'cocina') <> 'ninguno'
                   AND (
-                    ($2::text = 'cocina'
-                     AND COALESCE(p.destino_kds, 'cocina') = 'cocina'
-                     AND tl.enviado_cocina = true
-                     AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
-                    OR
-                    ($2::text = 'barra'
-                     AND COALESCE(p.destino_kds, 'cocina') = 'barra'
-                     AND tl.enviado_barra = true
-                     AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
-                    OR
-                    ($2::text = 'completa'
-                     AND (
-                       (COALESCE(p.destino_kds, 'cocina') = 'cocina'
-                        AND tl.enviado_cocina = true
-                        AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
-                       OR
-                       (COALESCE(p.destino_kds, 'cocina') = 'barra'
-                        AND tl.enviado_barra = true
-                        AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
-                     ))
+                    (
+                      ($2::text = 'cocina'
+                       AND COALESCE(p.destino_kds, 'cocina') = 'cocina'
+                       AND tl.enviado_cocina = true
+                       AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
+                      OR
+                      ($2::text = 'barra'
+                       AND COALESCE(p.destino_kds, 'cocina') = 'barra'
+                       AND tl.enviado_barra = true
+                       AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
+                      OR
+                      ($2::text = 'completa'
+                       AND (
+                         (COALESCE(p.destino_kds, 'cocina') = 'cocina'
+                          AND tl.enviado_cocina = true
+                          AND COALESCE(tl.estado_cocina, 'pendiente') <> 'servido')
+                         OR
+                         (COALESCE(p.destino_kds, 'cocina') = 'barra'
+                          AND tl.enviado_barra = true
+                          AND COALESCE(tl.estado_barra, 'pendiente') <> 'servido')
+                       ))
+                    )
+                    OR (
+                      $3::boolean IS TRUE
+                      AND (
+                        ($2::text = 'cocina'
+                         AND COALESCE(p.destino_kds, 'cocina') = 'cocina'
+                         AND tl.enviado_cocina = true
+                         AND COALESCE(tl.estado_cocina, 'pendiente') = 'servido')
+                        OR
+                        ($2::text = 'barra'
+                         AND COALESCE(p.destino_kds, 'cocina') = 'barra'
+                         AND tl.enviado_barra = true
+                         AND COALESCE(tl.estado_barra, 'pendiente') = 'servido')
+                        OR
+                        ($2::text = 'completa'
+                         AND (
+                           (COALESCE(p.destino_kds, 'cocina') = 'cocina'
+                            AND tl.enviado_cocina = true
+                            AND COALESCE(tl.estado_cocina, 'pendiente') = 'servido')
+                           OR
+                           (COALESCE(p.destino_kds, 'cocina') = 'barra'
+                            AND tl.enviado_barra = true
+                            AND COALESCE(tl.estado_barra, 'pendiente') = 'servido')
+                         ))
+                      )
+                    )
                   )
                 ORDER BY kds_enviado_at ASC NULLS LAST
 """
+
+
+def _destino_kds_label(dk: str) -> str:
+    if dk == "barra":
+        return "Barra"
+    if dk == "cocina":
+        return "Cocina"
+    return "—"
+
+
+def _ts_iso(val) -> str:
+    return val.isoformat() if val else ""
 
 
 @router.get("/comandas")
 async def get_comandas(
     vista: str | None = Query(
         default=None,
-        description="Solo admin/director: cocina | barra | completa",
+        description="Solo admin/director/jefe_sala: cocina | barra | completa",
+    ),
+    incluir_servidos: bool | None = Query(
+        default=None,
+        description="Incluir líneas ya servidas (terminadas). Por defecto: true si vista=completa, false si no.",
     ),
     current_user: dict = Depends(require_roles(ROLES_KDS_LECTURA)),
 ):
@@ -109,10 +153,14 @@ async def get_comandas(
                 )
 
             v = _resolve_vista(current_user, vista)
+            inc = incluir_servidos
+            if inc is None:
+                inc = v == "completa"
             rows = await conn.fetch(
                 _SQL_COMANDAS_BASE,
                 UUID(outlet_id),
                 v,
+                inc,
             )
 
         by_ticket: dict = {}
@@ -129,30 +177,39 @@ async def get_comandas(
                     "lineas": [],
                     "_sort_key": r.get("kds_enviado_at"),
                 }
-            mins = _minutos_espera(r.get("minutos_espera"))
-            al = _alerta_linea(mins)
+            dk = str(r.get("destino_kds") or "cocina")
+            est_k = (r.get("estado_kds") or "pendiente").strip()
+            eco = (r.get("estado_cocina") or "pendiente").strip()
+            eba = (r.get("estado_barra") or "pendiente").strip()
+            terminado = est_k == "servido"
+            mins = (
+                0.0
+                if terminado
+                else _minutos_espera(r.get("minutos_espera"))
+            )
+            al = "ok" if terminado else _alerta_linea(mins)
             cant = r["cantidad"]
             try:
                 cant_int = int(cant)
             except (TypeError, ValueError):
                 cant_int = int(float(cant))
 
-            est = (r.get("estado_kds") or "pendiente").strip()
-            enviado = r.get("kds_enviado_at")
-            enviado_iso = enviado.isoformat() if enviado else ""
-
             linea = {
                 "id": str(r["id"]),
                 "producto_nombre": r["producto_nombre"] or "",
                 "cantidad": cant_int,
                 "nota": r["nota"],
-                "destino_kds": r.get("destino_kds") or "cocina",
-                "estado_kds": est,
-                "estado_cocina": est,
-                "enviado_cocina_at": enviado_iso,
+                "destino_kds": dk,
+                "destino_kds_label": _destino_kds_label(dk),
+                "estado_kds": est_k,
+                "estado_cocina": eco,
+                "estado_barra": eba,
+                "enviado_cocina_at": _ts_iso(r.get("enviado_cocina_at")),
+                "enviado_barra_at": _ts_iso(r.get("enviado_barra_at")),
                 "minutos_espera": mins,
                 "tiempo_preparacion": r["tiempo_preparacion"],
                 "alerta": al,
+                "kds_terminado": terminado,
             }
             by_ticket[tid]["lineas"].append(linea)
 
@@ -163,11 +220,14 @@ async def get_comandas(
             del data["_sort_key"]
             result.append(data)
 
+        def _sort_ts(ln: dict) -> str:
+            dk = ln.get("destino_kds") or "cocina"
+            if dk == "barra":
+                return ln.get("enviado_barra_at") or ""
+            return ln.get("enviado_cocina_at") or ""
+
         result.sort(
-            key=lambda x: min(
-                (ln.get("enviado_cocina_at") or "" for ln in x["lineas"]),
-                default="",
-            )
+            key=lambda x: min((_sort_ts(ln) for ln in x["lineas"]), default="")
         )
         return result
     except HTTPException:

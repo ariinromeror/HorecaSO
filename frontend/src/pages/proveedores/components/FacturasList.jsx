@@ -122,7 +122,7 @@ export default function FacturasList({
       ) : (
         <>
           <div className="hidden overflow-x-auto rounded-xl border border-[#e2e5ed] bg-white shadow-sm dark:border-[#2e3347] dark:bg-[#1a1d27] lg:block">
-            <table className="w-full min-w-[960px] text-left text-sm">
+            <table className="horeca-body-text w-full min-w-[960px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                   <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">

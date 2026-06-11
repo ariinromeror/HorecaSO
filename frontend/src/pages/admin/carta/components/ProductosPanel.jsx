@@ -159,7 +159,7 @@ export default function ProductosPanel({
 
           {/* Escritorio: tabla */}
           <div className={`hidden overflow-x-auto md:block ${CARD} shadow-sm`}>
-            <table className="w-full min-w-[640px] text-left text-[15px]">
+            <table className="horeca-body-text w-full min-w-[640px] text-left text-[15px]">
               <thead>
                 <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                   <th className="px-4 py-3 font-semibold text-[#6b7280] dark:text-[#8b90a7]">

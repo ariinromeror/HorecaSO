@@ -1,7 +1,11 @@
 import { AlertTriangle, Edit, Save, X } from 'lucide-react'
 import RecetaDetalleIngredientesSection from '../RecetaDetalleIngredientesSection'
 import { BTN_PRIMARY, INPUT } from '../constants'
-import { formatEuro } from '../recetasUtils'
+import {
+  formatEuro,
+  precioVentaSugerido,
+  readPctCosteVenta,
+} from '../recetasUtils'
 import { semaforoMeta } from '../semaforoMeta'
 
 export default function RecetaDetalleModal({
@@ -24,6 +28,18 @@ export default function RecetaDetalleModal({
   onGuardarInstrucciones,
 }) {
   if (!open) return null
+
+  const pctRef = readPctCosteVenta()
+  const costeModal = recetaDetalle
+    ? Number(recetaDetalle.coste_total ?? recetaDetalle.coste ?? 0)
+    : 0
+  const pvpSugeridoModal =
+    recetaDetalle &&
+    !recetaDetalle.es_elaboracion &&
+    costeModal > 0
+      ? precioVentaSugerido(costeModal, pctRef)
+      : null
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div
@@ -54,7 +70,9 @@ export default function RecetaDetalleModal({
               <span>
                 Precio venta:{' '}
                 <strong className="text-[#111827] dark:text-[#e8eaf0]">
-                  {formatEuro(recetaDetalle?.precio_venta)}
+                  {recetaDetalle?.precio_venta != null
+                    ? formatEuro(recetaDetalle.precio_venta)
+                    : '—'}
                 </strong>
               </span>
               <span>
@@ -65,6 +83,14 @@ export default function RecetaDetalleModal({
                   )}
                 </strong>
               </span>
+              {pvpSugeridoModal != null ? (
+                <span title="Según % coste/venta guardado en este navegador">
+                  PVP sugerido ({pctRef}%):{' '}
+                  <strong className="text-[#111827] dark:text-[#e8eaf0]">
+                    {formatEuro(pvpSugeridoModal)}
+                  </strong>
+                </span>
+              ) : null}
               <span>
                 Margen:{' '}
                 <strong

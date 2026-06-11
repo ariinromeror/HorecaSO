@@ -56,12 +56,25 @@ async def login(login_data: LoginRequest):
             detail="Credenciales incorrectas",
         )
 
-    token_data = {
-        "sub": str(row["id"]),
-        "user_id": str(row["id"]),
-        "role": row["rol"],
-        "negocio_id": str(row["tenant_id"]) if row["tenant_id"] else None,
-    }
+    rol = row["rol"]
+    if rol == "superadmin":
+        token_data = {
+            "sub": str(row["id"]),
+            "user_id": str(row["id"]),
+            "role": "superadmin",
+            "negocio_id": None,
+            "tenant_id": None,
+        }
+        negocio_id_resp = None
+    else:
+        token_data = {
+            "sub": str(row["id"]),
+            "user_id": str(row["id"]),
+            "role": rol,
+            "negocio_id": str(row["tenant_id"]) if row["tenant_id"] else None,
+        }
+        negocio_id_resp = str(row["tenant_id"]) if row["tenant_id"] else None
+
     access_token = create_access_token(token_data)
 
     logger.info("Login exitoso: %s", login_data.email)
@@ -70,8 +83,8 @@ async def login(login_data: LoginRequest):
         access_token=access_token,
         token_type="bearer",
         user_id=str(row["id"]),
-        role=row["rol"],
-        negocio_id=str(row["tenant_id"]) if row["tenant_id"] else None,
+        role=rol,
+        negocio_id=negocio_id_resp,
     )
 
 

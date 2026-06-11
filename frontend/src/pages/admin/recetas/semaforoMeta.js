@@ -27,6 +27,25 @@ export function semaforoMeta(s) {
         dot: 'bg-red-500',
         label: 'Crítico',
       }
+    case 'sin_venta':
+      return {
+        bar: 'bg-sky-500',
+        text: 'text-sky-600 dark:text-sky-400',
+        border: 'border-sky-500/50',
+        badge: 'bg-sky-500/10 text-sky-700 border-sky-500/20 dark:text-sky-400',
+        dot: 'bg-sky-500',
+        label: 'Elaboración',
+      }
+    case 'sin_receta':
+      return {
+        bar: 'bg-violet-500',
+        text: 'text-violet-600 dark:text-violet-400',
+        border: 'border-violet-500/50',
+        badge:
+          'bg-violet-500/10 text-violet-800 border-violet-500/20 dark:text-violet-300',
+        dot: 'bg-violet-500',
+        label: 'Sin receta',
+      }
     default:
       return {
         bar: 'bg-zinc-400 dark:bg-zinc-600',

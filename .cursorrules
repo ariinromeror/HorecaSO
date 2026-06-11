@@ -1,4 +1,4 @@
-# HorecaSO — Cursor Rules v2.1
+# HorecaSO — Cursor Rules v2.2
 # Cubre todo el proyecto completo — todas las fases.
 # No modificar salvo cambio de stack o decisión arquitectónica mayor.
 
@@ -10,6 +10,16 @@
 **Desarrollador:** Arin Romero — autodidacta, usa IA como herramienta de desarrollo.
 **Target:** Mercado español — por encima de Revo, Agora e ICG en funcionalidad.
 **Modelo:** SaaS multi-tenant — planes Básico / Profesional / Premium / Enterprise.
+
+---
+
+## DOCUMENTACIÓN OBLIGATORIA — BITÁCORA Y BUGS
+
+OBLIGATORIO al cerrar un paso o bloque de trabajo relevante (implementación, refactor, migración SQL ejecutada en entorno, sincronización de docs):
+
+- **Bitácora:** SIEMPRE añadir una entrada breve en `BITACORA_HORECASO.md` en la raíz del repo: fecha, qué se hizo, archivos o áreas tocadas, resultado (OK / pendiente). La bitácora es registro de **sesión y trabajo realizado**; no sustituye a `STEP_HORECASO.md` (estado global del proyecto). Cambios grandes de roadmap o fases conviene reflejarlos también en STEP cuando aplique.
+
+- **Bugs:** Si aparece un fallo reproducible, regresión, error 500 con causa identificada o comportamiento incorrecto que merezca seguimiento, documentarlo en `BUGS_Y_SOLUCIONES.md` siguiendo el formato de ese archivo (tabla por mes, ID opcional `BUG-xxx`, síntoma, causa, solución, estado). Errores triviales corregidos al momento sin impacto (typo, import olvidado) pueden omitirse; criterio: **¿alguien lo volvería a tropezar?** → entonces SÍ entra en BUGS.
 
 ---
 

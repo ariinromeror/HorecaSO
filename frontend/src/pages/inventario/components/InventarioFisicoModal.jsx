@@ -51,7 +51,7 @@ export default function InventarioFisicoModal({
           artículo{countInventarioCambios !== 1 ? 's' : ''}
         </p>
         <div className="max-h-[50vh] overflow-auto rounded-lg border border-[#e2e5ed] dark:border-[#2e3347]">
-          <table className="w-full min-w-[500px] text-left text-sm">
+          <table className="horeca-body-text w-full min-w-[500px] text-left text-sm">
             <thead className="sticky top-0 bg-[#f0f2f5] dark:bg-[#222536]">
               <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                 <th className="px-3 py-2 font-medium">Nombre</th>

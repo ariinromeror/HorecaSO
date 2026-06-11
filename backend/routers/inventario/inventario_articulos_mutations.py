@@ -4,10 +4,11 @@ Inventario: alta y edición de artículos.
 
 import logging
 from decimal import Decimal
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 
 from auth.dependencies import require_roles
 from database import get_db
@@ -155,4 +156,78 @@ async def update_articulo(
         raise
     except Exception as e:
         logger.error("Error en update_articulo: %s", e)
+        raise HTTPException(status_code=500, detail="Error interno")
+
+
+class CalibracionMermaBody(BaseModel):
+    """Regla de tres: comprado vs cantidad útil (misma unidad lógica). Ambos null = borrar."""
+
+    comprado: Optional[Decimal] = None
+    util: Optional[Decimal] = None
+
+
+@router.put("/articulos/{articulo_id}/calibracion-merma")
+async def put_calibracion_merma(
+    articulo_id: UUID,
+    body: CalibracionMermaBody,
+    current_user: dict = Depends(require_roles(ROLES_ESCRITURA_ART)),
+):
+    """Guarda o borra la calibración de merma por manipulación (inventario → recetas)."""
+    c = body.comprado
+    u = body.util
+    if (c is None) ^ (u is None):
+        raise HTTPException(
+            status_code=400,
+            detail="Indica ambos valores (comprado y útil) o ninguno para borrar",
+        )
+    if c is not None and u is not None:
+        if c <= 0 or u <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Las cantidades deben ser mayores que cero",
+            )
+        if u > c:
+            raise HTTPException(
+                status_code=400,
+                detail="La cantidad útil no puede superar la comprada",
+            )
+
+    try:
+        async with get_db() as conn:
+            urow = await _fetch_usuario(conn, current_user["sub"])
+            if not urow or not urow["tenant_id"]:
+                raise HTTPException(status_code=403, detail="Usuario sin tenant")
+
+            tenant_id = UUID(str(urow["tenant_id"]))
+            exists = await conn.fetchrow(
+                "SELECT id FROM articulos WHERE id = $1 AND tenant_id = $2",
+                articulo_id,
+                tenant_id,
+            )
+            if not exists:
+                raise HTTPException(status_code=404, detail="Artículo no encontrado")
+
+            row = await conn.fetchrow(
+                """
+                UPDATE articulos SET
+                    calibracion_comprado = $1,
+                    calibracion_util = $2
+                WHERE id = $3 AND tenant_id = $4
+                RETURNING id, nombre, sku, unidad_medida, stock_actual, stock_minimo,
+                          stock_maximo, coste_unitario, calibracion_comprado,
+                          calibracion_util, categoria_almacen, created_at
+                """,
+                c,
+                u,
+                articulo_id,
+                tenant_id,
+            )
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Artículo no encontrado")
+        return _articulo_to_dict(row)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en put_calibracion_merma: %s", e)
         raise HTTPException(status_code=500, detail="Error interno")

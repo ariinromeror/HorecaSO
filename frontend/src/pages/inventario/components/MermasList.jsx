@@ -92,7 +92,7 @@ export default function MermasList({
         <>
           <div className={`hidden md:block ${TABLE_WRAP_MERMAS}`}>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
+              <table className="horeca-body-text w-full min-w-[900px] text-left text-sm">
                 <thead className="border-b border-[#e2e5ed] bg-[#f9fafb] dark:border-[#2e3347] dark:bg-[#222536]">
                   <tr className="text-[#6b7280] dark:text-[#9ca3af]">
                     <th className="px-4 py-3 font-medium">Fecha</th>
@@ -208,7 +208,7 @@ export default function MermasList({
                     }).format(Number(m.cantidad))}{' '}
                     {unidad}
                   </p>
-                  <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <dl className="horeca-body-text mt-3 grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <dt className="text-[#6b7280] dark:text-[#9ca3af]">
                         Coste u.

@@ -100,7 +100,7 @@ export default function RegistrosAPPCCTable({
       ) : (
         <>
           <div className={`hidden md:block ${SURFACE_APPCC} overflow-x-auto`}>
-            <table className="w-full min-w-[900px] text-left text-[15px]">
+            <table className="horeca-body-text w-full min-w-[900px] text-left text-[15px]">
               <thead>
                 <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                   <th className="px-4 py-3 font-semibold text-[#6b7280] dark:text-[#8b90a7]">

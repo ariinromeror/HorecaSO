@@ -19,7 +19,27 @@ import {
   ShieldCheck,
   Layers,
   Download,
+  Building2,
+  ScrollText,
+  UserCog,
+  Wallet,
 } from 'lucide-react'
+
+/** Panel plataforma — solo `superadmin`. */
+export const SUPERADMIN_NAV_ITEMS = [
+  {
+    path: '/superadmin/tenants',
+    label: 'Tenants (plataforma)',
+    Icon: Building2,
+    roles: ['superadmin'],
+  },
+  {
+    path: '/superadmin/logs',
+    label: 'Logs plataforma',
+    Icon: ScrollText,
+    roles: ['superadmin'],
+  },
+]
 
 /** Lista plana: todas las rutas de navegación (sin grupo colapsable). */
 export const NAV_ITEMS = [
@@ -58,6 +78,12 @@ export const NAV_ITEMS = [
     label: 'Carta',
     Icon: ClipboardList,
     roles: ['admin', 'director'],
+  },
+  {
+    path: '/admin/usuarios',
+    label: 'Usuarios',
+    Icon: UserCog,
+    roles: ['admin'],
   },
   {
     path: '/venta-live',
@@ -103,8 +129,14 @@ export const NAV_ITEMS = [
   },
   {
     path: '/admin/recetas',
-    label: 'Recetas y Costes',
+    label: 'Recetas',
     Icon: ChefHat,
+    roles: ['admin', 'director', 'cocina'],
+  },
+  {
+    path: '/admin/costes',
+    label: 'Gastos operativos',
+    Icon: Wallet,
     roles: ['admin', 'director', 'cocina'],
   },
   {
@@ -186,6 +218,33 @@ export function isNavActive(pathname, item) {
     return (
       pathname === '/proveedores/facturas' ||
       pathname.startsWith('/proveedores/facturas/')
+    )
+  }
+  if (itemPath === '/superadmin/tenants') {
+    return pathname.startsWith('/superadmin/tenants')
+  }
+  if (itemPath === '/superadmin/logs') {
+    return (
+      pathname === '/superadmin/logs' ||
+      pathname.startsWith('/superadmin/logs/')
+    )
+  }
+  if (itemPath === '/admin/usuarios') {
+    return (
+      pathname === '/admin/usuarios' ||
+      pathname.startsWith('/admin/usuarios/')
+    )
+  }
+  if (itemPath === '/admin/recetas') {
+    return (
+      pathname === '/admin/recetas' ||
+      pathname.startsWith('/admin/recetas/')
+    )
+  }
+  if (itemPath === '/admin/costes') {
+    return (
+      pathname === '/admin/costes' ||
+      pathname.startsWith('/admin/costes/')
     )
   }
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`)

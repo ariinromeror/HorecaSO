@@ -77,7 +77,7 @@ export default function HistorialPanel({
               <EmptyState message="Sin tickets en el historial reciente" />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] text-left text-[15px]">
+                <table className="horeca-body-text w-full min-w-[520px] text-left text-[15px]">
                   <thead>
                     <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                       <th className="py-2 pr-3 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
