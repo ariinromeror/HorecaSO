@@ -193,6 +193,11 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 11/06/2026 — **README estilo portfolio (formato InfoCampus)**
+
+- **`README.md` raíz reescrito** en inglés con formato recruiter-friendly tipo InfoCampus: badges for-the-badge, enlaces a demo live/health, key features, sección demo access, arquitectura, módulos por rol, seguridad RBAC, sección Verifactu, IA (escaneo facturas + forecast mermas), decisiones técnicas (asyncpg, pgbouncer, polling, multi-tenant, safe-area), setup local, deploy, métricas reales (122 py / ~13,7k líneas / 39 routers / 122 jsx / ~18,5k líneas / 42 tablas / 8 roles) y estado de producción. Tabla de screenshots con placeholders (pendiente subir capturas a GitHub user-attachments).
+- **README técnico anterior archivado** en `docs/REFERENCIA_TECNICA.md` (enlaces relativos corregidos) y añadido al índice `docs/README.md`.
+
 ### 11/06/2026 — **Fix safe area iOS (header tapado por la barra de estado en iPhone)**
 
 - **Síntoma:** en iPhone (PWA con `apple-mobile-web-app-status-bar-style=black-translucent` + `viewport-fit=cover`) la web se extiende bajo la barra de estado; el header móvil con el botón de menú quedaba debajo de la hora/batería y no se podía pulsar.
