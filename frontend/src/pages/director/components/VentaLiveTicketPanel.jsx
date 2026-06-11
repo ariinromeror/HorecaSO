@@ -125,7 +125,7 @@ export default function VentaLiveTicketPanel({
               </section>
 
               <section className="mb-6">
-                <table className="w-full text-left text-xs text-[#111827] dark:text-[#e8eaf0]">
+                <table className="horeca-body-text w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-[#e2e5ed] dark:border-[#2e3347]">
                       <th className="py-1.5 pr-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">

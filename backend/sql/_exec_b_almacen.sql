@@ -1,0 +1,28 @@
+INSERT INTO articulos (
+  id, tenant_id, nombre, sku, unidad_medida, stock_actual, stock_minimo,
+  coste_unitario, categoria_almacen, temperatura_almacen, stock_maximo
+)
+VALUES
+  ('c0000001-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111111111',
+   'Aceite oliva virgen extra 5L', 'ALM-AOV-5L', 'L', 12, 3, 28.00, 'Seco', 'ambiente', 40),
+  ('c0000001-0000-4000-8000-000000000002', '11111111-1111-1111-1111-111111111111',
+   'Queso curado lonchas', 'ALM-QUE-001', 'kg', 8, 2, 9.50, 'Refrigerado', '4C', 20),
+  ('c0000001-0000-4000-8000-000000000003', '11111111-1111-1111-1111-111111111111',
+   'Tomate pera', 'ALM-TOM-001', 'kg', 1, 5, 1.20, 'Fresco', '12C', 30),
+  ('c0000001-0000-4000-8000-000000000004', '11111111-1111-1111-1111-111111111111',
+   'Vino tinto crianza', 'ALM-VIN-001', 'bot', 20, 4, 4.80, 'Bebidas', '15C', 60)
+ON CONFLICT (id) DO NOTHING;
+
+-- Lotes FIFO (outlet demo)
+INSERT INTO lotes_inventario (id, articulo_id, outlet_id, cantidad, coste_unitario, fecha_caducidad, numero_lote)
+VALUES
+  ('d0000001-0000-4000-8000-000000000001', 'c0000001-0000-4000-8000-000000000001', '22222222-2222-2222-2222-222222222222', 6, 28.00, CURRENT_DATE + 180, 'LOTE-AOV-2026-A'),
+  ('d0000001-0000-4000-8000-000000000002', 'c0000001-0000-4000-8000-000000000002', '22222222-2222-2222-2222-222222222222', 4, 9.50, CURRENT_DATE + 45, 'LOTE-QUE-2026-01'),
+  ('d0000001-0000-4000-8000-000000000003', 'c0000001-0000-4000-8000-000000000003', '22222222-2222-2222-2222-222222222222', 15, 1.20, CURRENT_DATE + 7, 'LOTE-TOM-2026-B'),
+  ('d0000001-0000-4000-8000-000000000004', 'c0000001-0000-4000-8000-000000000004', '22222222-2222-2222-2222-222222222222', 24, 4.80, NULL, 'LOTE-VIN-001')
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE articulos SET stock_actual = 12, stock_minimo = 3 WHERE id = 'c0000001-0000-4000-8000-000000000001';
+UPDATE articulos SET stock_actual = 8, stock_minimo = 2 WHERE id = 'c0000001-0000-4000-8000-000000000002';
+UPDATE articulos SET stock_actual = 1, stock_minimo = 5 WHERE id = 'c0000001-0000-4000-8000-000000000003';
+UPDATE articulos SET stock_actual = 20, stock_minimo = 4 WHERE id = 'c0000001-0000-4000-8000-000000000004';

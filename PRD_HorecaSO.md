@@ -1,6 +1,6 @@
 # PRD — HorecaSO v3.0
 ## Product Requirements Document — Edición Completa
-### Última revisión: 20/03/2026
+### Última revisión: 25/03/2026 (sincronización índice docs; sin cambio funcional de producto)
 
 **Proyecto:** HorecaSO
 **Autor:** Arin Romero

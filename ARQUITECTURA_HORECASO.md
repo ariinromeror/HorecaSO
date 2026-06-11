@@ -5,6 +5,8 @@ Documento técnico de **arquitectura y cableado** entre capas. No sustituye al [
 | Documento | Uso |
 |-----------|-----|
 | [STEP_HORECASO.md](STEP_HORECASO.md) | Qué está hecho, fases, APIs resumidas, deploy |
+| [BITACORA_HORECASO.md](BITACORA_HORECASO.md) | Estado del repo inspeccionado (routers, rutas, SQL en disco) |
+| [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) | Referencia de tablas Supabase |
 | [PRD_HorecaSO.md](PRD_HorecaSO.md) | Tablas, reglas de negocio, Verifactu |
 | [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) | Bugs y fixes detallados |
 | [.cursorrules](.cursorrules) | Convenciones de código obligatorias |
@@ -70,19 +72,22 @@ HorecaSO/
 │   │   ├── admin_carta/
 │   │   └── recetas/
 │   ├── services/            # Lógica reutilizable: Verifactu, PDFs, (IA en router proveedores)
-│   └── sql/                 # Migraciones manuales Supabase (ej. KDS barra)
+│   ├── sql/                 # Migraciones manuales: KDS barra, Fase B (DDL + seed)
+│   └── scripts/             # p. ej. generate_test_hashes.py (hashes para migration_fase_b.sql)
 ├── frontend/
 │   ├── src/
 │   │   ├── main.jsx         # createRoot → <App />
 │   │   ├── App.jsx          # Router, rutas, guards por rol
 │   │   ├── index.css        # Tailwind 4
 │   │   ├── context/         # Auth, Theme
-│   │   ├── components/      # layout (AppLayout, Sidebar), shared UI
+│   │   ├── components/      # layout: AppLayout, Sidebar, SidebarNav; constants/navConfig.js
 │   │   ├── pages/           # Pantallas por dominio (sala, tpv, admin, …)
 │   │   ├── services/api.js  # Axios + helpers por endpoint
 │   │   └── utils/           # p. ej. textSanitize
 │   └── vite.config.js
 ├── STEP_HORECASO.md
+├── BITACORA_HORECASO.md
+├── SCHEMA_BASE_DATOS.md
 ├── PRD_HorecaSO.md
 ├── BUGS_Y_SOLUCIONES.md
 ├── ARQUITECTURA_HORECASO.md # Este archivo
@@ -152,11 +157,12 @@ No son routers; los importan routers u otros servicios.
 | [pdf_diferenciales_2.py](backend/services/pdf_diferenciales_2.py) | APPCC, comparativa proveedores |
 | [pdf_generator.py](backend/services/pdf_generator.py) | Base/utilidades PDF según uso actual |
 
-**IA facturas:** la llamada a Groq para escaneo está implementada **dentro de** [proveedores.py](backend/routers/proveedores.py) (no hay `services/ia_facturas.py` obligatorio en todos los despliegues).
+**IA facturas:** Groq vision en [proveedores_shared.py](backend/routers/proveedores/proveedores_shared.py) + [facturas_proveedor_escaneo.py](backend/routers/proveedores/facturas_proveedor_escaneo.py) (no hay `services/ia_facturas.py` obligatorio).
 
 ### 4.4 Migraciones SQL locales
 
 - [backend/sql/migration_kds_barra_destino.sql](backend/sql/migration_kds_barra_destino.sql) — `destino_kds`, columnas barra en líneas, rol `barra`: aplicar manualmente en Supabase si el entorno aún no las tiene.
+- [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) — Fase B: CHECK `rol`, `superadmin`, tablas `platform_logs` / `tenant_audit_log` / `usuario_permisos`, seed tenant prueba: **en repo**; ejecutar en Supabase cuando proceda (hashes: [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py)).
 
 ---
 
@@ -179,7 +185,7 @@ No son routers; los importan routers u otros servicios.
 | `/login` | Público | Sin shell |
 | `/kds` | Roles cocina, barra, sala, admin, director, camarero, jefe_sala | **Sin** `AppLayout` (pantalla completa) |
 | `/tpv/:mesaId` | Autenticado | Sin sidebar (TPV foco) |
-| Resto bajo `/mesas`, `/dashboard`, `/admin/*`, … | `PrivateRoute` + anidados por rol | [AppLayout.jsx](frontend/src/components/layout/AppLayout.jsx) + [Sidebar.jsx](frontend/src/components/layout/Sidebar.jsx) |
+| Resto bajo `/mesas`, `/dashboard`, `/admin/*`, … | `PrivateRoute` + anidados por rol | [AppLayout.jsx](frontend/src/components/layout/AppLayout.jsx) + [Sidebar.jsx](frontend/src/components/layout/Sidebar.jsx) + [SidebarNav.jsx](frontend/src/components/layout/SidebarNav.jsx) / [navConfig.js](frontend/src/components/layout/constants/navConfig.js) |
 
 Wrappers típicos en `App.jsx`: `AdminDirectorRoute`, `AdminDirectorJefeSalaRoute`, `AdminDirectorCocinaRoute`, `InventarioRoute`, `ProveedoresRoute`.
 

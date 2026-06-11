@@ -25,6 +25,23 @@ async def _get_user_tenant(conn, user_id: str) -> str | None:
     return str(row["tenant_id"])
 
 
+SQL_RECETA_TENANT = """
+SELECT r.*, p.nombre AS producto_nombre, p.precio AS precio_venta,
+       a.nombre AS articulo_salida_nombre, a.id AS articulo_salida_uuid
+FROM recetas r
+LEFT JOIN productos p ON r.producto_id = p.id
+LEFT JOIN articulos a ON r.articulo_salida_id = a.id
+WHERE r.id = $1 AND (
+    (p.tenant_id = $2) OR (r.producto_id IS NULL AND a.tenant_id = $2)
+)
+"""
+
+
+async def fetch_receta_tenant(conn, receta_id: UUID, tenant_id: UUID):
+    """Receta de plato (producto) o de elaboración (articulo_salida)."""
+    return await conn.fetchrow(SQL_RECETA_TENANT, receta_id, tenant_id)
+
+
 async def _require_tenant_id(conn, user_id: str) -> str:
     """Exige usuario con tenant asignado."""
     tid = await _get_user_tenant(conn, user_id)

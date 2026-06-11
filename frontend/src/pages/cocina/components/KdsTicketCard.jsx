@@ -5,6 +5,7 @@ import {
   badgeComandaLabel,
   cardBgClass,
   cardTopBorder,
+  destinoKdsBadgeClass,
   estadoBadgeClass,
   estadoLabel,
   lineaWaitClass,
@@ -51,11 +52,28 @@ export default function KdsTicketCard({ comanda: c, cambiarEstado }) {
             ln.estado_cocina ||
             'pendiente'
           ).toLowerCase()
+          const terminado =
+            ln.kds_terminado === true || est === 'servido'
           const mins = Number(ln.minutos_espera ?? 0)
-          const waitLabel = `${mins}m`
+          const waitLabel = terminado ? '—' : `${mins}m`
+          const destino = String(ln.destino_kds || 'cocina').toLowerCase()
+          const destinoEtiqueta =
+            ln.destino_kds_label ||
+            (destino === 'barra'
+              ? 'Barra'
+              : destino === 'cocina'
+                ? 'Cocina'
+                : '—')
 
           return (
-            <li key={ln.id} className="p-4">
+            <li
+              key={ln.id}
+              className={
+                terminado
+                  ? 'p-4 opacity-75'
+                  : 'p-4'
+              }
+            >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <p className="text-base font-medium text-[#111827] dark:text-[#e8eaf0]">
                   <span className="tabular-nums">
@@ -64,7 +82,7 @@ export default function KdsTicketCard({ comanda: c, cambiarEstado }) {
                   {ln.producto_nombre}
                 </p>
                 <span
-                  className={`inline-flex shrink-0 items-center gap-1 text-sm tabular-nums ${lineaWaitClass(ln.alerta)}`}
+                  className={`inline-flex shrink-0 items-center gap-1 text-sm tabular-nums ${terminado ? 'text-[#9ca3af]' : lineaWaitClass(ln.alerta)}`}
                 >
                   <Clock
                     {...ICON}
@@ -80,6 +98,13 @@ export default function KdsTicketCard({ comanda: c, cambiarEstado }) {
                 </p>
               ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {destino !== 'ninguno' ? (
+                  <span
+                    className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ${destinoKdsBadgeClass(destino)}`}
+                  >
+                    {destinoEtiqueta}
+                  </span>
+                ) : null}
                 <span
                   className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${estadoBadgeClass(est)}`}
                 >
@@ -87,7 +112,7 @@ export default function KdsTicketCard({ comanda: c, cambiarEstado }) {
                 </span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {est === 'pendiente' ? (
+                {!terminado && est === 'pendiente' ? (
                   <button
                     type="button"
                     onClick={() =>
@@ -98,7 +123,7 @@ export default function KdsTicketCard({ comanda: c, cambiarEstado }) {
                     Preparando
                   </button>
                 ) : null}
-                {est === 'preparando' ? (
+                {!terminado && est === 'preparando' ? (
                   <button
                     type="button"
                     onClick={() => cambiarEstado(ln.id, 'listo')}
@@ -107,7 +132,7 @@ export default function KdsTicketCard({ comanda: c, cambiarEstado }) {
                     Listo
                   </button>
                 ) : null}
-                {est === 'listo' ? (
+                {!terminado && est === 'listo' ? (
                   <button
                     type="button"
                     onClick={() => cambiarEstado(ln.id, 'servido')}

@@ -1,16 +1,104 @@
 # HorecaSO — Guía Completa de Producción
 ## Deploy · Seguridad · Offline · Errores · Tenants
-**Fecha:** 24/03/2026 | **Versión:** 1.0
+**Fecha:** 27/03/2026 | **Versión:** 1.2.0
 
 ---
 
 ## ÍNDICE
 
+0. [Plan ejecutable paso a paso (estado del repo)](#0-plan-ejecutable-paso-a-paso-estado-del-repo)
 1. [Qué falta para desplegar](#1-qué-falta-para-desplegar)
 2. [Cómo hackear tu propio sistema](#2-cómo-hackear-tu-propio-sistema)
 3. [Funcionamiento sin internet](#3-funcionamiento-sin-internet)
 4. [Lista extensa de errores y soluciones](#4-lista-extensa-de-errores-y-soluciones)
 5. [Cómo crear y gestionar tenants](#5-cómo-crear-y-gestionar-tenants)
+6. [Anexo A — Especificación técnica Fase B (superadmin)](#anexo-a--especificación-técnica-fase-b-superadmin-tenants-admin-usuarios)
+
+---
+
+# 0. PLAN EJECUTABLE PASO A PASO (ESTADO DEL REPO)
+
+Este orden está alineado con [BITACORA_HORECASO.md](BITACORA_HORECASO.md) y [STEP_HORECASO.md](STEP_HORECASO.md). **Estado actual:** Fase B (SQL + backend + frontend) **implementada en repo**; migración SQL aplicada y verificada en Supabase (instancia de proyecto). **Lo que queda antes de clientes reales:** deploy (Fase C), endurecimiento de seguridad y rotación de credenciales de prueba.
+
+## 0.1 Qué ya tienes en el repositorio (no repetir)
+
+| Entregable | Ubicación / nota |
+|------------|------------------|
+| App completa multi-módulo (TPV, KDS, RRHH, inventario, etc.) | Código según bitácora |
+| Migración KDS barra / `destino_kds` | [backend/sql/migration_kds_barra_destino.sql](backend/sql/migration_kds_barra_destino.sql) — **debe ejecutarse en Supabase** si aún no lo hiciste |
+| Migración Fase B (DDL + seed tenant prueba + superadmin SQL) | [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) |
+| Generador de hashes bcrypt para pegar en el SQL | [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py) |
+| Schema BD documentado (regenerable desde MCP) | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) · script [backend/scripts/schema_mcp_json_to_markdown.py](backend/scripts/schema_mcp_json_to_markdown.py) |
+| Guía de deploy detallada | Esta misma guía, [§1.2](#12-pasos-exactos-de-deploy) |
+| Fase B — API `/api/superadmin`, `/api/admin/usuarios`; UI `/superadmin/*`, `/admin/usuarios` | Código en repo (`routers/superadmin/`, `routers/admin_usuarios/`, `pages/superadmin/`, `pages/admin/usuarios/`) |
+
+## 0.2 Quién ejecuta cada tipo de paso
+
+| Tipo | Quién | Herramienta |
+|------|--------|-------------|
+| SQL en la base de datos | Tú (o quien administre Supabase) | Supabase → SQL Editor |
+| Commits / git | Tú | Terminal / cliente git |
+| Nuevas features (post Fase B) | Cursor / desarrollo | IDE + PRD |
+| Infra (Render, Vercel) | Tú | Dashboards |
+
+## 0.3 Fases en orden (haz check al completar)
+
+### Fase A — Base de datos mínima para KDS estable (bloqueante si usas KDS/TPV con barra)
+
+1. Abre **Supabase → SQL Editor** y ejecuta el archivo completo `migration_kds_barra_destino.sql`.
+2. Verifica en Table Editor columnas esperadas en `productos` / `ticket_lineas` según ese script.
+3. Comprueba API: `GET /api/kds/comandas` debe responder **200** (con token válido y datos coherentes).
+4. En [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md), marca **BUG-008** como resuelto (✅) cuando la migración esté aplicada en **tu** proyecto.
+
+*Sin Fase A, en producción el KDS puede devolver 500 por columnas inexistentes.*
+
+### Fase B1 — Base de datos Fase B ✅ (ejecutar en **cada** instancia Supabase que deba tener Fase B)
+
+1. En local: `python backend/scripts/generate_test_hashes.py` y copia los hashes.
+2. Sustituye en `migration_fase_b.sql` los placeholders de hash según las instrucciones del propio archivo.
+3. Ejecuta el SQL completo en **Supabase → SQL Editor** (o migraciones MCP equivalentes).
+4. Verifica tablas `platform_logs`, `tenant_audit_log`, `usuario_permisos`, usuario `superadmin`, tenant `Restaurante Prueba` (ver [BITACORA_HORECASO.md](BITACORA_HORECASO.md) §8).
+
+*En **desarrollo** esta fase ya está aplicada y verificada en la instancia del proyecto. En **producción** debes repetirla en el proyecto Supabase de producción antes de dar acceso a clientes reales.*
+
+### Fase B2 — Código backend Fase B ✅
+
+1. Auth/JWT con rol `superadmin` (`tenant_id`/`negocio_id` nulos) y `require_superadmin` — detalle en [Anexo A](#anexo-a--especificación-técnica-fase-b-superadmin-tenants-admin-usuarios).
+2. Paquete **`backend/routers/superadmin/`** (`/api/superadmin/...`) registrado en [backend/main.py](backend/main.py).
+3. Paquete **`backend/routers/admin_usuarios/`** (`/api/admin/usuarios`) con `require_roles(['admin'])`.
+4. Verificación: `python -c "from main import create_app; create_app()"` desde `backend/`.
+
+### Fase B3 — Código frontend Fase B ✅
+
+1. Rutas `/superadmin/*` con layout propio; `/admin/usuarios` con layout de app.
+2. `navConfig.js` / `SidebarNav`: ítems superadmin solo si `rol === 'superadmin'`.
+3. Verificación: `npm run build` en `frontend/`.
+
+### Fase C — Deploy a producción (siguiente paso operativo)
+
+Sigue [§1.2 Pasos exactos de deploy](#12-pasos-exactos-de-deploy): variables Render → backend → Vercel → frontend → smoke tests (TPV, KDS, login, **panel superadmin**).
+
+Después: revisión de seguridad [§2](#2-cómo-hackear-tu-propio-sistema) (incl. **[§2.3](#23-pruebas-específicas-de-roles-superadmin-y-tenant-isolation)**), checklist [§1.1](#11-checklist-técnico--lo-que-bloquea-producción) y **crear superadmin de producción** en [§5.0](#50-crear-el-usuario-superadmin-en-producción-primer-arranque) (no usar emails/contraseñas del seed).
+
+## 0.4 Resumen visual
+
+```
+Repo (ya hecho)
+  → Fase A (KDS SQL)    [aplicar también en Supabase de PROD cuando despliegues]
+  → Fase B1 (SQL)       [hecho en dev; repetir en PROD]
+  → Fase B2 (backend)   ✅
+  → Fase B3 (frontend)  ✅
+
+Siguiente
+  → Fase C (deploy §1.2)     [único bloque grande pendiente para “online”]
+  → Seguridad §2 + §2.3 + rotación credenciales §1.1
+```
+
+## 0.5 Coherencia con el checklist §1.1
+
+- Los ítems **críticos** del apartado 1.1 siguen siendo obligatorios antes de un despliegue serio.
+- **Superadmin** y **gestión de usuarios por admin** están **implementados** (ítems 11–12 del checklist como ✅); siguen siendo obligatorios **verificar aislamiento** y **no usar contraseñas de prueba** con clientes reales (nuevos ítems 13–14).
+- El **tenant de prueba** del seed (`Restaurante Prueba`) existe tras `migration_fase_b.sql`; en producción no debe quedar con credenciales por defecto.
 
 ---
 
@@ -37,28 +125,30 @@
 
 | # | Qué | Impacto |
 |---|-----|---------|
-| 11 | Panel superadmin no existe | No puedes crear clientes desde UI |
-| 12 | Gestión de usuarios por manager no existe | Clientes crean usuarios desde Supabase (manual) |
-| 13 | Tenant `restauranteprueba` no creado | Sin entorno de pruebas aislado |
-| 14 | PWA (manifest.json) no configurado | No se puede instalar como app en móvil |
-| 15 | Headers de seguridad HTTP no configurados | Vulnerabilidad menor pero evitable |
-| 16 | Rate limiting sin ajustar para producción | Puede bloquear usuarios legítimos o ser demasiado permisivo |
-| 17 | Logs de errores sin monitorización externa | No sabes cuándo falla algo en producción |
-| 18 | Backup automático de Supabase no verificado | Riesgo de pérdida de datos |
-| 19 | Modal IA proveedores incompleto | Flujo de escaneo facturas a medias |
-| 20 | Email SendGrid no configurado | Sin confirmaciones de reservas |
+| 11 | ✅ **Panel superadmin** (`/superadmin/*`, API `/api/superadmin`) | **Implementado** — falta validar en prod tras deploy |
+| 12 | ✅ **Gestión de usuarios por admin del tenant** (`/admin/usuarios`, API `/api/admin/usuarios`) | **Implementado** — falta validar en prod tras deploy |
+| 13 | Verificar que **superadmin no accede a datos de tenant** y que **admin de un tenant no lista/edita datos de otro** | Crítico para multi-tenant; usar [§2.3](#23-pruebas-específicas-de-roles-superadmin-y-tenant-isolation) y ATAQUE 4 en [§2.2](#22-ataques-a-probar--listado-completo) |
+| 14 | **Rotar o eliminar** contraseñas de usuarios `@prueba.com` / seed antes de dar acceso a clientes reales | Riesgo de acceso no autorizado si quedan credenciales de demo |
+| 15 | Tenant `restauranteprueba` (seed Fase B): solo para **dev/staging**; en prod no uses esas cuentas con contraseñas por defecto | Sin entorno de pruebas aislado o credenciales inseguras en prod |
+| 16 | PWA (manifest.json) no configurado | No se puede instalar como app en móvil |
+| 17 | Headers de seguridad HTTP no configurados | Vulnerabilidad menor pero evitable |
+| 18 | Rate limiting sin ajustar para producción | Puede bloquear usuarios legítimos o ser demasiado permisivo |
+| 19 | Logs de errores sin monitorización externa | No sabes cuándo falla algo en producción |
+| 20 | Backup automático de Supabase no verificado | Riesgo de pérdida de datos |
+| 21 | Modal IA proveedores incompleto | Flujo de escaneo facturas a medias |
+| 22 | Email SendGrid no configurado | Sin confirmaciones de reservas |
 
 ### 🟢 NICE TO HAVE — para después del primer cliente
 
 | # | Qué |
 |---|-----|
-| 21 | Ticket PDF con QR para el cliente final |
-| 22 | Cámara directa móvil en escaneo IA (`capture="environment"`) |
-| 23 | Soporte PDF en escaneo IA (ahora solo imágenes) |
-| 24 | WebSocket en lugar de polling (necesita Render de pago) |
-| 25 | Informes fiscales 303 |
-| 26 | Verifactu envío real a AEAT (ahora solo genera el registro) |
-| 27 | Multi-outlet por tenant (plan Enterprise) |
+| 23 | Ticket PDF con QR para el cliente final |
+| 24 | Cámara directa móvil en escaneo IA (`capture="environment"`) |
+| 25 | Soporte PDF en escaneo IA (ahora solo imágenes) |
+| 26 | WebSocket en lugar de polling (necesita Render de pago) |
+| 27 | Informes fiscales 303 |
+| 28 | Verifactu envío real a AEAT (ahora solo genera el registro) |
+| 29 | Multi-outlet por tenant (plan Enterprise) |
 
 ---
 
@@ -507,7 +597,111 @@ curl -X DELETE -H "Authorization: Bearer $TOKEN_ADMIN" \
 
 ---
 
-## 2.3 Script de pruebas de seguridad automatizado
+## 2.3 Pruebas específicas de roles superadmin y tenant isolation
+
+Ejecuta contra tu backend (`TU_BACKEND` = URL base **sin** `/api` al final, p. ej. `https://tu-backend.onrender.com`). Solo **curl**; no hace falta Burp ni OWASP ZAP para esta batería.
+
+Sustituye `TOKEN_*` y UUIDs por valores reales. Tras cada prueba, anota el código HTTP y si coincide con lo esperado.
+
+| Prueba | Resultado obtenido (HTTP / cuerpo) | ¿Pasó? |
+|--------|-----------------------------------|--------|
+| 1 — Sin token en `/api/superadmin/tenants` | | |
+| 2 — Token admin tenant en superadmin | | |
+| 3 — PATCH admin tenant A sobre usuario de tenant B | | |
+| 4 — Token superadmin en `/api/mesas` | | |
+| 5 — Fuerza bruta login (10 intentos) | | |
+| 6 — `/docs` en producción | | |
+
+### PRUEBA 1 — Acceso sin token a rutas superadmin
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X GET \
+  "https://TU_BACKEND/api/superadmin/tenants"
+```
+
+**Esperado:** `401` o `403`. Si devuelve `200`: **CRÍTICO**.
+
+---
+
+### PRUEBA 2 — Token de admin de tenant intentando listar todos los tenants
+
+```bash
+# Obtén TOKEN de login con admin@prueba.com (o el admin del tenant de prueba)
+curl -s -X GET "https://TU_BACKEND/api/superadmin/tenants" \
+  -H "Authorization: Bearer TOKEN_DE_ADMIN_TENANT"
+```
+
+**Esperado:** `403`. Si devuelve `200`: **CRÍTICO**.
+
+---
+
+### PRUEBA 3 — Admin de tenant A intentando editar usuario de tenant B
+
+Sustituye `UUID-DE-OTRO-TENANT` por el `id` de un usuario **de otro tenant** (visible en Supabase). `TOKEN_TENANT_A` = JWT del admin del tenant de prueba (p. ej. `admin@prueba.com`).
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -X PATCH "https://TU_BACKEND/api/admin/usuarios/UUID-DE-OTRO-TENANT" \
+  -H "Authorization: Bearer TOKEN_TENANT_A" \
+  -H "Content-Type: application/json" \
+  -d '{"rol": "director"}'
+```
+
+**Esperado:** `403` o `404`. Si devuelve `200`: **CRÍTICO**.
+
+---
+
+### PRUEBA 4 — Token de superadmin intentando usar rutas de restaurante
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -X GET "https://TU_BACKEND/api/mesas" \
+  -H "Authorization: Bearer TOKEN_SUPERADMIN"
+```
+
+**Esperado:** `403` (el superadmin no tiene `tenant_id` / negocio en el token). Si devuelve `200` con datos de un restaurante: **CRÍTICO**.
+
+---
+
+### PRUEBA 5 — Fuerza bruta en login
+
+En **bash** (Linux, macOS, Git Bash en Windows):
+
+```bash
+for i in {1..10}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X POST "https://TU_BACKEND/api/auth/login" \
+    -H "Content-Type: application/json" \
+    -d '{"email":"superadmin@horecaso.com","password":"wrong"}'
+done
+```
+
+En **PowerShell** (Windows):
+
+```powershell
+1..10 | ForEach-Object {
+  (Invoke-WebRequest -Uri "https://TU_BACKEND/api/auth/login" -Method POST `
+    -ContentType "application/json" `
+    -Body '{"email":"superadmin@horecaso.com","password":"wrong"}' `
+    -UseBasicParsing).StatusCode
+}
+```
+
+**Esperado:** debería aparecer **429** (Too Many Requests) antes del intento 10. Si todos son `401`, revisar **SlowAPI** en `/api/auth/login`.
+
+---
+
+### PRUEBA 6 — Acceso a `/docs` en producción
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X GET "https://TU_BACKEND/docs"
+```
+
+**Esperado:** `404` cuando `ENVIRONMENT=production`. Si devuelve `200`: desactivar OpenAPI en `create_app` (ver [§1.2 Paso 1](#paso-1--preparar-backend-para-producción)).
+
+---
+
+## 2.4 Script de pruebas de seguridad automatizado
 
 Guarda esto como `tests/security_test.sh` y ejecútalo contra tu entorno de pruebas:
 
@@ -1525,9 +1719,70 @@ Si no puedes leer algún campo, usa null. NO incluyas texto fuera del JSON.
 
 # 5. CÓMO CREAR Y GESTIONAR TENANTS
 
+## 5.0 Crear el usuario superadmin en producción (primer arranque)
+
+Para el **primer** superadmin de la cuenta de producción (no uses `superadmin@horecaso.com` ni contraseñas del seed de [CREDENCIALES_PRUEBA.MD](CREDENCIALES_PRUEBA.MD)).
+
+### 1. Generar el hash de la contraseña definitiva
+
+Desde la raíz del repo o `backend/`:
+
+```bash
+cd backend
+python scripts/generate_test_hashes.py
+```
+
+Copia el hash que corresponda a tu email elegido, **o** crea un script puntual como el snippet de [§5.1](#generar-el-hash-de-password-python) (`hash_password.py`) y ejecuta:
+
+```bash
+python scripts/hash_password.py "TuPasswordSegura!"
+```
+
+*(Si el archivo `hash_password.py` no existe aún, créalo con el código indicado en §5.1.)*
+
+### 2. Insertar el usuario en Supabase (SQL Editor)
+
+Sustituye el email, el hash y el nombre mostrados:
+
+```sql
+INSERT INTO usuarios (id, tenant_id, outlet_id, nombre, email, password_hash, rol, activo)
+VALUES (
+  gen_random_uuid(),
+  NULL,
+  NULL,
+  'Superadmin HorecaSO',
+  'superadmin@tudominio.com',
+  'HASH_GENERADO_EN_PASO_1',
+  'superadmin',
+  true
+);
+```
+
+### 3. Verificar el login (API)
+
+```bash
+curl -s -X POST "https://TU_BACKEND/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"superadmin@tudominio.com","password":"TuPasswordSegura!"}'
+```
+
+Debe devolver JSON con `access_token` y, en el payload JWT decodificado (p. ej. [jwt.io](https://jwt.io)), `role`: `"superadmin"`.
+
+### 4. Probar el panel en el navegador
+
+Abre `https://TU_FRONTEND/superadmin/tenants` (sesión iniciada como ese superadmin). Debe mostrarse la lista de tenants.
+
+### Importante
+
+- **Nunca** uses en producción real el email `superadmin@horecaso.com` ni contraseñas del seed / documentos de prueba.
+- La cuenta superadmin **no** tiene `tenant_id`: no verá mesas, carta ni datos de un restaurante concreto (comportamiento esperado).
+- Guarda la contraseña solo en un **gestor de contraseñas** o secret manager.
+
+---
+
 ## 5.1 Flujos disponibles ahora (manual via Supabase)
 
-Hasta que implementes el panel superadmin, así es como creas un nuevo cliente:
+Para **crear un tenant nuevo** (restaurante cliente) sigue siendo válido el SQL de esta sección. El **alta de usuarios operativos** del restaurante puede hacerla el **admin del tenant** desde la app en **`/admin/usuarios`** sin depender de SQL para cada alta.
 
 ### Script completo — crear tenant nuevo
 
@@ -1618,9 +1873,9 @@ python scripts/hash_password.py "TempPass2024!"
 
 ---
 
-## 5.2 Gestión de usuarios dentro de un tenant (manual por ahora)
+## 5.2 Gestión de usuarios dentro de un tenant (app + SQL de respaldo)
 
-Una vez creado el tenant, el admin puede necesitar más usuarios. Hasta que tengas la UI de gestión de usuarios:
+Una vez creado el tenant, el **admin** puede dar de alta y editar usuarios desde **`/admin/usuarios`** en la aplicación. El SQL siguiente queda como **respaldo**, migraciones masivas o entornos sin acceso a la UI:
 
 ```sql
 -- Crear usuario adicional en un tenant existente
@@ -1724,7 +1979,7 @@ IDs fijos para que tus tests sean reproducibles:
 -- pedro@prueba.com    → rol almacen
 ```
 
-Ver script completo en `backend/sql/seed_restauranteprueba.sql`.
+Ver DDL + seed de Fase B en `backend/sql/migration_fase_b.sql` y generación de hashes en `backend/scripts/generate_test_hashes.py` (el nombre histórico `seed_restauranteprueba.sql` del PRD quedó unificado en ese archivo).
 
 ---
 
@@ -1732,25 +1987,25 @@ Ver script completo en `backend/sql/seed_restauranteprueba.sql`.
 
 ```
 1. Cliente firma contrato y paga primer mes
-2. Tú ejecutas el SQL de creación de tenant (sección 5.1)
-3. Generas la password temporal con el script Python
+2. Tú ejecutas el SQL de creación de tenant (sección 5.1) o das de alta el tenant desde procesos internos
+3. Generas la password temporal del primer admin con el script Python (§5.1)
 4. Envías al cliente:
    - URL: https://tu-app.vercel.app
-   - Email: manager@surestaurante.com  
-   - Password temporal: TempPass2024!
-   - Instrucciones: cambiar password en primer login
-5. El cliente crea sus usuarios (camareros, cocineros...)
-   → Hasta tener UI: tú los creas con el SQL de sección 5.2
-   → Cuando tengas panel superadmin: el cliente lo hace solo
-6. El cliente configura su carta, mesas y empleados
-7. Seguimiento la primera semana
+   - Email: manager@surestaurante.com
+   - Password temporal: TempPass2024! (u otra; que la cambien en el primer acceso)
+   - Instrucciones: cambiar password en primer login si el flujo lo permite
+5. El **admin del tenant** crea el resto de usuarios (camareros, cocina, etc.) desde /admin/usuarios
+   → SQL manual (§5.2) solo si hace falta fallback, migración o soporte
+6. Tú (plataforma) gestionas activación de tenants y listado global desde /superadmin (rol superadmin)
+7. El cliente configura carta, mesas y empleados según su operativa
+8. Seguimiento la primera semana
 ```
 
 ---
 
-## 5.8 Monitorización de tenants (sin panel superadmin)
+## 5.8 Monitorización de tenants (panel plataforma + SQL)
 
-Hasta tener el panel, usa estas queries en Supabase para monitorizar:
+Como **superadmin** puedes usar la UI en `/superadmin/tenants` y `/superadmin/logs`. Además, en **Supabase** puedes ejecutar consultas analíticas:
 
 ```sql
 -- Ver todos los tenants activos con su actividad
@@ -1785,5 +2040,78 @@ ORDER BY ultimo_ticket ASC NULLS FIRST;
 
 ---
 
-*GUIA_PRODUCCION_COMPLETA.md — HorecaSO — Arin Romero — 24/03/2026*  
+# Anexo A — Especificación técnica Fase B (superadmin, tenants, admin usuarios)
+
+Este anexo sustituye al documento histórico **`PRD_SUPERADMIN_TENANTS_PRUEBAS.md`** (ahora solo redirección). Aquí queda el **qué** y el **contrato** de Fase B; el **cómo desplegar y probar** está en §0–§2 y §5 de esta guía.
+
+## A.1 Objetivo de producto (Fase B)
+
+- Rol **superadmin** (plataforma), separado del **admin** del restaurante (tenant).
+- **Auditoría** mínima: `platform_logs`, `tenant_audit_log`; **permisos** opcionales por usuario en `usuario_permisos`.
+- **API + UI** para operaciones de plataforma y para que el **admin del tenant** gestione usuarios (`/admin/usuarios`) sin ser superadmin.
+- **Tenant de prueba** reproducible vía `backend/sql/migration_fase_b.sql` + `backend/scripts/generate_test_hashes.py`.
+
+**Estado:** implementado en repo (véase [BITACORA_HORECASO.md](BITACORA_HORECASO.md) §1 y §8).
+
+## A.2 Base de datos
+
+| Entregable | Ubicación |
+|------------|-----------|
+| DDL + CHECK `rol` (`superadmin`, …) + seed | [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) |
+| Hashes bcrypt para el SQL | [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py) |
+| Columnas y tablas documentadas | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) |
+
+Reglas: `superadmin` con `tenant_id` **NULL** (recomendado); endpoints de negocio de restaurante siguen filtrando por `tenant_id` del JWT para usuarios con tenant.
+
+## A.3 API — contrato resumido
+
+**Superadmin** (`require_roles` / guard equivalente → solo `superadmin`):
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/superadmin/tenants` | Lista tenants (paginación) |
+| GET | `/api/superadmin/tenants/{id}` | Detalle + outlets |
+| PATCH | `/api/superadmin/tenants/{id}` | Plan, activo, límites acordados |
+| GET | `/api/superadmin/platform-logs` | Logs plataforma |
+
+**Admin del tenant** (JWT con `tenant_id`; solo usuarios del mismo tenant):
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/admin/usuarios` | Lista usuarios del tenant |
+| POST | `/api/admin/usuarios` | Alta usuario |
+| PATCH | `/api/admin/usuarios/{id}` | Rol, outlet, activo |
+| PATCH | `/api/admin/usuarios/{id}/permisos` | *(PRD opcional; verificar en código si existe ruta dedicada)* |
+
+**Auth:** `POST /api/auth/login` emite JWT con `role: superadmin` y claims sin tenant cuando corresponde. No devolver `password_hash`.
+
+## A.4 Frontend — rutas
+
+| Ruta | Contenido típico |
+|------|------------------|
+| `/superadmin/*` | Layout plataforma: tenants, detalle, logs (`TenantsListPage`, `TenantDetailPage`, `PlatformLogsPage`, …) |
+| `/admin/usuarios` | Gestión de usuarios del tenant (`UsuariosPage`) |
+
+Guards: superadmin solo ve navegación plataforma; admin del tenant ve `/admin/usuarios` según `navConfig` / `App.jsx`.
+
+## A.5 Checklist de seguridad (desarrollo / revisión)
+
+- [ ] Ningún endpoint superadmin sin comprobación estricta de rol `superadmin`.
+- [ ] Ningún `/api/admin/usuarios` sin filtro estricto al `tenant_id` del JWT.
+- [ ] Nunca devolver `password_hash` ni tokens ajenos.
+- [ ] Consultas SQL parametrizadas (`$1`, `$2`, …).
+- [ ] Rate limiting en rutas sensibles (p. ej. SlowAPI); CORS acotado en producción.
+- [ ] Logs sin secretos ni PII innecesaria.
+
+**Pruebas operativas:** [§2.3](#23-pruebas-específicas-de-roles-superadmin-y-tenant-isolation).
+
+## A.6 Qué había en el PRD antiguo y no se duplica aquí
+
+- **Roadmap A→F y tabla P0–P6:** sustituidos por §0 de esta guía (Fases A–C) y el estado en BITÁCORA.
+- **Prompts largos para Cursor (7 bloques):** eliminados del repo como documentación; la implementación ya está en el código. Para cambios futuros, usar el código real y `migration_fase_b.sql` como referencia.
+- **Snippets SQL duplicados del seed:** el único fuente de verdad es `migration_fase_b.sql` (el PRD repetía el ejemplo `seed_restauranteprueba`).
+
+---
+
+*GUIA_PRODUCCION_COMPLETA.md — HorecaSO — Arin Romero — 27/03/2026 · v1.2.0*  
 *Próxima revisión: tras deploy inicial y primer cliente real*

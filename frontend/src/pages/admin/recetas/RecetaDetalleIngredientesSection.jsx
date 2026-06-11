@@ -1,9 +1,12 @@
-import { BookOpen, RefreshCw, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { BookOpen, Layers, Package, RefreshCw, Search, Trash2, X } from 'lucide-react'
 import {
   UNIDADES_OPTS,
   cantidadBruta,
   costeLineaIng,
   formatEuro,
+  unidadesPermitidasParaArticulo,
 } from './recetasUtils'
 
 const INPUT =
@@ -16,6 +19,18 @@ const BTN_DANGER =
 const TIP_MERMA =
   'Pérdida de peso o volumen al limpiar o manipular el ingrediente. No es el margen de beneficio del plato.'
 
+const TAB_BTN =
+  'flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors'
+
+const MAX_LISTA = 60
+
+function normaliza(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+}
+
 export default function RecetaDetalleIngredientesSection({
   recetaDetalle,
   formIngrediente,
@@ -27,12 +42,74 @@ export default function RecetaDetalleIngredientesSection({
   onDeleteIngrediente,
   loadingAddIngrediente,
 }) {
+  const salidaId = recetaDetalle?.articulo_salida_id
+  const articulosFiltrados = useMemo(
+    () =>
+      salidaId
+        ? articulos.filter((a) => String(a.id) !== String(salidaId))
+        : articulos,
+    [articulos, salidaId]
+  )
+
+  const materias = useMemo(
+    () => articulosFiltrados.filter((a) => !a.es_elaborado),
+    [articulosFiltrados]
+  )
+
+  const subrecetas = useMemo(
+    () => articulosFiltrados.filter((a) => a.es_elaborado),
+    [articulosFiltrados]
+  )
+
+  const tieneSubrecetas = subrecetas.length > 0
+  const [tab, setTab] = useState('inventario')
+  const [busqueda, setBusqueda] = useState('')
+
+  useEffect(() => {
+    setBusqueda('')
+  }, [tab])
+
+  const pool = tab === 'subrecetas' ? subrecetas : materias
+
+  const filtrados = useMemo(() => {
+    const q = normaliza(busqueda.trim())
+    if (!q) return pool
+    return pool.filter((a) => {
+      const n = normaliza(a.nombre)
+      const s = normaliza(a.sku)
+      return n.includes(q) || s.includes(q)
+    })
+  }, [pool, busqueda])
+
+  const listaMostrar = useMemo(
+    () => filtrados.slice(0, MAX_LISTA),
+    [filtrados]
+  )
+
+  const articuloSeleccionado = articulos.find(
+    (a) => String(a.id) === String(formIngrediente.articulo_id)
+  )
+  const unidadChoices = articuloSeleccionado
+    ? unidadesPermitidasParaArticulo(articuloSeleccionado.unidad_medida)
+    : UNIDADES_OPTS
+
+  const costeUnitParaLinea = (ing) =>
+    ing.coste_unitario_efectivo ?? ing.coste_unitario
+
   const totalIng = (recetaDetalle.ingredientes || []).reduce((acc, ing) => {
+    if (ing.coste_linea != null) return acc + Number(ing.coste_linea)
     const bruta =
       ing.cantidad_bruta ??
       cantidadBruta(ing.cantidad_neta, ing.porcentaje_merma)
-    return acc + costeLineaIng(bruta, ing.coste_unitario)
+    return acc + costeLineaIng(bruta, costeUnitParaLinea(ing))
   }, 0)
+
+  const limpiarArticulo = () => {
+    setFormIngrediente((f) => ({
+      ...f,
+      articulo_id: '',
+    }))
+  }
 
   return (
     <>
@@ -49,37 +126,19 @@ export default function RecetaDetalleIngredientesSection({
         </button>
       </div>
       <p className="mb-4 text-sm text-[#6b7280] dark:text-[#8b90a7]">
-        Desglose por artículo: cantidad neta que entra al plato, merma de
-        manipulación y cantidad bruta a retirar del almacén.
+        Materias del almacén o <strong>sub-recetas</strong> (salsas, fondos ya
+        costeados). El coste de las sub-recetas viene de su propia receta.
       </p>
 
       <div className="mb-6 overflow-x-auto rounded-xl border border-[#e2e5ed] dark:border-[#2e3347]">
-        <table className="w-full min-w-[640px] text-left text-[15px]">
+        <table className="horeca-body-text w-full min-w-[640px] text-left text-[15px]">
           <thead>
             <tr className="border-b border-[#e2e5ed] bg-[#f0f2f5] dark:border-[#2e3347] dark:bg-[#222536]">
               <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
                 Artículo
               </th>
-              <th
-                className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]"
-                title="Cantidad que entra en el plato (neta), en la unidad indicada."
-              >
-                Cant. neta
-              </th>
-              <th
-                className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]"
-                title={TIP_MERMA}
-              >
-                % Merma
-              </th>
-              <th
-                className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]"
-                title="Cantidad a descontar del almacén (incluye merma)."
-              >
-                Cant. bruta
-              </th>
               <th className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]">
-                Unidad
+                Cantidad
               </th>
               <th
                 className="px-3 py-2 font-semibold text-[#6b7280] dark:text-[#8b90a7]"
@@ -95,19 +154,32 @@ export default function RecetaDetalleIngredientesSection({
               const bruta =
                 ing.cantidad_bruta ??
                 cantidadBruta(ing.cantidad_neta, ing.porcentaje_merma)
-              const cLine = costeLineaIng(bruta, ing.coste_unitario)
+              const cLine =
+                ing.coste_linea != null
+                  ? Number(ing.coste_linea)
+                  : costeLineaIng(bruta, costeUnitParaLinea(ing))
+              const esSub = ing.es_subreceta === true
               return (
                 <tr
                   key={ing.id}
                   className="border-b border-[#e2e5ed] dark:border-[#2e3347]"
                 >
                   <td className="px-3 py-2">
-                    {ing.articulo_nombre || ing.articulo_id}
+                    <span className="font-medium">
+                      {ing.articulo_nombre || ing.articulo_id}
+                    </span>
+                    {esSub ? (
+                      <span
+                        className="ml-2 inline-flex items-center rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-xs font-medium text-sky-800 dark:text-sky-200"
+                        title="Artículo elaborado (sub-receta): coste calculado por su receta"
+                      >
+                        Sub-receta
+                      </span>
+                    ) : null}
                   </td>
-                  <td className="px-3 py-2">{ing.cantidad_neta}</td>
-                  <td className="px-3 py-2">{ing.porcentaje_merma}</td>
-                  <td className="px-3 py-2">{Number(bruta).toFixed(4)}</td>
-                  <td className="px-3 py-2">{ing.unidad}</td>
+                  <td className="px-3 py-2">
+                    {ing.cantidad_neta} {ing.unidad}
+                  </td>
                   <td className="px-3 py-2 font-medium">{formatEuro(cLine)}</td>
                   <td className="px-3 py-2">
                     <button
@@ -126,7 +198,7 @@ export default function RecetaDetalleIngredientesSection({
           <tfoot>
             <tr className="bg-[#f0f2f5] font-bold dark:bg-[#222536]">
               <td
-                colSpan={5}
+                colSpan={2}
                 className="px-3 py-3 text-[#111827] dark:text-[#e8eaf0]"
               >
                 Coste total de la receta (todas las líneas)
@@ -142,28 +214,145 @@ export default function RecetaDetalleIngredientesSection({
 
       <div className="mb-6 rounded-xl border border-[#e2e5ed] p-4 dark:border-[#2e3347]">
         <h4 className="mb-3 text-[15px] font-semibold">Añadir ingrediente</h4>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-          <div className="min-w-0 sm:col-span-2">
-            <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
-              Artículo (precio según inventario)
-            </label>
-            <select
-              value={formIngrediente.articulo_id}
-              onChange={(e) => onSelectArticulo(e.target.value)}
-              className={INPUT}
+
+        {tieneSubrecetas ? (
+          <div className="mb-4 flex gap-2 rounded-xl border border-[#e2e5ed] bg-[#f0f2f5] p-1 dark:border-[#2e3347] dark:bg-[#222536]">
+            <button
+              type="button"
+              onClick={() => setTab('inventario')}
+              className={`${TAB_BTN} ${
+                tab === 'inventario'
+                  ? 'bg-white text-[#111827] shadow-sm dark:bg-[#1a1d27] dark:text-[#e8eaf0]'
+                  : 'text-[#6b7280] hover:text-[#111827] dark:text-[#8b90a7] dark:hover:text-[#e8eaf0]'
+              }`}
             >
-              <option value="">Seleccionar…</option>
-              {articulos.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.nombre} — {formatEuro(a.coste_unitario)}/
-                  {a.unidad_medida || 'ud'}
-                </option>
-              ))}
-            </select>
+              <Package size={18} strokeWidth={1.5} />
+              Ingrediente
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('subrecetas')}
+              className={`${TAB_BTN} ${
+                tab === 'subrecetas'
+                  ? 'bg-white text-[#111827] shadow-sm dark:bg-[#1a1d27] dark:text-[#e8eaf0]'
+                  : 'text-[#6b7280] hover:text-[#111827] dark:text-[#8b90a7] dark:hover:text-[#e8eaf0]'
+              }`}
+            >
+              <Layers size={18} strokeWidth={1.5} />
+              Sub-recetas ({subrecetas.length})
+            </button>
           </div>
+        ) : (
+          <p className="mb-4 text-sm text-[#6b7280] dark:text-[#8b90a7]">
+            Solo <strong>materias del inventario</strong>. Cuando crees
+            elaboraciones en{' '}
+            <Link
+              to="/admin/recetas/elaboraciones"
+              className="font-medium text-amber-600 underline dark:text-amber-400"
+            >
+              Elaboraciones
+            </Link>
+            , podrás añadirlas aquí como ingrediente (p. ej. una salsa).
+          </p>
+        )}
+
+        <div className="mb-3">
+          <label className="mb-1 flex items-center gap-2 text-sm text-[#6b7280] dark:text-[#8b90a7]">
+            <Search size={16} strokeWidth={1.5} />
+            Buscar por nombre o SKU
+          </label>
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder={
+              tab === 'subrecetas'
+                ? 'Ej. alioli, salsa…'
+                : 'Ej. harina, aceite…'
+            }
+            className={INPUT}
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="mb-4 max-h-52 overflow-y-auto rounded-lg border border-[#e2e5ed] dark:border-[#2e3347]">
+          {listaMostrar.length === 0 ? (
+            <p className="p-4 text-center text-sm text-[#6b7280] dark:text-[#8b90a7]">
+              {pool.length === 0
+                ? tab === 'subrecetas'
+                  ? 'No hay sub-recetas en el almacén.'
+                  : 'No hay artículos en inventario.'
+                : 'Nada coincide con la búsqueda.'}
+            </p>
+          ) : (
+            <ul className="divide-y divide-[#e2e5ed] dark:divide-[#2e3347]">
+              {listaMostrar.map((a) => {
+                const sel =
+                  String(formIngrediente.articulo_id) === String(a.id)
+                const precio = a.coste_unitario_efectivo ?? a.coste_unitario
+                return (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectArticulo(a.id)}
+                      className={`flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors ${
+                        sel
+                          ? 'bg-amber-500/15 ring-1 ring-inset ring-amber-500/40'
+                          : 'hover:bg-[#f0f2f5] dark:hover:bg-[#222536]'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-[#111827] dark:text-[#e8eaf0]">
+                          {a.nombre || '—'}
+                          {a.es_elaborado ? (
+                            <span className="ml-2 text-xs font-normal text-sky-600 dark:text-sky-400">
+                              (sub-receta)
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-0.5 text-xs text-[#6b7280] dark:text-[#8b90a7]">
+                          {a.sku ? `${a.sku} · ` : null}
+                          {formatEuro(precio)}/{a.unidad_medida || 'ud'}
+                        </div>
+                      </div>
+                      {sel ? (
+                        <span className="shrink-0 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                          ✓
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+        {filtrados.length > MAX_LISTA ? (
+          <p className="mb-3 text-xs text-[#6b7280] dark:text-[#8b90a7]">
+            Mostrando los primeros {MAX_LISTA} resultados. Afiná la búsqueda.
+          </p>
+        ) : null}
+
+        {articuloSeleccionado ? (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm">
+            <span className="text-[#111827] dark:text-[#e8eaf0]">
+              <strong>Seleccionado:</strong> {articuloSeleccionado.nombre}
+            </span>
+            <button
+              type="button"
+              onClick={limpiarArticulo}
+              className="inline-flex items-center gap-1 rounded-md border border-[#e2e5ed] px-2 py-1 text-xs font-medium dark:border-[#2e3347]"
+            >
+              <X size={14} strokeWidth={1.5} />
+              Quitar
+            </button>
+          </div>
+        ) : null}
+
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <div className="min-w-0">
             <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
-              Cantidad neta
+              Cantidad
             </label>
             <input
               type="number"
@@ -179,61 +368,43 @@ export default function RecetaDetalleIngredientesSection({
               className={INPUT}
             />
           </div>
-          <div className="min-w-0">
-            <label
-              className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]"
-              title={TIP_MERMA}
-            >
-              % Merma (manipulación)
-            </label>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="99"
-              value={formIngrediente.porcentaje_merma}
-              onChange={(e) =>
-                setFormIngrediente((f) => ({
-                  ...f,
-                  porcentaje_merma: e.target.value,
-                }))
-              }
-              className={INPUT}
-            />
-          </div>
-          <div className="min-w-0">
+          <div className="min-w-0 sm:col-span-2">
             <label className="mb-1 block text-sm text-[#6b7280] dark:text-[#8b90a7]">
-              Unidad
+              Unidad usada
             </label>
-            <select
-              value={formIngrediente.unidad}
-              onChange={(e) =>
-                setFormIngrediente((f) => ({
-                  ...f,
-                  unidad: e.target.value,
-                }))
-              }
-              className={INPUT}
-            >
-              {UNIDADES_OPTS.map((u) => (
-                <option key={u} value={u}>
-                  {u}
-                </option>
-              ))}
-            </select>
+            <div className={`${INPUT} flex items-center justify-between`}>
+              <span>
+                {formIngrediente.articulo_id
+                  ? unitadChoicesLabel(unidadChoices, formIngrediente.unidad)
+                  : 'Elegí un artículo arriba'}
+              </span>
+            </div>
+            {articuloSeleccionado ? (
+              <p className="mt-1 text-xs text-[#6b7280] dark:text-[#8b90a7]">
+                En inventario este artículo va en{' '}
+                <strong>{articuloSeleccionado.unidad_medida || 'ud'}</strong>: el
+                coste convierte a esa unidad (p. ej. ml → L).
+              </p>
+            ) : null}
           </div>
-          <div className="flex min-w-0 items-end">
+          <div className="flex min-w-0 items-end sm:col-span-2">
             <button
               type="button"
-              disabled={loadingAddIngrediente}
+              disabled={loadingAddIngrediente || !formIngrediente.articulo_id}
               onClick={onAddIngrediente}
               className={`w-full ${BTN_PRIMARY}`}
             >
-              Añadir
+              Añadir a la receta
             </button>
           </div>
         </div>
       </div>
     </>
   )
+}
+
+function unitadChoicesLabel(unidadChoices, unidadActual) {
+  const u = String(unidadActual || '').toLowerCase()
+  if (unidadChoices.includes(u)) return u
+  return unidadChoices[0] || 'kg'
 }
