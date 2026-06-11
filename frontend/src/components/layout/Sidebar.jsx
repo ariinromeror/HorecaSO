@@ -25,7 +25,7 @@ function SidebarContent({ onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-lg p-1 text-[#6b7280] hover:bg-[#f0f2f5] dark:text-[#8b90a7] dark:hover:bg-[#222536] md:hidden"
+          className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] rounded-lg p-1 text-[#6b7280] hover:bg-[#f0f2f5] dark:text-[#8b90a7] dark:hover:bg-[#222536] md:hidden"
           aria-label="Cerrar menú"
         >
           <X size={22} strokeWidth={1.5} />
@@ -93,7 +93,7 @@ export default function Sidebar({ isOpen, onClose }) {
   if (isDrawer) {
     return (
       <div
-        className="fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27] md:hidden"
+        className="pt-safe fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col border-r border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27] md:hidden"
         style={{
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 300ms',

@@ -28,8 +28,8 @@ export default function KDSPage() {
 
   return (
     <div className="flex h-screen min-h-0 flex-col bg-[#f4f6f9] dark:bg-[#0f1117]">
-      <header className="sticky top-0 z-20 shrink-0 border-b border-[#e2e5ed] bg-white px-4 py-3 dark:border-[#2e3347] dark:bg-[#1a1d27]">
-        <div className="mx-auto flex max-w-[1920px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <header className="pt-safe sticky top-0 z-20 shrink-0 border-b border-[#e2e5ed] bg-white px-4 pb-3 dark:border-[#2e3347] dark:bg-[#1a1d27]">
+        <div className="mx-auto flex max-w-[1920px] flex-col gap-3 pt-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <ChefHat
               {...ICON}
