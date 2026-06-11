@@ -70,7 +70,7 @@ export default function TPVPage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f4f6f9] dark:bg-[#0f1117]">
-      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-[#e2e5ed] bg-white px-4 dark:border-[#2e3347] dark:bg-[#1a1d27]">
+      <header className="h-header-safe sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-[#e2e5ed] bg-white px-4 dark:border-[#2e3347] dark:bg-[#1a1d27]">
         <button
           type="button"
           onClick={() => navigate('/mesas')}
