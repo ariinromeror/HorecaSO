@@ -699,7 +699,7 @@ Base URL en desarrollo: `http://localhost:8000`. Todas las rutas de negocio bajo
 ### Motor y hosting
 
 - **PostgreSQL 15** en **Supabase**.
-- **42 tablas** en esquema `public` (documentadas en [`SCHEMA_BASE_DATOS.md`](SCHEMA_BASE_DATOS.md)).
+- **42 tablas** en esquema `public` (documentadas en [`SCHEMA_BASE_DATOS.md`](docs/SCHEMA_BASE_DATOS.md)).
 - **RLS (Row Level Security):** desactivado en la instancia auditada; el aislamiento multi-tenant se aplica en la capa de aplicación (`WHERE tenant_id = $1`).
 - **Pool:** asyncpg con `statement_cache_size=0` (obligatorio para pgbouncer de Supabase).
 
@@ -744,7 +744,7 @@ Las migraciones se aplican **manualmente** en Supabase SQL Editor. No hay runner
 | Outlet demo | `00000000-0000-0000-0000-000000000002` |
 | Tenant Restaurante Prueba (Fase B) | `11111111-1111-1111-1111-111111111111` |
 
-Credenciales: [`CREDENCIALES_PRUEBA.MD`](CREDENCIALES_PRUEBA.MD).
+Credenciales: [`CREDENCIALES_PRUEBA.MD`](docs/CREDENCIALES_PRUEBA.MD).
 
 ---
 
@@ -770,11 +770,11 @@ curl http://localhost:8000/api/health
 
 ### Smoke tests post-deploy
 
-Documentados en [`GUIA_PRODUCCION_COMPLETA.md`](GUIA_PRODUCCION_COMPLETA.md) §1.2 y §2.3: login, mesas con JWT, aislamiento tenant, superadmin sin acceso a datos de negocio, KDS 200, `/docs` → 404 en producción.
+Documentados en [`GUIA_PRODUCCION_COMPLETA.md`](docs/GUIA_PRODUCCION_COMPLETA.md) §1.2 y §2.3: login, mesas con JWT, aislamiento tenant, superadmin sin acceso a datos de negocio, KDS 200, `/docs` → 404 en producción.
 
 ### Registro de bugs
 
-Fallos reproducibles en [`BUGS_Y_SOLUCIONES.md`](BUGS_Y_SOLUCIONES.md).
+Fallos reproducibles en [`BUGS_Y_SOLUCIONES.md`](docs/BUGS_Y_SOLUCIONES.md).
 
 ---
 
@@ -829,7 +829,7 @@ APP_VERSION=1.0.0
 6. Superadmin de producción creado manualmente en SQL (no usar seed).
 7. Smoke tests: health, login, TPV → cobro → fila en `verifactu_registros`.
 
-Guía completa: [`GUIA_PRODUCCION_COMPLETA.md`](GUIA_PRODUCCION_COMPLETA.md).
+Guía completa: [`GUIA_PRODUCCION_COMPLETA.md`](docs/GUIA_PRODUCCION_COMPLETA.md).
 
 ---
 
@@ -860,8 +860,8 @@ Leer y seguir [`.cursorrules`](.cursorrules) antes de contribuir. Resumen:
 1. Crear rama desde `main` para tu cambio.
 2. Implementar siguiendo patrones existentes en el router/página más cercano.
 3. Verificar `python -c "from main import create_app; create_app()"` y `npm run build`.
-4. Documentar trabajo relevante en [`BITACORA_HORECASO.md`](BITACORA_HORECASO.md).
-5. Si aparece un bug reproducible, registrarlo en [`BUGS_Y_SOLUCIONES.md`](BUGS_Y_SOLUCIONES.md).
+4. Documentar trabajo relevante en [`docs/BITACORA_HORECASO.md`](docs/BITACORA_HORECASO.md).
+5. Si aparece un bug reproducible, registrarlo en [`docs/BUGS_Y_SOLUCIONES.md`](docs/BUGS_Y_SOLUCIONES.md).
 6. Abrir pull request con descripción del cambio y plan de prueba manual.
 
 ### Documentación viva
@@ -934,15 +934,15 @@ La navegación se define en [`frontend/src/components/layout/constants/navConfig
 
 | Documento | Contenido |
 |-----------|-----------|
-| [GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) | Deploy, seguridad, tenants, smoke tests |
-| [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) | 42 tablas, columnas, FKs |
-| [ARQUITECTURA_HORECASO.md](ARQUITECTURA_HORECASO.md) | Mapa técnico routers ↔ frontend |
-| [STEP_HORECASO.md](STEP_HORECASO.md) | Estado del proyecto por módulo |
-| [PRD_HorecaSO.md](PRD_HorecaSO.md) | Especificación de producto |
-| [BITACORA_HORECASO.md](BITACORA_HORECASO.md) | Historial de implementación |
-| [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) | Bugs documentados |
-| [MANUAL_USUARIO_HORECASO.md](MANUAL_USUARIO_HORECASO.md) | Manual de usuario |
-| [CREDENCIALES_PRUEBA.MD](CREDENCIALES_PRUEBA.MD) | Usuarios de desarrollo |
+| [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md) | Deploy, seguridad, tenants, smoke tests |
+| [docs/SCHEMA_BASE_DATOS.md](docs/SCHEMA_BASE_DATOS.md) | 42 tablas, columnas, FKs |
+| [docs/ARQUITECTURA_HORECASO.md](docs/ARQUITECTURA_HORECASO.md) | Mapa técnico routers ↔ frontend |
+| [docs/STEP_HORECASO.md](docs/STEP_HORECASO.md) | Estado del proyecto por módulo |
+| [docs/PRD_HorecaSO.md](docs/PRD_HorecaSO.md) | Especificación de producto |
+| [docs/BITACORA_HORECASO.md](docs/BITACORA_HORECASO.md) | Historial de implementación |
+| [docs/BUGS_Y_SOLUCIONES.md](docs/BUGS_Y_SOLUCIONES.md) | Bugs documentados |
+| [docs/MANUAL_USUARIO_HORECASO.md](docs/MANUAL_USUARIO_HORECASO.md) | Manual de usuario |
+| [docs/CREDENCIALES_PRUEBA.MD](docs/CREDENCIALES_PRUEBA.MD) | Usuarios de desarrollo |
 
 ---
 
