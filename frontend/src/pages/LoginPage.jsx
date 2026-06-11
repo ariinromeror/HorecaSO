@@ -1,8 +1,42 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Loader2, Moon, Sun } from 'lucide-react'
+import {
+  AlertTriangle,
+  BriefcaseBusiness,
+  ChefHat,
+  HandPlatter,
+  Loader2,
+  Moon,
+  ShieldCheck,
+  Sun,
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+
+/** Cuentas demo del tenant "Restaurante Prueba" (seed Fase B). */
+const DEMO_ACCOUNTS = [
+  {
+    rol: 'admin',
+    label: 'Entrar como Administrador',
+    email: 'admin@prueba.com',
+    password: 'Admin1234!',
+    Icon: ShieldCheck,
+  },
+  {
+    rol: 'camarero',
+    label: 'Entrar como Camarero',
+    email: 'camarero@prueba.com',
+    password: 'Camarero1234!',
+    Icon: HandPlatter,
+  },
+  {
+    rol: 'cocina',
+    label: 'Entrar como Cocinero',
+    email: 'cocina@prueba.com',
+    password: 'Cocina1234!',
+    Icon: ChefHat,
+  },
+]
 
 export default function LoginPage() {
   const { login, isAuthenticated, isLoading } = useAuth()
@@ -13,12 +47,22 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(null)
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
       navigate('/mesas', { replace: true })
     }
   }, [isAuthenticated, isLoading, navigate])
+
+  const extractError = (e) => {
+    const detail = e.response?.data?.detail
+    return typeof detail === 'string'
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((d) => d.msg || d).join(', ')
+        : 'Error al iniciar sesión'
+  }
 
   const handleEntrar = async () => {
     setError('')
@@ -31,21 +75,31 @@ export default function LoginPage() {
       await login(email.trim(), password)
       navigate('/mesas', { replace: true })
     } catch (e) {
-      const detail = e.response?.data?.detail
-      setError(
-        typeof detail === 'string'
-          ? detail
-          : Array.isArray(detail)
-            ? detail.map((d) => d.msg || d).join(', ')
-            : 'Error al iniciar sesión'
-      )
+      setError(extractError(e))
     } finally {
       setLoading(false)
     }
   }
 
+  const handleDemoLogin = async (account) => {
+    setError('')
+    setEmail(account.email)
+    setPassword(account.password)
+    setDemoLoading(account.rol)
+    try {
+      await login(account.email, account.password)
+      navigate('/mesas', { replace: true })
+    } catch (e) {
+      setError(extractError(e))
+    } finally {
+      setDemoLoading(null)
+    }
+  }
+
   const inputClass =
     'w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-4 py-3 text-[15px] text-[#111827] placeholder-[#9ca3af] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0] dark:placeholder-[#5a5f7a]'
+
+  const anyLoading = loading || demoLoading !== null
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9] p-4 dark:bg-[#0f1117]">
@@ -71,6 +125,11 @@ export default function LoginPage() {
       </button>
 
       <div className="w-full max-w-sm rounded-xl border border-[#e2e5ed] bg-white p-8 shadow-sm dark:border-[#2e3347] dark:bg-[#1a1d27]">
+        <img
+          src="/logo.png"
+          alt="Logo HorecaSO"
+          className="mx-auto mb-4 h-20 w-20 rounded-full shadow-md"
+        />
         <h1 className="text-center text-3xl font-bold text-amber-500">
           HorecaSO
         </h1>
@@ -127,8 +186,8 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={handleEntrar}
-          disabled={loading}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 font-semibold text-black hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70"
+          disabled={anyLoading}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 font-semibold text-black transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? (
             <>
@@ -143,6 +202,58 @@ export default function LoginPage() {
             'Entrar'
           )}
         </button>
+
+        <div className="my-6 flex items-center gap-3">
+          <div className="h-px flex-1 bg-[#e2e5ed] dark:bg-[#2e3347]" />
+          <span className="text-xs uppercase tracking-wide text-[#9ca3af] dark:text-[#5a5f7a]">
+            o
+          </span>
+          <div className="h-px flex-1 bg-[#e2e5ed] dark:bg-[#2e3347]" />
+        </div>
+
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 dark:bg-amber-500/10">
+          <div className="mb-3 flex items-center justify-center gap-2">
+            <BriefcaseBusiness
+              size={16}
+              strokeWidth={1.5}
+              className="text-amber-500"
+            />
+            <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+              Acceso de Prueba para Reclutadores
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.rol}
+                type="button"
+                onClick={() => handleDemoLogin(account)}
+                disabled={anyLoading}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] text-[15px] font-medium text-[#111827] transition-colors hover:border-amber-500 hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]"
+              >
+                {demoLoading === account.rol ? (
+                  <Loader2
+                    size={18}
+                    strokeWidth={2}
+                    className="shrink-0 animate-spin text-amber-500"
+                    aria-hidden
+                  />
+                ) : (
+                  <account.Icon
+                    size={18}
+                    strokeWidth={1.5}
+                    className="shrink-0 text-amber-500"
+                  />
+                )}
+                <span>{account.label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-center text-xs text-[#9ca3af] dark:text-[#5a5f7a]">
+            Entorno demo con datos de ejemplo. Cada rol muestra una vista
+            distinta del sistema.
+          </p>
+        </div>
       </div>
     </div>
   )
