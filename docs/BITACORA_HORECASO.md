@@ -193,6 +193,12 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 11/06/2026 — **MesaCard móvil: número ya no solapa badge de estado**
+
+- **Síntoma:** en grid 3 columnas (iPhone) el número de mesa (`text-2xl` centrado) se superponía al badge absoluto «LIBRE» / «OCUPADA».
+- **`MesaCard.jsx`:** layout en columna `justify-between` — estado arriba (flujo normal, sin `absolute`), número en zona central `flex-1`, zona + pax abajo; tipografía ligeramente más compacta en móvil (`text-xl` / `text-[9px]`).
+- **`README.md`:** tabla de screenshots enlazada a `docs/screenshots/01-…07-….jpg`; guía de nombres en `docs/screenshots/README.md`.
+
 ### 11/06/2026 — **README estilo portfolio (formato InfoCampus)**
 
 - **`README.md` raíz reescrito** en inglés con formato recruiter-friendly tipo InfoCampus: badges for-the-badge, enlaces a demo live/health, key features, sección demo access, arquitectura, módulos por rol, seguridad RBAC, sección Verifactu, IA (escaneo facturas + forecast mermas), decisiones técnicas (asyncpg, pgbouncer, polling, multi-tenant, safe-area), setup local, deploy, métricas reales (122 py / ~13,7k líneas / 39 routers / 122 jsx / ~18,5k líneas / 42 tablas / 8 roles) y estado de producción. Tabla de screenshots con placeholders (pendiente subir capturas a GitHub user-attachments).

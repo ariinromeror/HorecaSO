@@ -52,48 +52,52 @@ export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando })
         ].join(' ')}
       >
         <div
-          className="relative flex aspect-square w-full flex-col items-center justify-center rounded-xl border-2 p-3"
+          className="relative flex aspect-square w-full flex-col items-center justify-between gap-0.5 rounded-xl border-2 px-2 py-2 sm:p-3"
           style={{
             borderColor: t.border,
             background: t.bg,
           }}
         >
-        {chairPositions.map((pos, i) => (
+          {chairPositions.map((pos, i) => (
+            <span
+              key={i}
+              className="absolute h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3"
+              style={{
+                ...pos,
+                backgroundColor: t.border,
+              }}
+              aria-hidden
+            />
+          ))}
+
+          {/* Estado arriba (flujo normal) — evita solapamiento con el número en móvil */}
           <span
-            key={i}
-            className="absolute h-3 w-3 rounded-full"
+            className="z-10 max-w-full shrink-0 truncate rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide sm:text-[10px]"
             style={{
-              ...pos,
-              backgroundColor: t.border,
+              color: t.text,
+              background: t.bg,
+              border: `1px solid ${t.border}`,
             }}
-            aria-hidden
-          />
-        ))}
+          >
+            {t.label}
+          </span>
 
-        <span
-          className="absolute right-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
-          style={{
-            color: t.text,
-            background: t.bg,
-            border: `1px solid ${t.border}`,
-          }}
-        >
-          {t.label}
-        </span>
+          <span
+            className="z-10 flex min-h-0 flex-1 items-center justify-center text-xl font-bold leading-none sm:text-2xl"
+            style={{ color: t.text }}
+          >
+            {mesa.numero}
+          </span>
 
-        <span
-          className="text-2xl font-bold"
-          style={{ color: t.text }}
-        >
-          {mesa.numero}
-        </span>
-        <span className="mt-1 text-[11px] font-medium capitalize tracking-wide text-[#6b7280] dark:text-[#8b90a7]">
-          {mesa.zona || '—'}
-        </span>
-        <span className="horeca-nums mt-1 flex items-center gap-1 text-[11px] font-medium text-[#9ca3af]">
-          <Users size={11} strokeWidth={1.5} aria-hidden />
-          {mesa.capacidad ?? '—'} pax
-        </span>
+          <div className="z-10 flex w-full shrink-0 flex-col items-center gap-0.5 text-center">
+            <span className="max-w-full truncate text-[10px] font-medium capitalize tracking-wide text-[#6b7280] dark:text-[#8b90a7] sm:text-[11px]">
+              {mesa.zona || '—'}
+            </span>
+            <span className="horeca-nums flex items-center gap-1 text-[10px] font-medium text-[#9ca3af] sm:text-[11px]">
+              <Users size={11} strokeWidth={1.5} aria-hidden />
+              {mesa.capacidad ?? '—'} pax
+            </span>
+          </div>
         </div>
       </div>
       {estado === 'ocupada' && onMarcarLibre ? (
