@@ -193,6 +193,13 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 11/06/2026 — **Predicciones IA: gráficos + seed demo mermas**
+
+- **Causa:** sin `movimientos_stock` tipo `merma` el modelo devolvía `predicciones: []` y el frontend no pintaba barras; badge «0 días de histórico».
+- **Backend:** `ml_predicciones.py` devuelve siempre 7 días de previsión (ceros si no hay datos); router añade `historico_reciente` (14 días) y flag `sin_datos_historicos`.
+- **Frontend:** `PrediccionesIAPanel.jsx` — dos gráficos (histórico real + previsión), aviso si no hay datos, barras mínimas visibles.
+- **SQL:** `backend/sql/seed_predicciones_mermas_demo.sql` — 60 días de mermas para tenant prueba; **ejecutado en Supabase** vía MCP.
+
 ### 11/06/2026 — **MesaCard móvil: número ya no solapa badge de estado**
 
 - **Síntoma:** en grid 3 columnas (iPhone) el número de mesa (`text-2xl` centrado) se superponía al badge absoluto «LIBRE» / «OCUPADA».
