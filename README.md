@@ -64,25 +64,20 @@ The system is **multi-tenant**: one application instance serves multiple restaur
 
 ## 📸 Screenshots
 
-<!--
-  Sube las capturas arrastrándolas a un issue/comment de GitHub y pega aquí las URLs
-  (https://github.com/user-attachments/assets/...), igual que en InfoCampus.
--->
-
 ### Login & Mobile
 | Login (recruiter demo access) | Mobile | Table Map |
 |-------------------------------|--------|-----------|
-| _screenshot pending_ | _screenshot pending_ | _screenshot pending_ |
+| ![Login — demo access for recruiters](docs/screenshots/01-login-demo.jpg) | ![Mobile view](docs/screenshots/02-mobile-mesas.jpg) | ![Table map](docs/screenshots/03-table-map.jpg) |
 
 ### Operations
 | POS — split billing | Kitchen Display (KDS) |
 |---------------------|------------------------|
-| _screenshot pending_ | _screenshot pending_ |
+| ![POS with split billing](docs/screenshots/04-tpv-split-billing.jpg) | ![Kitchen Display System](docs/screenshots/05-kds.jpg) |
 
 ### Management
 | Director Dashboard | AI Predictions Panel |
 |--------------------|----------------------|
-| _screenshot pending_ | _screenshot pending_ |
+| ![Director dashboard](docs/screenshots/06-dashboard.jpg) | ![AI waste predictions](docs/screenshots/07-predicciones-ia.jpg) |
 
 ---
 
