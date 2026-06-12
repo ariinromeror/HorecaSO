@@ -125,12 +125,25 @@ async def get_prediccion_mermas(
         historial = [(r["fecha"], _d(r["coste_dia"])) for r in rows]
         resultado = forecast_serie_diaria(historial, dias_horizonte)
 
+        coste_por_fecha = {f: v for f, v in historial}
+        historico_reciente = []
+        for offset in range(13, -1, -1):
+            dia = date.today() - timedelta(days=offset)
+            historico_reciente.append(
+                {
+                    "fecha": dia.isoformat(),
+                    "coste": _f2(coste_por_fecha.get(dia, Decimal("0"))),
+                }
+            )
+
         return {
             "modelo": resultado["modelo"],
             "dias_historial_usados": resultado["dias_historial"],
+            "sin_datos_historicos": resultado["dias_historial"] == 0,
             "media_diaria_historica": _f2(resultado["media_diaria_historica"]),
             "tendencia_diaria": _f2(resultado["tendencia_diaria"]),
             "coste_total_previsto": _f2(resultado["total_previsto"]),
+            "historico_reciente": historico_reciente,
             "predicciones": [
                 {
                     "fecha": p["fecha"].isoformat(),

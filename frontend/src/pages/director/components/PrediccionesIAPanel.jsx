@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertCircle,
   BrainCircuit,
   CalendarRange,
   Euro,
+  History,
   Loader2,
   PackageX,
   TrendingDown,
@@ -25,6 +27,52 @@ function fmtFechaCorta(iso) {
   })
 }
 
+function MiniBarChart({ items, valueKey, maxValue, emptyLabel }) {
+  const max = maxValue > 0 ? maxValue : 0.01
+  const hasData = items.some((p) => Number(p[valueKey]) > 0)
+
+  return (
+    <div>
+      {!hasData && emptyLabel ? (
+        <p className="mb-3 text-center text-sm text-[#6b7280] dark:text-[#8b90a7]">
+          {emptyLabel}
+        </p>
+      ) : null}
+      <div
+        className="grid items-end gap-1"
+        style={{
+          gridTemplateColumns: `repeat(${Math.max(items.length, 1)}, minmax(0, 1fr))`,
+        }}
+      >
+        {items.map((p) => {
+          const val = Number(p[valueKey]) || 0
+          const pct = Math.max((val / max) * 100, hasData && val > 0 ? 8 : 4)
+          return (
+            <div
+              key={p.fecha}
+              className="flex min-w-0 flex-col items-center gap-1.5"
+            >
+              <span className="horeca-nums hidden text-[10px] font-medium text-[#6b7280] dark:text-[#8b90a7] sm:block">
+                {fmtEuro(val)}
+              </span>
+              <div className="flex h-24 w-full items-end sm:h-28">
+                <div
+                  className="w-full rounded-t-md bg-amber-500/80 transition-all dark:bg-amber-500/70"
+                  style={{ height: `${pct}%` }}
+                  title={`${p.fecha}: ${fmtEuro(val)}`}
+                />
+              </div>
+              <span className="truncate text-[10px] font-medium capitalize text-[#9ca3af] dark:text-[#5a5f7a] sm:text-[11px]">
+                {fmtFechaCorta(p.fecha)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function PrediccionesIAPanel() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -39,7 +87,12 @@ export default function PrediccionesIAPanel() {
       .finally(() => setLoading(false))
   }, [])
 
-  const maxDia = useMemo(() => {
+  const maxHist = useMemo(() => {
+    const hist = data?.historico_reciente ?? []
+    return Math.max(...hist.map((p) => Number(p.coste) || 0), 0.01)
+  }, [data])
+
+  const maxPred = useMemo(() => {
     const preds = data?.predicciones ?? []
     return Math.max(...preds.map((p) => Number(p.coste_previsto) || 0), 0.01)
   }, [data])
@@ -66,10 +119,11 @@ export default function PrediccionesIAPanel() {
   const TendenciaIcon = tendenciaSube ? TrendingUp : TrendingDown
   const top = data.top_articulos_merma ?? []
   const preds = data.predicciones ?? []
+  const hist = data.historico_reciente ?? []
+  const sinDatos = data.sin_datos_historicos || data.dias_historial_usados === 0
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Badge del modelo */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
           <BrainCircuit size={14} strokeWidth={1.5} />
@@ -80,7 +134,50 @@ export default function PrediccionesIAPanel() {
         </span>
       </div>
 
-      {/* Tarjeta destacada: coste total previsto */}
+      {sinDatos ? (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+          <AlertCircle
+            size={20}
+            strokeWidth={1.5}
+            className="mt-0.5 shrink-0 text-amber-500"
+          />
+          <div>
+            <p className="text-[15px] font-medium text-[#111827] dark:text-[#e8eaf0]">
+              Sin mermas registradas todavía
+            </p>
+            <p className="mt-1 text-sm text-[#6b7280] dark:text-[#8b90a7]">
+              Registra movimientos de tipo merma en Inventario, o ejecuta en
+              Supabase el script{' '}
+              <code className="rounded bg-black/10 px-1 py-0.5 text-xs dark:bg-white/10">
+                backend/sql/seed_predicciones_mermas_demo.sql
+              </code>{' '}
+              para cargar datos de demostración.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Histórico real — últimos 14 días */}
+      <div className="rounded-xl border border-[#e2e5ed] bg-white p-6 shadow-sm dark:border-[#2e3347] dark:bg-[#1a1d27]">
+        <div className="mb-4 flex items-center gap-2">
+          <History size={18} strokeWidth={1.5} className="text-amber-500" />
+          <h3 className="text-base font-semibold text-[#111827] dark:text-[#e8eaf0]">
+            Mermas reales — últimos 14 días
+          </h3>
+        </div>
+        <MiniBarChart
+          items={hist}
+          valueKey="coste"
+          maxValue={maxHist}
+          emptyLabel={
+            sinDatos
+              ? 'Aún no hay mermas en este periodo.'
+              : null
+          }
+        />
+      </div>
+
+      {/* Predicción — próximos 7 días */}
       <div className="rounded-xl border border-[#e2e5ed] bg-white p-6 shadow-sm dark:border-[#2e3347] dark:bg-[#1a1d27]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -112,40 +209,24 @@ export default function PrediccionesIAPanel() {
           </div>
         </div>
 
-        {/* Mini-gráfico de barras: predicción día a día */}
-        {preds.length > 0 ? (
-          <div className="mt-6 grid grid-cols-7 items-end gap-1.5 sm:gap-3">
-            {preds.map((p) => {
-              const pct = Math.max(
-                (Number(p.coste_previsto) / maxDia) * 100,
-                4
-              )
-              return (
-                <div
-                  key={p.fecha}
-                  className="flex min-w-0 flex-col items-center gap-1.5"
-                >
-                  <span className="horeca-nums hidden text-[11px] font-medium text-[#6b7280] dark:text-[#8b90a7] sm:block">
-                    {fmtEuro(p.coste_previsto)}
-                  </span>
-                  <div className="flex h-24 w-full items-end">
-                    <div
-                      className="w-full rounded-t-md bg-amber-500/80 transition-all dark:bg-amber-500/70"
-                      style={{ height: `${pct}%` }}
-                      title={`${p.fecha}: ${fmtEuro(p.coste_previsto)}`}
-                    />
-                  </div>
-                  <span className="truncate text-[11px] font-medium capitalize text-[#9ca3af] dark:text-[#5a5f7a]">
-                    {fmtFechaCorta(p.fecha)}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        ) : null}
+        <div className="mt-6">
+          <p className="mb-3 text-sm font-medium text-[#6b7280] dark:text-[#8b90a7]">
+            Previsión día a día
+          </p>
+          <MiniBarChart
+            items={preds}
+            valueKey="coste_previsto"
+            maxValue={maxPred}
+            emptyLabel={
+              sinDatos
+                ? 'La previsión aparecerá en cuanto haya histórico de mermas.'
+                : null
+            }
+          />
+        </div>
       </div>
 
-      {/* Top 5 artículos con mayor riesgo */}
+      {/* Top 5 artículos */}
       <div className="rounded-xl border border-[#e2e5ed] bg-white p-6 shadow-sm dark:border-[#2e3347] dark:bg-[#1a1d27]">
         <div className="mb-4 flex items-center gap-2">
           <PackageX size={18} strokeWidth={1.5} className="text-amber-500" />
@@ -156,8 +237,7 @@ export default function PrediccionesIAPanel() {
 
         {top.length === 0 ? (
           <p className="py-6 text-center text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
-            Sin mermas registradas en el periodo analizado. Registra
-            movimientos de tipo merma en Inventario para alimentar el modelo.
+            Sin artículos con mermas en el periodo analizado.
           </p>
         ) : (
           <ul className="flex flex-col gap-3">

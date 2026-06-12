@@ -110,8 +110,16 @@ def forecast_serie_diaria(
     """
     serie = _rellenar_huecos(historial)
     if not serie:
+        hoy = date.today()
+        predicciones_vacias = [
+            {
+                "fecha": hoy + timedelta(days=paso),
+                "valor_previsto": Decimal("0"),
+            }
+            for paso in range(1, horizonte + 1)
+        ]
         return {
-            "predicciones": [],
+            "predicciones": predicciones_vacias,
             "total_previsto": Decimal("0"),
             "media_diaria_historica": Decimal("0"),
             "tendencia_diaria": Decimal("0"),
