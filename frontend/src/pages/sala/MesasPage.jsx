@@ -37,7 +37,7 @@ export default function MesasPage() {
           <h2 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wider text-[#6b7280] dark:text-[#8b90a7]">
             {zona}
           </h2>
-          <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-4 md:grid-cols-5 lg:grid-cols-6">
             {[...m.mesasPorZona[zona]]
               .sort((a, b) => (a.numero ?? 0) - (b.numero ?? 0))
               .map((mesa) => (

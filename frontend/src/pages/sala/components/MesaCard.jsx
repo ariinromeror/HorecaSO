@@ -52,7 +52,7 @@ export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando })
         ].join(' ')}
       >
         <div
-          className="relative flex aspect-square w-full flex-col items-center justify-between gap-0.5 rounded-xl border-2 px-2 py-2 sm:p-3"
+          className="relative grid aspect-square w-full grid-rows-[auto_minmax(2.25rem,1fr)_auto] items-center gap-1 rounded-xl border-2 px-2 py-2 sm:gap-1.5 sm:p-3"
           style={{
             borderColor: t.border,
             background: t.bg,
@@ -72,7 +72,7 @@ export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando })
 
           {/* Estado arriba (flujo normal) — evita solapamiento con el número en móvil */}
           <span
-            className="z-10 max-w-full shrink-0 truncate rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide sm:text-[10px]"
+            className="z-10 mx-auto max-w-full shrink-0 truncate rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide sm:text-[10px]"
             style={{
               color: t.text,
               background: t.bg,
@@ -83,13 +83,13 @@ export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando })
           </span>
 
           <span
-            className="z-10 flex min-h-0 flex-1 items-center justify-center text-xl font-bold leading-none sm:text-2xl"
+            className="z-10 flex items-center justify-center self-center text-lg font-bold leading-none sm:text-2xl"
             style={{ color: t.text }}
           >
             {mesa.numero}
           </span>
 
-          <div className="z-10 flex w-full shrink-0 flex-col items-center gap-0.5 text-center">
+          <div className="z-10 flex w-full flex-col items-center gap-0.5 self-end text-center">
             <span className="max-w-full truncate text-[10px] font-medium capitalize tracking-wide text-[#6b7280] dark:text-[#8b90a7] sm:text-[11px]">
               {mesa.zona || '—'}
             </span>

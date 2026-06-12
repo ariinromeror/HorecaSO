@@ -27,7 +27,7 @@ export default function StatCard({ label, value, Icon, color = 'white', trend })
   }
 
   return (
-    <div className="rounded-xl border border-[#e2e5ed] bg-white p-6 shadow-sm dark:border-[#2e3347] dark:bg-[#1a1d27]">
+    <div className="rounded-xl border border-[#e2e5ed] bg-white p-4 shadow-sm dark:border-[#2e3347] dark:bg-[#1a1d27] sm:p-6">
       <div className="flex items-start justify-between">
         <span className="text-sm text-[#6b7280] dark:text-[#8b90a7]">
           {label}
@@ -41,7 +41,9 @@ export default function StatCard({ label, value, Icon, color = 'white', trend })
           />
         ) : null}
       </div>
-      <p className={`mt-2 text-4xl font-bold ${valueClass}`}>{value}</p>
+      <p className={`horeca-nums mt-2 text-3xl font-bold sm:text-4xl ${valueClass}`}>
+        {value}
+      </p>
       {trendContent}
     </div>
   )

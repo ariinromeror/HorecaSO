@@ -193,6 +193,13 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 11/06/2026 — **Cards móvil: Venta Live + KPIs unificados**
+
+- **Venta Live:** `VentaLiveCards.jsx` tenía `MesaCardLive` duplicado con badge `absolute` (mismo bug que Sala). Ahora reutiliza `MesaCard` compartido.
+- **`MesaCard.jsx`:** layout `grid` 3 filas (estado / número / meta) + número `text-lg` en móvil para evitar solapamiento en grid 3 columnas.
+- **KPIs móvil:** `StatCard` (`text-3xl sm:text-4xl`, `p-4 sm:p-6`), hero Venta Live (`text-4xl sm:text-5xl lg:text-6xl`), `TopProductoRow` compartido (barras flexibles sin overflow en iPhone SE).
+- **MesasPage:** `gap-2` en móvil entre cards.
+
 ### 11/06/2026 — **Predicciones IA: gráficos + seed demo mermas**
 
 - **Causa:** sin `movimientos_stock` tipo `merma` el modelo devolvía `predicciones: []` y el frontend no pintaba barras; badge «0 días de histórico».

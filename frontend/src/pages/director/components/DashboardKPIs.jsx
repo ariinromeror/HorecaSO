@@ -7,6 +7,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import StatCard from '../../../components/shared/StatCard'
+import TopProductoRow from '../../../components/shared/TopProductoRow'
 
 function fmtEuroNum(n) {
   return `${new Intl.NumberFormat('es-ES', {
@@ -94,7 +95,7 @@ export default function DashboardKPIs({ data, cierre }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-[#e2e5ed] bg-white p-6 dark:border-[#2e3347] dark:bg-[#1a1d27] lg:col-span-2">
+        <div className="rounded-xl border border-[#e2e5ed] bg-white p-4 dark:border-[#2e3347] dark:bg-[#1a1d27] sm:p-6 lg:col-span-2">
           <h2 className="mb-4 text-lg font-semibold text-[#111827] dark:text-[#e8eaf0]">
             Top productos hoy
           </h2>
@@ -107,29 +108,18 @@ export default function DashboardKPIs({ data, cierre }) {
               const c = Number(item.cantidad) || 0
               const pct = (c / maxCantidad) * 100
               return (
-                <div
+                <TopProductoRow
                   key={`${item.nombre}-${i}`}
-                  className="mb-3 flex items-center gap-3"
-                >
-                  <span className="flex-1 text-[15px] text-[#111827] dark:text-[#e8eaf0]">
-                    {item.nombre}
-                  </span>
-                  <span className="w-8 text-right text-sm text-[#6b7280] dark:text-[#8b90a7]">
-                    {c}
-                  </span>
-                  <div className="h-2 w-32 rounded-full bg-[#f0f2f5] dark:bg-[#222536]">
-                    <div
-                      className="h-2 rounded-full bg-amber-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
+                  nombre={item.nombre}
+                  cantidad={c}
+                  pct={pct}
+                />
               )
             })
           )}
         </div>
 
-        <div className="rounded-xl border border-[#e2e5ed] bg-white p-6 dark:border-[#2e3347] dark:bg-[#1a1d27]">
+        <div className="rounded-xl border border-[#e2e5ed] bg-white p-4 dark:border-[#2e3347] dark:bg-[#1a1d27] sm:p-6">
           <h2 className="mb-4 text-lg font-semibold text-[#111827] dark:text-[#e8eaf0]">
             Cierre del día
           </h2>

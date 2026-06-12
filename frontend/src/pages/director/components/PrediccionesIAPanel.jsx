@@ -185,7 +185,7 @@ export default function PrediccionesIAPanel() {
               <Euro size={16} strokeWidth={1.5} className="text-amber-500" />
               Coste Total Estimado de Mermas
             </div>
-            <p className="horeca-nums text-4xl font-extrabold tracking-tight text-[#111827] dark:text-[#e8eaf0]">
+            <p className="horeca-nums text-3xl font-extrabold tracking-tight text-[#111827] sm:text-4xl dark:text-[#e8eaf0]">
               {fmtEuro(data.coste_total_previsto)}
             </p>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-[#6b7280] dark:text-[#8b90a7]">
