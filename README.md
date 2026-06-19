@@ -67,17 +67,17 @@ The system is **multi-tenant**: one application instance serves multiple restaur
 ### Login & Mobile
 | Login (recruiter demo access) | Mobile | Table Map |
 |-------------------------------|--------|-----------|
-| ![Login — demo access for recruiters](docs/screenshots/01-login-demo.jpg) | ![Mobile view](docs/screenshots/02-mobile-mesas.jpg) | ![Table map](docs/screenshots/03-table-map.jpg) |
+| ![Login — demo access for recruiters](docs/screenshots/01-login-demo.png) | ![Mobile view](docs/screenshots/02-mobile-mesas.png) | ![Table map](docs/screenshots/03-table-map.png) |
 
 ### Operations
 | POS — split billing | Kitchen Display (KDS) |
 |---------------------|------------------------|
-| ![POS with split billing](docs/screenshots/04-tpv-split-billing.jpg) | ![Kitchen Display System](docs/screenshots/05-kds.jpg) |
+| ![POS with split billing](docs/screenshots/04-tpv-split-billing.png) | ![Kitchen Display System](docs/screenshots/05-kds.png) |
 
 ### Management
 | Director Dashboard | AI Predictions Panel |
 |--------------------|----------------------|
-| ![Director dashboard](docs/screenshots/06-dashboard.jpg) | ![AI waste predictions](docs/screenshots/07-predicciones-ia.jpg) |
+| ![Director dashboard](docs/screenshots/06-dashboard.png) | ![AI waste predictions](docs/screenshots/07-predicciones-ia.png) |
 
 ---
 

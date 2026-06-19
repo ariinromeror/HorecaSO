@@ -193,6 +193,11 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 12/06/2026 — **README screenshots en GitHub**
+
+- Copiadas 7 capturas PNG a `docs/screenshots/` (login, mesas móvil/escritorio, TPV, KDS, dashboard, predicciones IA).
+- `README.md` actualizado: enlaces `.jpg` → `.png`.
+
 ### 11/06/2026 — **Cards móvil: Venta Live + KPIs unificados**
 
 - **Venta Live:** `VentaLiveCards.jsx` tenía `MesaCardLive` duplicado con badge `absolute` (mismo bug que Sala). Ahora reutiliza `MesaCard` compartido.
