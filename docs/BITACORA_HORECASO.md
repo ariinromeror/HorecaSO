@@ -193,6 +193,13 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 20/06/2026 — **Login: ProjectInfoModal (clon InfoCampus)**
+
+- **`ProjectInfoModal.jsx`:** modal informativo en login con pestañas «Sobre el proyecto» y «README», selector ES/EN en ambas pestañas, animaciones Framer Motion, paleta HorecaSO (amber + dark mode).
+- **`content/sobreHorecaSO.js`:** contenido bilingüe (resumen, puntos clave, módulos por rol, arquitectura técnica, tablas BD, datos desarrollador).
+- **`LoginPage.jsx`:** botón «Ver más sobre este proyecto» debajo de la sección de roles demo.
+- **Dependencia:** `framer-motion` añadida al frontend. Build OK.
+
 ### 12/06/2026 — **README screenshots en GitHub**
 
 - Copiadas 7 capturas PNG a `docs/screenshots/` (login, mesas móvil/escritorio, TPV, KDS, dashboard, predicciones IA).
