@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Sun,
 } from 'lucide-react'
+import ProjectInfoModal from '../components/ProjectInfoModal'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
@@ -48,6 +49,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [demoLoading, setDemoLoading] = useState(null)
+  const [showProjectModal, setShowProjectModal] = useState(false)
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
@@ -254,7 +256,20 @@ export default function LoginPage() {
             distinta del sistema.
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowProjectModal(true)}
+          className="mt-4 flex h-12 w-full items-center justify-center rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] text-[15px] font-medium text-[#111827] transition-colors hover:border-amber-500 hover:bg-amber-500/10 dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]"
+        >
+          Ver más sobre este proyecto
+        </button>
       </div>
+
+      <ProjectInfoModal
+        isOpen={showProjectModal}
+        onClose={() => setShowProjectModal(false)}
+      />
     </div>
   )
 }
