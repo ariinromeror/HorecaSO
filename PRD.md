@@ -314,25 +314,42 @@
 
 ---
 
-## Fase 11 — Pasarela de pago (BLOQUEADA — requiere decisión de negocio)
+## Fase 11 — Pasarela de pago: Stripe Billing para suscripciones SaaS
 
-**Objetivo:** integrar un procesador de pagos real, **una vez decidido el caso de uso**.
+**Decisión tomada:** Opción B — cobrar automáticamente a los **tenants** (restaurantes clientes de HorecaSO) por su plan de suscripción (Básico / Profesional / Premium / Enterprise), no a los clientes finales de cada restaurante. Esto convierte a HorecaSO en un SaaS con cobro recurrente real en vez de un `plan` administrado manualmente por el superadmin.
 
-**Por qué queda bloqueada:** hoy `ticket_pagos.metodo_pago` es solo una etiqueta contable (`efectivo | tarjeta_credito | tarjeta_debito | bizum | transferencia | invitacion`); no hay integración real con ningún PSP. Antes de diseñar la integración hace falta que el usuario confirme **cuál** de estos casos de uso es prioritario, porque cada uno implica una arquitectura distinta:
+**Objetivo:** que el ciclo de vida de facturación de cada tenant (alta, cobro recurrente, cambio de plan, impago, cancelación) lo gestione Stripe, y que el backend solo reaccione a sus eventos para mantener sincronizado el acceso a la plataforma.
 
-- **Opción A — Depósitos/señales de reservas online:** un cliente final paga una señal al reservar mesa → **Stripe Checkout** (o Redsys si se prioriza el mercado español con tarjetas de bancos locales) integrado en el flujo de `reservas`.
-- **Opción B — Suscripciones SaaS a los propios tenants:** cobrar automáticamente los planes Básico/Profesional/Premium/Enterprise mencionados en `.cursorrules` → **Stripe Billing** integrado en `superadmin`/gestión de tenants.
-- **Opción C — Datáfono/TPV virtual real en sala:** sustituir el registro manual de "tarjeta_credito/débito" por una integración real con un datáfono o pasarela bancaria española (típicamente **Redsys**) en el flujo de cobro de `tpv`.
+**Por qué:** hoy `tenants.plan` es un campo administrado a mano; no hay cobro real, ni gestión de impagos, ni autogestión para el cliente. Sin esto, el modelo de negocio "SaaS multi-tenant — planes Básico/Profesional/Premium/Enterprise" descrito en `.cursorrules` no es monetizable de forma automática.
 
-**Alcance (a definir tras la decisión):** se completará esta sección con: alcance de endpoints nuevos, esquema de webhooks, tabla(s) nuevas (ej. `pagos_stripe`/`suscripciones_tenant` para Opción B), manejo de idempotencia, y su relación con el motor Verifactu (si un pago con PSP debe seguir disparando el mismo flujo de facturación fiscal).
+**Alcance:**
+- [ ] **Cuenta y catálogo Stripe:** crear cuenta Stripe (modo test primero), definir 4 `Product` (Básico/Profesional/Premium/Enterprise) con sus `Price` recurrentes (mensual, y anual si aplica) en el Dashboard de Stripe. Documentar los `price_id` resultantes en `.env.example` (`STRIPE_PRICE_BASICO`, `STRIPE_PRICE_PROFESIONAL`, `STRIPE_PRICE_PREMIUM`, `STRIPE_PRICE_ENTERPRISE`).
+- [ ] **Dependencia nueva:** añadir `stripe` (SDK oficial de Python) a `backend/requirements.txt`.
+- [ ] **Config:** añadir a `backend/config.py` (`Settings`): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY` (esta última también expuesta al frontend vía `VITE_STRIPE_PUBLISHABLE_KEY` si se necesita Stripe.js en cliente para el Customer Portal/Checkout redirect — normalmente basta con redirect server-side, sin SDK de cliente).
+- [ ] **Esquema de datos:** migración nueva (siguiendo el mecanismo de la Fase 5) que añada a `tenants`: `stripe_customer_id text`, `stripe_subscription_id text`, `subscription_status text` (`trialing|active|past_due|canceled|unpaid|incomplete`), `current_period_end timestamptz`, `plan_price_id text`. Crear tabla `billing_events` (`id, tenant_id, stripe_event_id, tipo, payload_json, procesado_at`) para auditoría/idempotencia de webhooks recibidos.
+- [ ] **Router nuevo `backend/routers/billing.py`:**
+  - `POST /api/billing/checkout-session` (rol `admin`/`director` del tenant o `superadmin`): crea (si no existe) el `Customer` en Stripe para el tenant, crea una `checkout.Session` en modo `subscription` con el `price_id` del plan elegido, `success_url`/`cancel_url` apuntando al frontend, y devuelve la URL de redirección.
+  - `POST /api/billing/portal-session`: crea una `billing_portal.Session` para que el tenant gestione su suscripción (cambiar tarjeta, ver facturas, cambiar de plan, cancelar) sin UI propia.
+  - `POST /api/billing/webhook`: endpoint público (sin JWT, protegido por verificación de firma `stripe-signature` con `STRIPE_WEBHOOK_SECRET`) que procesa: `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`. Cada evento se registra primero en `billing_events` (con `stripe_event_id` único, para idempotencia si Stripe reintenta) y luego actualiza `tenants`.
+- [ ] **Enforcement de acceso:** nueva dependencia `require_active_subscription()` en `auth/dependencies.py` (o extender `require_roles`) que bloquee/degrade acceso si `subscription_status` es `past_due` más allá de un margen de gracia (ej. 7 días) o `canceled`/`unpaid`. Excluir de este chequeo al propio flujo de billing y al rol `superadmin`.
+- [ ] **Frontend:** página nueva "Mi plan / Facturación" (visible para `admin`/`director`) que muestre el plan actual, estado de la suscripción, y dos botones: "Cambiar de plan" (llama a `checkout-session` o `portal-session` según si ya tiene suscripción activa) y "Gestionar facturación" (llama a `portal-session`), ambos redirigiendo a la URL devuelta por Stripe. Añadir aviso visible (banner) si `subscription_status` es `past_due`.
+- [ ] **Alta de tenant nuevo:** actualizar el flujo de `superadmin` (creación de tenant) para que, en vez de fijar `plan` directamente, arranque en `trialing` o redirija al nuevo tenant a completar el checkout de Stripe antes de activarse del todo.
+- [ ] **Entorno local:** documentar uso de **Stripe CLI** (`stripe listen --forward-to localhost:8000/api/billing/webhook`) para probar webhooks en desarrollo, en `README.md`/`docs/GUIA_PRODUCCION_COMPLETA.md`.
+- [ ] **Producción:** configurar el endpoint de webhook real en el Dashboard de Stripe apuntando a `https://<dominio-render>/api/billing/webhook`, y las variables `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` como secretos en Render (nunca en `.env` commiteado).
 
-**Fuera de alcance hasta la decisión:** cualquier código de integración con Stripe/Redsys.
+**Fuera de alcance:** cobro a clientes finales de cada restaurante (reservas, TPV) — eso seguiría el modelo actual de `ticket_pagos` sin PSP, salvo que se decida abordarlo como una fase separada en el futuro; facturación con impuestos automatizada vía Stripe Tax (evaluar como mejora posterior); planes con medición de uso (metered billing) — se asume precio fijo por plan en esta fase.
 
-**Criterios de aceptación:** a definir tras la decisión.
+**Criterios de aceptación:**
+- Un tenant de prueba completa un checkout de Stripe (modo test, tarjeta `4242 4242 4242 4242`) y queda con `subscription_status = active` y `plan_price_id` correcto en la tabla `tenants`.
+- Simular con Stripe CLI un evento `invoice.payment_failed` y verificar que el tenant pasa a `past_due` y (tras el margen de gracia simulado) pierde acceso a endpoints protegidos por `require_active_subscription()`.
+- Simular `customer.subscription.deleted` y verificar que el tenant queda `canceled` y sin acceso.
+- Reenviar manualmente el mismo evento de webhook dos veces no duplica efectos (verificado por `stripe_event_id` único en `billing_events`).
+- El botón "Gestionar facturación" del frontend redirige correctamente al Customer Portal de Stripe y vuelve a la app al cerrar.
+- El endpoint `/api/billing/webhook` rechaza (401/400) peticiones con firma inválida o ausente.
 
-**Dependencias:** Fase 1 (seguridad) y Fase 2 (tests backend) completadas — no se debe integrar manejo de dinero real sin esas bases.
+**Dependencias:** Fase 1 (seguridad) y Fase 2 (tests backend) completadas — no se debe integrar manejo de dinero real sin esas bases. Se recomienda también tener la Fase 5 (migraciones versionadas) completada, dado que esta fase introduce columnas y una tabla nueva.
 
-**Estado:** `[b] BLOQUEADA — pendiente de que el usuario elija Opción A, B o C (o combinación) antes de detallar esta fase.`
+**Estado:** `[ ] PENDIENTE`
 
 ---
 
