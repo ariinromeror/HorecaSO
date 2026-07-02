@@ -13,8 +13,16 @@ desarrollo/CI, ver sección "Running Tests" en README.md):
 """
 
 import os
+import sys
 from pathlib import Path
 from uuid import uuid4
+
+# Garantiza que `backend/` está en sys.path para poder hacer `import database`,
+# `from main import create_app`, etc., sin importar cómo se invoque pytest.
+# `python -m pytest` añade el cwd automáticamente, pero el script `pytest` a
+# secas no siempre lo hace (p. ej. en CI), lo que rompía este conftest con
+# `ModuleNotFoundError: No module named 'database'`.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 os.environ.setdefault(
     "DATABASE_URL",
