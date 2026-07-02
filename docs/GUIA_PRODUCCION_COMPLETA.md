@@ -245,6 +245,26 @@ curl https://tu-backend.onrender.com/docs
 
 ---
 
+## 1.3 CI/CD y branch protection (GitHub Actions)
+
+Desde la Fase 4 del hardening técnico (`PRD.md`) el repo tiene dos workflows en `.github/workflows/`:
+
+- **`backend.yml`** — en cada push/PR que toque `backend/`: instala Python 3.12, instala `backend/requirements-dev.txt`, hace un smoke check (`from main import create_app`) contra un Postgres 15 efímero (servicio de GitHub Actions) y corre la suite de `pytest` (Fase 2).
+- **`frontend.yml`** — en cada push/PR que toque `frontend/`: `npm ci`, `npm run lint` (no bloqueante — ver nota abajo), `npm run build`, `npm run test` (Vitest, Fase 3).
+
+Estos workflows **corren automáticamente** en cada Pull Request y aparecen como checks en la pestaña "Checks" del PR en GitHub, pero **por sí solos no bloquean el merge**. Para que ningún cambio roto pueda mergearse a `main`:
+
+1. Ir a **Settings → Branches** en GitHub.
+2. Añadir una **branch protection rule** para `main`.
+3. Activar **"Require status checks to pass before merging"** y seleccionar los jobs `Backend / test` y `Frontend / build-and-test`.
+4. (Recomendado) Activar también **"Require branches to be up to date before merging"**.
+
+Esto es una **configuración manual en GitHub** — ningún agente ni script del repo puede activarla por su cuenta.
+
+**Nota — lint frontend no bloqueante (deuda temporal):** el step "Lint" de `frontend.yml` usa `continue-on-error: true` porque, al activarlo, salieron a la luz ~20 problemas de ESLint preexistentes en el frontend (documentados en `docs/BUGS_Y_SOLUCIONES.md`, sección "Fase 4"): la mayoría son **falsos positivos** de `no-unused-vars` con JSX (limitación conocida de usar solo `js.configs.recommended` sin `eslint-plugin-react`) y el resto son reglas de estilo (`set-state-in-effect`, `only-export-components`) que no afectan producción. Cuando se sanee esa deuda en una fase de limpieza frontend dedicada, quitar `continue-on-error: true` para que el lint vuelva a ser bloqueante.
+
+---
+
 # 2. CÓMO HACKEAR TU PROPIO SISTEMA
 
 ## 2.1 Herramientas que necesitas (todas gratuitas)

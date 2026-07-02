@@ -1,0 +1,47 @@
+name: Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No bloqueante: hay deuda de lint preexistente sin relación con este
+      # cambio (ver docs/BUGS_Y_SOLUCIONES.md, sección "Fase 4"). Sigue
+      # corriendo en cada PR para visibilidad; se pasará a bloqueante cuando
+      # esa deuda se sanee en una fase de limpieza dedicada al frontend.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm run test

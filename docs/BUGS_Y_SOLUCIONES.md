@@ -94,6 +94,22 @@ El [STEP_HORECASO.md](STEP_HORECASO.md) mantiene un resumen histórico en *Probl
 
 ---
 
+## 2026-07 — Hardening senior: housekeeping detectado durante Fase 4 (CI/CD) (02/07/2026)
+
+| ID | Fecha | Módulo | Síntoma | Causa | Solución | Estado |
+|----|-------|--------|---------|-------|----------|--------|
+| BUG-014 | 02/07/2026 | Frontend / Recetas (Elaboraciones) | `ElaboracionesPage` lanza `ReferenceError: searchParams is not defined` en **cada render** (detectado al activar `npm run lint` en CI, no reportado antes por el usuario porque no había lint automatizado ni tests frontend) | Se importaba `useSearchParams` de `react-router-dom` pero faltaba la línea `const [searchParams, setSearchParams] = useSearchParams()`; el código que la usa (deep-link a una receta vía `?receta=<id>`) referenciaba una variable inexistente | Añadida la línea de inicialización del hook en `frontend/src/pages/admin/recetas/ElaboracionesPage.jsx`, restaurando el deep-link a recetas | ✅ |
+
+### Nota — deuda de lint preexistente detectada (no corregida en esta fase)
+
+Al activar `npm run lint` como check en Fase 4 (CI/CD), además de BUG-014 aparecieron ~20 problemas de lint preexistentes en archivos no tocados por las Fases 0-3. Investigados uno a uno antes de tocar nada (para no "arreglar" falsos positivos rompiendo código que funciona):
+
+- **Falsos positivos de `no-unused-vars` con JSX (la mayoría — `ProjectInfoModal.jsx` `motion`, `DashboardPage.jsx`/`SuperadminLayout.jsx`/`ReportesOperativos.jsx` `Icon`):** verificado con una reproducción mínima que la regla base de ESLint (sin `eslint-plugin-react`, solo `js.configs.recommended`) **no reconoce el uso de un identificador destructurado como parámetro de una arrow function cuando se usa luego como JSX** (`{items.map(({ Icon }) => <Icon />)}`) ni el uso de un import en una `JSXMemberExpression` (`<motion.div />`). El código es correcto y funciona; **no se tocó** — quitar esas variables rompería la UI. Queda documentado como limitación de la configuración de ESLint del proyecto (posible fix futuro: añadir `eslint-plugin-react` o su regla `jsx-uses-vars`), no como bug de producto.
+- **`puedeAcceder` sin usar en `NominasPage.jsx`:** este sí era un unused real (el control de acceso de la página usa `ROLES_NOMINAS.includes(user.rol)` directamente, no esa variable del hook) — corregido, eliminada la desestructuración.
+- **`setState` síncrono dentro de efectos (`AuthContext.jsx`, `RecetaDetalleIngredientesSection.jsx`, `ReportesOperativos.jsx`) y export de función no-componente junto a componentes (`ThemeContext.jsx`, `ventaLiveFormat.jsx`) y clase de carácter en `textSanitize.js`:** reglas de estilo/arquitectura de React más recientes (`react-hooks/set-state-in-effect`, `react-refresh/only-export-components`) que no afectan el comportamiento en producción. Quedan **fuera de alcance** de Fase 4 (que es "conectar los checks existentes a CI", no "sanear todo el lint histórico del frontend") y se anotan aquí como nota al pie para una fase de limpieza futura dedicada al frontend. Mientras tanto, el step de lint en `.github/workflows/frontend.yml` se marca `continue-on-error: true` (se ejecuta y es visible en cada PR, pero no bloquea el merge) hasta que se salde esta deuda; `build` y `test` sí son bloqueantes.
+
+---
+
 ## 2026-03 — Inventario: calibración merma y coste efectivo en recetas (27/03/2026)
 
 | ID | Fecha | Módulo | Síntoma | Causa | Solución | Estado |

@@ -127,6 +127,8 @@ export default function ElaboracionesPage() {
     [articulos]
   )
 
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const loadDetalle = useCallback(async (recetaId) => {
     const res = await getRecetaCoste(recetaId)
     const d = res.data
