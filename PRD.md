@@ -88,26 +88,28 @@
 **Por qué:** el backend no tiene ni un solo test (`test_*.py`, `pytest.ini`, `conftest.py` inexistentes). Para software que genera registros fiscales encadenados (Verifactu, hash SHA-256) y cobra dinero real (TPV), la ausencia total de tests es el mayor riesgo de regresión del proyecto.
 
 **Alcance:**
-- [ ] Añadir a `backend/requirements.txt` (o un `requirements-dev.txt` separado): `pytest`, `pytest-asyncio`, `httpx`.
-- [ ] Crear `backend/tests/conftest.py` con fixtures: instancia de la app FastAPI de test, pool de conexión a una base de datos de test (Postgres real — ver nota de dependencia con Fase 6/Docker para tener Postgres local reproducible; mientras tanto, usar una base Supabase de test o un Postgres local ad-hoc), cliente `httpx.AsyncClient` apuntando a la app.
-- [ ] Crear `backend/pytest.ini` (o sección `[tool.pytest.ini_options]` si se introduce `pyproject.toml`) con `asyncio_mode = auto`.
-- [ ] Tests mínimos obligatorios:
-  - `test_auth.py`: login válido devuelve token; login inválido devuelve 401 con mensaje genérico; login sin datos devuelve 422.
-  - `test_tenant_isolation.py`: regresión directa de la Fase 1 — usuario de tenant A no puede leer recursos de tenant B (mesas, tickets).
-  - `test_tpv_cobro_verifactu.py`: crear ticket, añadir líneas, cobrar completo, verificar que se genera un registro en `verifactu_registros` con hash válido y que no se puede hacer `UPDATE`/`DELETE` sobre esa tabla desde la capa de aplicación.
-  - `test_nominas.py`: cálculo de SS empleado (6.35%), SS empresa (29.9%) y estructura de líquido a percibir sobre un caso de ejemplo.
-- [ ] Documentar en `README.md` (sección de desarrollo) cómo correr `pytest` localmente.
+- [x] Añadir a `backend/requirements.txt` (o un `requirements-dev.txt` separado): `pytest`, `pytest-asyncio`, `httpx`. → `backend/requirements-dev.txt` creado (incluye `-r requirements.txt` + `pytest==8.3.3`, `pytest-asyncio==0.24.0`, `httpx==0.28.1`, `pyflakes==3.2.0`).
+- [x] Crear `backend/tests/conftest.py` con fixtures: instancia de la app FastAPI de test, pool de conexión a una base de datos de test (Postgres real), cliente `httpx.AsyncClient` apuntando a la app. → Se usa un Postgres local ad-hoc (`horecaso_test`) con un esquema mínimo propio (`tests/schema_test.sql`, no la migración completa de producción) creado y truncado (`TRUNCATE ... CASCADE`) antes de cada test para aislamiento total. El pool de asyncpg es **function-scoped** (no session-scoped) para evitar conflictos de event loop con `pytest-asyncio` en modo `auto`. Se añadió también una fixture autouse que resetea el estado interno de SlowAPI entre tests (si no, el rate limit de un test contaminaba el siguiente).
+- [x] Crear `backend/pytest.ini` con `asyncio_mode = auto` (+ `asyncio_default_fixture_loop_scope = function`, `testpaths = tests`).
+- [x] Tests mínimos obligatorios:
+  - `test_auth.py`: login válido devuelve token (9 tests) — incluye además login sin datos → 422, rate limit 5/min, perfil sin token → 403, perfil con token → 200 sin `password_hash`.
+  - `test_tenant_isolation.py`: 5 tests — usuario de tenant A no puede leer/cobrar/modificar mesas ni tickets de tenant B (403/404). Regresión directa de la Fase 1.
+  - `test_tpv_cobro_verifactu.py`: flujo completo ticket → líneas → cobro → Verifactu (tenant correcto, IVA correcto, hash encadenado), no se puede cobrar dos veces, y test de análisis estático (grep) que falla si aparece un `UPDATE`/`DELETE` sobre `verifactu_registros` en `routers/` o `services/`.
+  - `test_nominas.py`: SS empleado 6.35%, SS empresa 29.9%, IRPF y líquido sobre casos de ejemplo (simple y con horas extra/pluses); no se puede calcular la nómina dos veces para el mismo periodo; RBAC del endpoint.
+  - `test_rbac.py` (añadido, fuera de la lista mínima pero cubre la Fase 1 más a fondo): confirma que roles no autorizados (`cocina`, `camarero`, `almacen`) reciben 403 en Verifactu/Dashboard/TPV-cobro/Turnos, y que los roles correctos sí pueden.
+  - `test_verifactu_engine.py` (añadido): tests unitarios puros de `generar_huella` (determinismo, mayúsculas, encadenado) y `generar_qr_url`.
+- [x] Documentar en `README.md` (sección de desarrollo) cómo correr `pytest` localmente. → Nueva sección "🧪 Running Tests" en `README.md`.
 
 **Fuera de alcance:** cobertura exhaustiva de todos los routers (esto es un punto de partida, no cobertura total); tests de carga/performance.
 
 **Criterios de aceptación:**
-- `pytest` desde `backend/` corre sin errores de colección y todos los tests añadidos pasan en verde.
-- Los tests de aislamiento de tenant fallan si se revierte manualmente el fix de la Fase 1 (prueba de que el test realmente detecta la regresión).
-- El README documenta el comando exacto para ejecutar los tests.
+- [x] `pytest` desde `backend/` corre sin errores de colección y todos los tests añadidos pasan en verde. → **32 passed** (0 fallos, solo warnings de deprecación de librerías de terceros: `passlib`/`crypt`, `reportlab`/`ast.NameConstant`, `python-jose`/`datetime.utcnow`; fuera de alcance de esta fase).
+- [x] Los tests de aislamiento de tenant fallan si se revierte manualmente el fix de la Fase 1. → **Verificado manualmente**: se revirtió temporalmente `_require_mesa_in_user_scope` en `GET /api/mesas/{mesa_id}` por una query sin filtro de tenant/outlet; `test_get_mesa_de_otro_tenant_devuelve_403_o_404` pasó de PASSED a FAILED (`assert 200 in (403, 404)`); se restauró el fix y la suite completa volvió a 32/32 verdes.
+- [x] El README documenta el comando exacto para ejecutar los tests.
 
 **Dependencias:** Fase 1 completada (para que los tests de aislamiento de tenant tengan algo correcto que verificar).
 
-**Estado:** `[ ] PENDIENTE`
+**Estado:** `[x] COMPLETADA`
 
 ---
 
@@ -411,3 +413,4 @@
 | 2026-07-02 | — | PRD creado | (este commit) |
 | 2026-07-02 | Fase 0 | COMPLETADA — backend/frontend verificados, `backend/sql/` limpiado, `CREDENCIALES_PRUEBA.MD` redactado, sin secretos reales trackeados | PR #1 |
 | 2026-07-02 | Fase 1 | COMPLETADA — 5 IDOR corregidos, rate limiting aplicado (login/usuarios/superadmin/cobro), RBAC unificado en Verifactu/Dashboard/TPV/Mesas/Fichajes, verificado manualmente con curl + JWTs de prueba | PR #1 |
+| 2026-07-02 | Fase 2 | COMPLETADA — suite pytest backend desde cero: 32 tests (auth, aislamiento de tenant, RBAC, TPV+Verifactu end-to-end, nóminas, motor Verifactu unitario), `conftest.py` con esquema de test mínimo y aislamiento por `TRUNCATE`, regresión de Fase 1 verificada manualmente revirtiendo el fix, README actualizado | PR #1 |

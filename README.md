@@ -405,6 +405,30 @@ Run the SQL migrations from `backend/sql/` in the Supabase SQL Editor (see [docs
 
 ---
 
+## 🧪 Running Tests
+
+### Backend (Pytest)
+
+Requires a real PostgreSQL instance for the test database (no mocks/SQLite — the app relies on Postgres-specific features like `gen_random_uuid()`).
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
+
+# One-time: create the test database (adjust user/host as needed)
+createdb -h localhost -U postgres horecaso_test
+
+pytest
+```
+
+`pytest.ini` sets `asyncio_mode = auto`; `tests/conftest.py` creates a minimal schema (`tests/schema_test.sql`) and truncates all tables before every test for isolation. Override the connection string with `TEST_DATABASE_URL` if your local Postgres uses different credentials (default: `postgresql://postgres:test@localhost:5432/horecaso_test`).
+
+Current suite covers: auth + rate limiting, multi-tenant isolation (IDOR regressions), RBAC on sensitive endpoints, the full TPV charge → Verifactu flow (including hash chaining and the immutability rule), and payroll (nóminas) calculations.
+
+---
+
 ## 🌐 Deployment
 
 ### Backend — Render

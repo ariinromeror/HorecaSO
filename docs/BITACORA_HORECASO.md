@@ -193,6 +193,16 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 02/07/2026 — **PRD.md hardening senior — Fase 2 (testing backend)**
+
+- **Suite pytest creada desde cero** (antes: 0 tests en el backend). `backend/requirements-dev.txt` nuevo (`pytest`, `pytest-asyncio`, `httpx`, `pyflakes` + `-r requirements.txt`). `backend/pytest.ini` con `asyncio_mode = auto` y `asyncio_default_fixture_loop_scope = function`.
+- **`backend/tests/conftest.py`:** pool de `asyncpg` **function-scoped** contra un Postgres local (`horecaso_test`, configurable con `TEST_DATABASE_URL`), esquema mínimo propio en `backend/tests/schema_test.sql` (NO es la migración de producción — solo cubre las tablas que ejercitan los tests actuales), `TRUNCATE ... CASCADE` antes de cada test para aislamiento. Fixture autouse que resetea el estado interno de SlowAPI entre tests (si no, el rate-limit de un test contaminaba el siguiente). Helpers de seed: `crear_tenant`, `crear_outlet`, `crear_usuario`, `crear_mesa`, `crear_producto`, `crear_ticket`, `crear_empleado`.
+- **32 tests añadidos**, todos en verde: `test_auth.py` (9 — login OK/401/422, rate limit 5/min, perfil), `test_tenant_isolation.py` (5 — regresión directa de la Fase 1: tenant A no accede a mesas/tickets de tenant B), `test_rbac.py` (7 — roles no autorizados bloqueados en Verifactu/Dashboard/TPV-cobro/Turnos), `test_tpv_cobro_verifactu.py` (3 — flujo ticket→líneas→cobro→Verifactu con hash encadenado, no cobrar dos veces, análisis estático que falla si aparece `UPDATE`/`DELETE` sobre `verifactu_registros` en `routers/`/`services/`), `test_nominas.py` (4 — SS 6.35%/29.9%, IRPF, no duplicar periodo, RBAC), `test_verifactu_engine.py` (4 — unitarios de `generar_huella`/`generar_qr_url`).
+- **Verificación de que el test de aislamiento detecta regresiones de verdad:** se revirtió temporalmente el fix de `GET /api/mesas/{mesa_id}` (Fase 1) quitando el filtro de tenant/outlet; `test_get_mesa_de_otro_tenant_devuelve_403_o_404` pasó a FAILED como se esperaba; se restauró el fix y la suite volvió a 32/32 verdes.
+- **Problema resuelto:** `RuntimeError: Task attached to a different loop` — el pool de asyncpg era `session`-scoped pero `pytest-asyncio` en modo `auto` crea un loop nuevo por test; se resolvió haciendo el fixture del pool `function`-scoped (un pool nuevo, con su propio loop, por test).
+- **`README.md`:** nueva sección "🧪 Running Tests" con el comando exacto (`pip install -r requirements-dev.txt`, `createdb horecaso_test`, `pytest`) y qué cubre la suite actual.
+- **Resultado:** OK. `PRD.md` Fase 2 marcada COMPLETADA.
+
 ### 02/07/2026 — **PRD.md hardening senior — Fase 1 (seguridad crítica)**
 
 - **IDOR corregidos (5 endpoints):** `GET /api/mesas/{mesa_id}`, `GET /api/tpv/tickets/{ticket_id}`, `POST /api/tpv/tickets/{id}/cobrar`, `POST/DELETE /api/tpv/tickets/{id}/lineas[/{linea_id}]` — todos usaban `SELECT ... WHERE id = $1` sin filtrar tenant/outlet; ahora usan los helpers `_require_mesa_in_user_scope` / `_require_ticket_tpv_access` ya existentes en el propio paquete (patrón usado por sus endpoints hermanos PUT/DELETE/`/detalle`). En `tpv_cobrar.py` además se corrigió que el `tenant_id` del registro Verifactu generado en el cobro sea el del **ticket**, no el del usuario autenticado.
