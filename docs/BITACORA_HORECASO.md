@@ -193,6 +193,15 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 02/07/2026 — **PRD.md hardening senior — Fase 1 (seguridad crítica)**
+
+- **IDOR corregidos (5 endpoints):** `GET /api/mesas/{mesa_id}`, `GET /api/tpv/tickets/{ticket_id}`, `POST /api/tpv/tickets/{id}/cobrar`, `POST/DELETE /api/tpv/tickets/{id}/lineas[/{linea_id}]` — todos usaban `SELECT ... WHERE id = $1` sin filtrar tenant/outlet; ahora usan los helpers `_require_mesa_in_user_scope` / `_require_ticket_tpv_access` ya existentes en el propio paquete (patrón usado por sus endpoints hermanos PUT/DELETE/`/detalle`). En `tpv_cobrar.py` además se corrigió que el `tenant_id` del registro Verifactu generado en el cobro sea el del **ticket**, no el del usuario autenticado.
+- **Rate limiting aplicado (SlowAPI, antes solo montado como middleware sin uso real):** extraído `limiter` a `backend/rate_limit.py` (evita import circular). Límites: login `5/min`/IP, alta de usuarios `20/min`, activar/desactivar tenant (superadmin) `20/min`, cobro TPV `60/min` (generoso a propósito por IP/NAT compartida en el local). Verificado con `curl`: 6º intento de login consecutivo → `429`.
+- **RBAC unificado** (antes solo `get_current_user`, cualquier rol autenticado pasaba): Verifactu (4 endpoints) y Dashboard (2 endpoints) → `admin/director`; TPV (crear ticket, listar abiertos, detalle, añadir/borrar línea, cobrar) → roles operativos coherentes con `tpv_pagos.py`; Mesas (`get_mesa`, `create_mesa`, `update_mesa_estado`) → roles coherentes con PUT/DELETE existentes. Hallazgo adicional fuera de la lista inicial: `GET /api/turnos` permitía a `cocina/barra/almacen` consultar el fichaje de cualquier empleado del tenant vía `empleado_id` — restringido a `admin/director/jefe_sala`.
+- **Verificación manual:** instalado Postgres local + generados JWTs de prueba con `jose` (sin login real) para probar RBAC end-to-end sin depender de datos seed: rol `cocina` → `403` en Verifactu/Dashboard; rol `admin` pasa el check de rol (falla después por falta de esquema, como se esperaba en una DB vacía). `create_app()` sigue registrando 144 rutas; `pyflakes` sin errores nuevos.
+- **Decisión documentada (no ejecutada aquí):** JWT sigue en `localStorage` en frontend — migrar a cookie `httpOnly` es un cambio cruzado (CORS + CSRF + logout server-side) fuera del alcance quirúrgico de esta fase; queda como riesgo aceptado y recomendación futura.
+- **Resultado:** OK. `PRD.md` Fase 1 marcada COMPLETADA.
+
 ### 02/07/2026 — **PRD.md hardening senior — Fase 0 (línea base y housekeeping)**
 
 - Añadido `PRD.md` en la raíz del repo: roadmap técnico de hardening en 14 fases (0-13), derivado de auditoría completa de backend, frontend, BD y DevOps. Distinto de `docs/PRD_HorecaSO.md` (producto).

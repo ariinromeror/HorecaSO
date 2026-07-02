@@ -16,13 +16,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 
 from config import settings
 from database import close_connection_pool, init_connection_pool, get_db
+from rate_limit import limiter
 from routers.admin_carta.admin_carta import router as admin_carta_router
 from routers.admin_carta.admin_carta import router_alergenos as alergenos_router
 from routers.admin_carta.admin_productos import router as admin_productos_router
@@ -75,8 +75,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-limiter = Limiter(key_func=get_remote_address)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

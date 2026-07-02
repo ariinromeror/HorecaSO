@@ -4,36 +4,33 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from auth.dependencies import get_current_user
+from auth.dependencies import require_roles
 from database import get_db
 
 from .tpv_schemas import AddLineaRequest
 from .tpv_shared import (
     _linea_to_dict,
+    _require_ticket_tpv_access,
 )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+ROLES_TPV_OPERATIVO = ["admin", "director", "jefe_sala", "camarero"]
+
 
 @router.post("/tickets/{ticket_id}/lineas")
 async def add_linea(
     ticket_id: UUID,
     body: AddLineaRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_TPV_OPERATIVO)),
 ):
     """Añade línea al ticket. Recalcula total."""
     async with get_db() as conn:
-        ticket_row = await conn.fetchrow(
-            "SELECT * FROM tickets WHERE id = $1",
-            ticket_id,
+        ticket_row = await _require_ticket_tpv_access(
+            conn, ticket_id, current_user["sub"]
         )
-        if not ticket_row:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Ticket no encontrado",
-            )
         if ticket_row["estado"] != "abierto":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -147,10 +144,14 @@ async def add_linea(
 async def delete_linea(
     ticket_id: UUID,
     linea_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_TPV_OPERATIVO)),
 ):
     """Elimina línea del ticket. Recalcula total."""
     async with get_db() as conn:
+        ticket_row = await _require_ticket_tpv_access(
+            conn, ticket_id, current_user["sub"]
+        )
+
         linea_row = await conn.fetchrow(
             "SELECT * FROM ticket_lineas WHERE id = $1 AND ticket_id = $2",
             linea_id,
@@ -162,11 +163,7 @@ async def delete_linea(
                 detail="Línea no encontrada",
             )
 
-        ticket_row = await conn.fetchrow(
-            "SELECT * FROM tickets WHERE id = $1",
-            ticket_id,
-        )
-        if not ticket_row or ticket_row["estado"] != "abierto":
+        if ticket_row["estado"] != "abierto":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se puede modificar un ticket cerrado",
