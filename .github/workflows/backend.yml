@@ -64,4 +64,8 @@ jobs:
         run: python -c "from main import create_app; create_app()"
 
       - name: Run pytest
-        run: pytest -v
+        # `python -m pytest` (no el script `pytest` a secas) para que el
+        # directorio actual (`backend/`) se añada a sys.path igual que en
+        # local; si no, `tests/conftest.py` falla con
+        # `ModuleNotFoundError: No module named 'database'`.
+        run: python -m pytest -v
