@@ -427,6 +427,17 @@ pytest
 
 Current suite covers: auth + rate limiting, multi-tenant isolation (IDOR regressions), RBAC on sensitive endpoints, the full TPV charge → Verifactu flow (including hash chaining and the immutability rule), and payroll (nóminas) calculations.
 
+### Frontend (Vitest)
+
+```bash
+cd frontend
+npm install
+npm run test          # single run
+npm run test:watch    # watch mode
+```
+
+Uses Vitest + `@testing-library/react` with a jsdom environment (`frontend/vitest.config.js`, kept separate from `vite.config.js` since the PWA/Tailwind plugins aren't needed for unit tests). Current suite covers: `AuthContext` (session bootstrap from `localStorage`, login persists token, logout clears it), `PrivateRoute` (redirect to `/login` when unauthenticated, redirect to `/mesas` when the role isn't allowed, render content otherwise), and the Venta Live polling hook (a network error during a background poll must **not** wipe already-loaded data — an explicit project rule for all `/venta-live` and `/kds` polling screens).
+
 ---
 
 ## 🌐 Deployment

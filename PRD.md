@@ -120,23 +120,23 @@
 **Por qué:** cero tests en frontend (~180 archivos `.jsx`/`.js`). El área de mayor riesgo es el manejo de sesión/token y las rutas protegidas por rol, que hoy dependen de lógica dispersa (`PrivateRoute` y variantes en `App.jsx`, más redirects a nivel de página).
 
 **Alcance:**
-- [ ] Añadir a `frontend/package.json` (devDependencies): `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`.
-- [ ] Crear `frontend/vitest.config.js` (o extender `vite.config.js` con `test: {...}`) y script `"test": "vitest run"` en `package.json`.
-- [ ] Tests mínimos obligatorios:
-  - `AuthContext.test.jsx`: login exitoso persiste token en `localStorage` y actualiza `isAuthenticated`; logout limpia el estado; carga inicial desde `localStorage` funciona.
-  - `PrivateRoute.test.jsx` (y al menos una variante con `allowedRoles`): usuario sin rol permitido es redirigido; usuario con rol permitido ve el contenido.
-  - Un test de un hook de polling (ej. `useVentaLivePolling`) verificando que un error de red no resetea los datos ya cargados (regla explícita del proyecto).
-- [ ] Documentar en `README.md`/`frontend/README` cómo correr `npm run test`.
+- [x] Añadir a `frontend/package.json` (devDependencies): `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`.
+- [x] Crear `frontend/vitest.config.js` (config separada de `vite.config.js`, que trae `vite-plugin-pwa` y `@tailwindcss/vite` — overhead innecesario en jsdom) y scripts `"test": "vitest run"` / `"test:watch": "vitest"` en `package.json`.
+- [x] Tests mínimos obligatorios:
+  - `AuthContext.test.jsx` (5 tests): arranque sin sesión, recuperación de sesión desde `localStorage`, login exitoso persiste token y actualiza `isAuthenticated`, logout limpia `localStorage` y estado.
+  - `PrivateRoute.test.jsx` (5 tests, con variante `allowedRoles`): loader mientras `isLoading`, redirect a `/login` sin sesión, render de contenido sin restricción de rol, redirect a `/mesas` con rol no permitido, render de contenido con rol permitido. **Nota de refactor:** `PrivateRoute` estaba definido inline y no exportado dentro de `App.jsx`; se extrajo a `frontend/src/components/routing/PrivateRoute.jsx` (mismo comportamiento, sin cambios de lógica) para poder testearlo de forma aislada. `App.jsx` ahora lo importa.
+  - `useVentaLivePolling.test.js` (2 tests): carga inicial correcta; un error de red durante un poll de fondo **no** resetea `dashboard`/`mesas`/`ticketsDia` ya cargados (regla explícita del proyecto para pantallas de polling).
+- [x] Documentar en `README.md` cómo correr `npm run test`.
 
 **Fuera de alcance:** tests end-to-end con Playwright/Cypress (se puede evaluar como fase futura opcional, no incluida en este PRD todavía); cobertura de todos los componentes.
 
 **Criterios de aceptación:**
-- `npm run test` corre sin errores y todos los tests pasan.
-- Los tests de `PrivateRoute` fallan deliberadamente si se comenta la comprobación de rol (prueba de que el test es significativo).
+- [x] `npm run test` corre sin errores y todos los tests pasan. → **11 passed** (3 archivos de test).
+- [x] Los tests de `PrivateRoute` fallan deliberadamente si se comenta la comprobación de rol. → **Verificado manualmente**: se comentó el bloque de `allowedRoles` en `PrivateRoute.jsx`; el test `redirige a /mesas si el rol del usuario no está en allowedRoles` pasó a FAILED; se restauró el código y la suite volvió a 11/11 verdes.
 
 **Dependencias:** ninguna estricta, pero se recomienda ejecutar después de la Fase 2 para mantener el orden backend→frontend del PRD.
 
-**Estado:** `[ ] PENDIENTE`
+**Estado:** `[x] COMPLETADA`
 
 ---
 
@@ -414,3 +414,4 @@
 | 2026-07-02 | Fase 0 | COMPLETADA — backend/frontend verificados, `backend/sql/` limpiado, `CREDENCIALES_PRUEBA.MD` redactado, sin secretos reales trackeados | PR #1 |
 | 2026-07-02 | Fase 1 | COMPLETADA — 5 IDOR corregidos, rate limiting aplicado (login/usuarios/superadmin/cobro), RBAC unificado en Verifactu/Dashboard/TPV/Mesas/Fichajes, verificado manualmente con curl + JWTs de prueba | PR #1 |
 | 2026-07-02 | Fase 2 | COMPLETADA — suite pytest backend desde cero: 32 tests (auth, aislamiento de tenant, RBAC, TPV+Verifactu end-to-end, nóminas, motor Verifactu unitario), `conftest.py` con esquema de test mínimo y aislamiento por `TRUNCATE`, regresión de Fase 1 verificada manualmente revirtiendo el fix, README actualizado | PR #1 |
+| 2026-07-02 | Fase 3 | COMPLETADA — Vitest + Testing Library en frontend: 11 tests (AuthContext, PrivateRoute extraído a componente propio, hook de polling de Venta Live), regresión de rol verificada manualmente comentando el check, README actualizado, `npm run lint`/`npm run build` verificados sin regresiones | PR #1 |

@@ -193,6 +193,16 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 02/07/2026 — **PRD.md hardening senior — Fase 3 (testing frontend)**
+
+- **Vitest instalado desde cero** (antes: 0 tests en frontend, ~180 archivos `.jsx`/`.js`). Devdeps nuevas: `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`. `frontend/vitest.config.js` **separado** de `vite.config.js` (que trae `vite-plugin-pwa` + `@tailwindcss/vite`, innecesarios en jsdom); `frontend/src/tests/setup.js` importa `@testing-library/jest-dom/vitest`. Scripts nuevos: `npm run test` (una pasada) y `npm run test:watch`.
+- **Refactor habilitante (sin cambio de comportamiento):** `PrivateRoute` estaba definido inline dentro de `App.jsx` y no se exportaba, por lo que no era testeable de forma aislada. Se extrajo a `frontend/src/components/routing/PrivateRoute.jsx` (misma lógica exacta: loader mientras `isLoading`, redirect a `/login` sin sesión, redirect a `/mesas` con rol no permitido, `<Outlet/>` o `children` si todo OK) y `App.jsx` ahora lo importa. Las demás rutas con rol hardcodeado (`AdminDirectorRoute`, `InventarioRoute`, etc., que son casos particulares del mismo patrón) **no se tocaron** — consolidarlas es una mejora futura fuera del alcance de esta fase (solo testing).
+- **11 tests añadidos**, todos en verde: `AuthContext.test.jsx` (5 — bootstrap desde `localStorage`, login persiste token, logout limpia estado), `PrivateRoute.test.jsx` (5 — loader, redirect sin sesión, redirect por rol no permitido, render con/sin restricción de rol), `useVentaLivePolling.test.js` (2 — carga inicial, y la regla explícita del proyecto de que un error de red en un poll de fondo NO resetea los datos ya mostrados).
+- **Verificación de que el test de rol detecta regresiones de verdad:** se comentó temporalmente el bloque de comprobación de `allowedRoles` en `PrivateRoute.jsx`; el test `redirige a /mesas si el rol del usuario no está en allowedRoles` pasó a FAILED; se restauró el código y la suite volvió a 11/11 verdes.
+- **Problema resuelto:** `renderHook`/`waitFor` con `vi.useFakeTimers()` colgaba el test 5s (timeout) porque `waitFor` depende de temporizadores reales internamente; se resolvió con `vi.useFakeTimers({ shouldAdvanceTime: true })`, que permite avanzar el reloj falso manualmente (`vi.advanceTimersByTime`) sin romper el polling interno de `waitFor`.
+- **Verificado sin regresiones:** `npm run lint` y `npm run build` sobre los archivos tocados (`App.jsx`, `PrivateRoute.jsx`) sin errores nuevos (los ~22 errores/8 warnings de lint preexistentes en otros archivos del repo son ajenos a este cambio y quedan fuera de alcance).
+- **Resultado:** OK. `PRD.md` Fase 3 marcada COMPLETADA.
+
 ### 02/07/2026 — **PRD.md hardening senior — Fase 2 (testing backend)**
 
 - **Suite pytest creada desde cero** (antes: 0 tests en el backend). `backend/requirements-dev.txt` nuevo (`pytest`, `pytest-asyncio`, `httpx`, `pyflakes` + `-r requirements.txt`). `backend/pytest.ini` con `asyncio_mode = auto` y `asyncio_default_fixture_loop_scope = function`.
