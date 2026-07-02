@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from auth.dependencies import get_current_user, require_roles
+from auth.dependencies import require_roles
 from database import get_db
 
 from .tpv_shared import (
@@ -23,19 +23,13 @@ ROLES_TICKET_DETALLE = ("admin", "director", "jefe_sala", "camarero")
 @router.get("/tickets/{ticket_id}")
 async def get_ticket(
     ticket_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(list(ROLES_TICKET_DETALLE))),
 ):
-    """Devuelve ticket con sus líneas. HTTP 404 si no existe."""
+    """Devuelve ticket con sus líneas. HTTP 404 si no existe o pertenece a otro tenant/outlet."""
     async with get_db() as conn:
-        ticket_row = await conn.fetchrow(
-            "SELECT * FROM tickets WHERE id = $1",
-            ticket_id,
+        ticket_row = await _require_ticket_tpv_access(
+            conn, ticket_id, current_user["sub"]
         )
-        if not ticket_row:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Ticket no encontrado",
-            )
 
         lineas_rows = await conn.fetch(
             "SELECT * FROM ticket_lineas WHERE ticket_id = $1 ORDER BY id",

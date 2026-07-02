@@ -8,11 +8,12 @@ from datetime import date, datetime, time, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from auth.dependencies import require_superadmin
 from database import get_db
+from rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,9 @@ async def get_tenant_detail(
 
 
 @router.patch("/tenants/{tenant_id}/activo")
+@limiter.limit("20/minute")
 async def patch_tenant_activo(
+    request: Request,
     tenant_id: UUID,
     body: TenantActivoBody,
     current_user: dict = Depends(require_superadmin),

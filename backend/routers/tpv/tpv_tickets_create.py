@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from auth.dependencies import get_current_user
+from auth.dependencies import require_roles
 from database import get_db
 
 from .tpv_schemas import CreateTicketRequest
@@ -16,10 +16,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+ROLES_TPV_OPERATIVO = ["admin", "director", "jefe_sala", "camarero"]
+
+
 @router.post("/tickets")
 async def create_ticket(
     body: CreateTicketRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_TPV_OPERATIVO)),
 ):
     """
     Crea ticket. Verifica mesa libre. Cambia mesa a ocupada.

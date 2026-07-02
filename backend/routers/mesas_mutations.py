@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from auth.dependencies import get_current_user, require_roles
+from auth.dependencies import require_roles
 from database import get_db
 
 from .mesas_shared import (
@@ -24,11 +24,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+ROLES_GESTION_SALA = ["admin", "director", "jefe_sala"]
+ROLES_ESTADO_MESA = ["admin", "director", "jefe_sala", "camarero"]
+
 
 @router.post("/")
 async def create_mesa(
     body: CreateMesaRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_GESTION_SALA)),
 ):
     """Crea nueva mesa con estado='libre'."""
     async with get_db() as conn:
@@ -84,7 +87,7 @@ async def create_mesa(
 async def update_mesa_estado(
     mesa_id: UUID,
     body: EstadoUpdateRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_ESTADO_MESA)),
 ):
     """Actualiza solo el estado de la mesa."""
     if body.estado not in ESTADOS_VALIDOS:

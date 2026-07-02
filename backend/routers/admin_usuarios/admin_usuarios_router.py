@@ -7,12 +7,13 @@ from typing import Literal
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 
 from auth.dependencies import require_roles
 from database import get_db
+from rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +127,9 @@ async def list_usuarios(
 
 
 @router.post("/usuarios", status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 async def create_usuario(
+    request: Request,
     body: CreateUsuarioBody,
     current_user: dict = Depends(require_admin_tenant),
 ):

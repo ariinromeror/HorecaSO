@@ -39,16 +39,6 @@ router = APIRouter(
 
 r_turnos = APIRouter(prefix="/turnos")
 
-ROLES_LISTADO_OPERATIVO = [
-    "admin",
-    "director",
-    "jefe_sala",
-    "camarero",
-    "cocina",
-    "barra",
-    "almacen",
-]
-
 
 # --- Turnos / fichajes ---
 class FichajeBody(BaseModel):
@@ -317,8 +307,15 @@ async def list_turnos(
     desde: Optional[date] = Query(None),
     hasta: Optional[date] = Query(None),
     fecha: Optional[date] = Query(None),
-    current_user: dict = Depends(require_roles(ROLES_LISTADO_OPERATIVO)),
+    current_user: dict = Depends(require_roles(ROLES_JEFE)),
 ):
+    """
+    Historial de fichajes/turnos. Restringido a admin/director/jefe_sala:
+    permite consultar el fichaje de CUALQUIER empleado del tenant vía
+    `empleado_id`, por lo que no debe quedar abierto a roles operativos
+    (cocina/barra/almacen/camarero) — evita exponer horarios de otros
+    compañeros a quien no gestiona el personal.
+    """
     tenant_id = _tenant_id(current_user)
     try:
         async with get_db() as conn:

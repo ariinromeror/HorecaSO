@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from auth.dependencies import get_current_user, require_roles
+from auth.dependencies import require_roles
 from database import get_db
 
 from .tpv_shared import (
@@ -18,10 +18,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 ROLES_TICKETS_HOY = ("admin", "director", "jefe_sala")
+ROLES_TICKETS_ABIERTOS = ("admin", "director", "jefe_sala", "camarero")
 
 
 @router.get("/tickets/abiertos")
-async def list_tickets_abiertos(current_user: dict = Depends(get_current_user)):
+async def list_tickets_abiertos(
+    current_user: dict = Depends(require_roles(list(ROLES_TICKETS_ABIERTOS))),
+):
     """Lista tickets abiertos del outlet del usuario. Incluye número de mesa."""
     async with get_db() as conn:
         user_outlet_id = await _get_user_outlet(conn, current_user["sub"])

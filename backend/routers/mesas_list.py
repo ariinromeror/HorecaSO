@@ -7,10 +7,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from auth.dependencies import get_current_user, require_roles
+from auth.dependencies import require_roles
 from database import get_db
 
-from .mesas_shared import _get_user_tenant_outlet, _mesa_to_dict
+from .mesas_shared import (
+    _get_user_tenant_outlet,
+    _mesa_to_dict,
+    _require_mesa_in_user_scope,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,19 +73,10 @@ async def list_mesas(
 @router.get("/{mesa_id}")
 async def get_mesa(
     mesa_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_LISTADO_OPERATIVO)),
 ):
-    """Devuelve detalle de una mesa. HTTP 404 si no existe."""
+    """Devuelve detalle de una mesa. HTTP 404 si no existe o pertenece a otro tenant/outlet."""
     async with get_db() as conn:
-        row = await conn.fetchrow(
-            "SELECT * FROM mesas WHERE id = $1",
-            mesa_id,
-        )
-
-    if not row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Mesa no encontrada",
-        )
+        row = await _require_mesa_in_user_scope(conn, mesa_id, current_user["sub"])
 
     return _mesa_to_dict(row)
