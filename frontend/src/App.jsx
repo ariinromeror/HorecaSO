@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import AppLayout from './components/layout/AppLayout'
 import Loader from './components/shared/Loader'
+import PrivateRoute from './components/routing/PrivateRoute'
 import LoginPage from './pages/LoginPage'
 import MesasPage from './pages/sala/MesasPage'
 import TPVPage from './pages/tpv/TPVPage'
@@ -39,31 +40,6 @@ import TenantsListPage from './pages/superadmin/TenantsListPage'
 import TenantDetailPage from './pages/superadmin/TenantDetailPage'
 import PlatformLogsPage from './pages/superadmin/PlatformLogsPage'
 import UsuariosPage from './pages/admin/usuarios/UsuariosPage'
-
-function PrivateRoute({ children, allowedRoles }) {
-  const { isLoading, isAuthenticated, user } = useAuth()
-
-  if (isLoading) {
-    return <Loader />
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (allowedRoles != null && allowedRoles.length > 0) {
-    const rol = user?.rol
-    if (!rol || !allowedRoles.includes(rol)) {
-      return <Navigate to="/mesas" replace />
-    }
-  }
-
-  if (children != null) {
-    return children
-  }
-
-  return <Outlet />
-}
 
 function AdminDirectorRoute() {
   const { user, isLoading, isAuthenticated } = useAuth()
