@@ -11,6 +11,9 @@
 ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
 
+[![Backend CI](https://github.com/ariinromeror/HorecaSO/actions/workflows/backend.yml/badge.svg)](https://github.com/ariinromeror/HorecaSO/actions/workflows/backend.yml)
+[![Frontend CI](https://github.com/ariinromeror/HorecaSO/actions/workflows/frontend.yml/badge.svg)](https://github.com/ariinromeror/HorecaSO/actions/workflows/frontend.yml)
+
 **Full-stack multi-tenant ERP for the Spanish hospitality industry (restaurants & bars)**
 
 **Live on Render · Vercel · Supabase — Installable as PWA**
