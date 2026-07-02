@@ -193,6 +193,15 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ## 8. REGISTRO BREVE (docs)
 
+### 02/07/2026 — **PRD.md hardening senior — Fase 0 (línea base y housekeeping)**
+
+- Añadido `PRD.md` en la raíz del repo: roadmap técnico de hardening en 14 fases (0-13), derivado de auditoría completa de backend, frontend, BD y DevOps. Distinto de `docs/PRD_HorecaSO.md` (producto).
+- **Fase 0 ejecutada:** verificado que `backend` instala (`pip install -r requirements.txt`) y arranca (`create_app()` registra 144 rutas) y que `frontend` instala y compila (`npm run build`, con el warning esperado de bundle >500KB que se resuelve en Fase 8).
+- `backend/sql/`: movidos ~34 artefactos operativos MCP/shell (`_mcp_*.json`, `_shell_out*.json`, `_b64_*`, `_seed_split_*`, `_exec_*`, etc.) a `backend/sql/_artifacts/`, ahora en `.gitignore`. Quedan en `backend/sql/` solo migraciones (`migration_*.sql`), seeds nombrados (`seed_*.sql`) y `maintenance_recetas_tiene_receta.sql`.
+- `docs/CREDENCIALES_PRUEBA.MD`: redactado — eliminadas contraseñas en texto plano y hashes bcrypt reales del tenant de prueba (estaban sincronizados con Supabase, es decir, eran credenciales reales expuestas en el repo). Sustituido por instrucciones de generación local (`backend/scripts/generate_test_hashes.py`) y tabla de emails/roles sin contraseñas. **Acción recomendada fuera de este repo:** rotar esas contraseñas en cualquier entorno donde sigan activas.
+- Verificado (`git grep`) que no hay secretos reales (`DATABASE_URL`, `SECRET_KEY_AUTH`, claves `sk_`) en archivos trackeados — solo placeholders en `.env.example` y guías.
+- **Resultado:** OK. Sin cambios de comportamiento de la aplicación.
+
 ### 20/06/2026 — **Login: ProjectInfoModal (clon InfoCampus)**
 
 - **`ProjectInfoModal.jsx`:** modal informativo en login con pestañas «Sobre el proyecto» y «README», selector ES/EN en ambas pestañas, animaciones Framer Motion, paleta HorecaSO (amber + dark mode).

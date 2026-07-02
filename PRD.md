@@ -26,12 +26,12 @@
 **Por qué:** hay artefactos operativos (`backend/sql/_mcp_*.json`, `_shell_out*.json`, `_b64_*.txt`, `_args1*.json`) mezclados con migraciones SQL reales, y un archivo de credenciales de prueba (`docs/CREDENCIALES_PRUEBA.MD`) versionado con contraseñas y hashes bcrypt reales. Empezar por aquí evita arrastrar ruido y riesgo a las fases siguientes.
 
 **Alcance:**
-- [ ] Verificar que el backend arranca localmente (`pip install -r backend/requirements.txt` en venv, `python -c "from main import create_app"`).
-- [ ] Verificar que el frontend instala y compila (`npm install`, `npm run build` en `frontend/`).
-- [ ] Mover artefactos MCP/shell de `backend/sql/` (`_mcp_*.json`, `_shell_out*.json`, `_b64_*.txt`, `_args1*`, `_q1*`, `_decoded_args*`, `list_tables_mcp_*.json`) a `backend/sql/_artifacts/` y añadir esa carpeta a `.gitignore`.
-- [ ] Redactar/mitigar `docs/CREDENCIALES_PRUEBA.MD`: sustituir contraseñas reales por placeholders o mover el contenido sensible fuera del repo (ej. a un gestor de secretos / variable de entorno documentada), dejando solo instrucciones de cómo generar credenciales de prueba localmente (`backend/scripts/generate_test_hashes.py` ya existe para esto).
-- [ ] Confirmar (grep) que ningún `.env` real, `DATABASE_URL`, o clave viva está commiteada en el historial reciente.
-- [ ] Actualizar `.gitignore` si hace falta (carpeta `_artifacts/`, cualquier `*.local`).
+- [x] Verificar que el backend arranca localmente (`pip install -r backend/requirements.txt` en venv, `python -c "from main import create_app"`). → OK, 144 rutas registradas.
+- [x] Verificar que el frontend instala y compila (`npm install`, `npm run build` en `frontend/`). → OK (warning de bundle >500KB esperado, se resuelve en Fase 8).
+- [x] Mover artefactos MCP/shell de `backend/sql/` (`_mcp_*.json`, `_shell_out*.json`, `_b64_*.txt`, `_args1*`, `_q1*`, `_decoded_args*`, `list_tables_mcp_*.json`) a `backend/sql/_artifacts/` y añadir esa carpeta a `.gitignore`.
+- [x] Redactar/mitigar `docs/CREDENCIALES_PRUEBA.MD`: sustituir contraseñas reales por placeholders o mover el contenido sensible fuera del repo (ej. a un gestor de secretos / variable de entorno documentada), dejando solo instrucciones de cómo generar credenciales de prueba localmente (`backend/scripts/generate_test_hashes.py` ya existe para esto).
+- [x] Confirmar (grep) que ningún `.env` real, `DATABASE_URL`, o clave viva está commiteada en el historial reciente. → Solo placeholders encontrados.
+- [x] Actualizar `.gitignore` si hace falta (carpeta `_artifacts/`, cualquier `*.local`). → Añadido `backend/sql/_artifacts/`.
 
 **Fuera de alcance:** cualquier cambio de código de negocio, reorganización completa de `backend/sql/` en `migrations/`/`seeds/` (eso es Fase 5).
 
@@ -44,7 +44,7 @@
 
 **Dependencias:** ninguna.
 
-**Estado:** `[ ] PENDIENTE`
+**Estado:** `[x] COMPLETADA`
 
 ---
 
@@ -407,3 +407,4 @@
 | Fecha | Fase | Resultado | Commit/PR |
 |-------|------|-----------|-----------|
 | 2026-07-02 | — | PRD creado | (este commit) |
+| 2026-07-02 | Fase 0 | COMPLETADA — backend/frontend verificados, `backend/sql/` limpiado, `CREDENCIALES_PRUEBA.MD` redactado, sin secretos reales trackeados | PR #1 |

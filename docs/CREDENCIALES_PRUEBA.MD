@@ -1,32 +1,32 @@
 # Credenciales de prueba (desarrollo)
 
-**Actualizado:** 27/03/2026 — Contraseñas alineadas con `backend/scripts/generate_test_hashes.py`. Los `password_hash` en Supabase se actualizaron con la misma pasada bcrypt que este archivo (login coherente con la BD de proyecto).
+**Actualizado:** 02/07/2026 — Redactado por auditoría de seguridad (Fase 0 del `PRD.md`). Este archivo **ya no contiene contraseñas ni hashes reales**. Antes contenía credenciales en texto plano y hashes bcrypt correspondientes a usuarios realmente sembrados en la base de datos de Supabase — si esas contraseñas siguen activas en cualquier entorno (incluido el de pruebas), **rótalas** antes de continuar, ya que estuvieron expuestas en el repositorio.
 
-**No usar en producción.** Cámbialas antes de exponer el sistema.
+**No usar nunca contraseñas reales en este archivo.** Este documento es solo una referencia de **qué usuarios existen** en el tenant de prueba, no de sus credenciales.
 
 **Tenant de prueba (seed Fase B):** Restaurante Prueba — `11111111-1111-1111-1111-111111111111` · Outlet Sala principal — `22222222-2222-2222-2222-222222222222`
 
 ---
 
-## Plataforma (superadmin)
+## Cómo generar credenciales de prueba localmente
 
-| Email | Contraseña | Hash en BD (referencia) |
-|-------|-------------|-------------------------|
-| superadmin@horecaso.com | SuperAdmin2024! | $2b$12$A.B.OrrorO87.4DJYXwE8eQA7RAlSW/BZ/m44eN6AIl9aWLfDe2ZG |
-
----
-
-## Restaurante Prueba (@prueba.com)
-
-| Email | Contraseña | Hash en BD (referencia) |
-|-------|-------------|-------------------------|
-| admin@prueba.com | Admin1234! | $2b$12$ih8PncMrzwXmzrB4DEM5/uH6a2Vajo.uJ18Mx9IxxuBuipgpABKdK |
-| director@prueba.com | Director1234! | $2b$12$BnFZ8CtWMgBf/taGx8eaZOHduU6hcjyH8g024fNp3QUcN6VrNuyEa |
-| jefesala@prueba.com | JefeSala1234! | $2b$12$3cFyXRDGL59p319s.FYwEu5QnDQ/A.qh46ZDXLv1vSxTN/AWZR7la |
-| camarero@prueba.com | Camarero1234! | $2b$12$9lzy0rOfkCaa8CwOEXTTse63jLHvtm0h/Jj3qKB3DmzWMwuo2wAWS |
-| cocina@prueba.com | Cocina1234! | $2b$12$dUD4eJEY2E6YjQQHuT7xVOXZsAQSxg2RRslMqA.m7GjAym2b0OCRO |
-| barra@prueba.com | Barra1234! | $2b$12$54sI/cXkEy7CnrmvIHvSX.BElXr5AdfuLO.vBW.RpVvBrVfnrhUcC |
+1. Ejecuta `python backend/scripts/generate_test_hashes.py` — genera contraseñas y hashes bcrypt nuevos en cada ejecución (salt aleatorio).
+2. Guarda el resultado en un archivo **no versionado** (ej. `TEST_CREDENTIALS.md` en la raíz del repo — ya está en `.gitignore`) o en un gestor de secretos local.
+3. Actualiza `password_hash` en la tabla `usuarios` de tu base de datos de desarrollo/test con `UPDATE usuarios SET password_hash = $1 WHERE email = $2`, usando placeholders (nunca f-strings) como en el resto del proyecto.
+4. Nunca reutilices esos hashes/contraseñas en producción ni los commitees en ningún archivo trackeado por git.
 
 ---
 
-**Nota:** Si vuelves a ejecutar solo `generate_test_hashes.py`, los hashes serán **distintos** (bcrypt con salt nuevo). Para alinear BD y archivo, genera hashes y ejecuta `UPDATE usuarios SET password_hash = … WHERE email = …`, o vuelve a aplicar el bloque de seed tras vaciar usuarios de prueba.
+## Usuarios existentes en el tenant de prueba (solo emails/roles — sin contraseñas)
+
+| Email | Rol |
+|-------|-----|
+| superadmin@horecaso.com | superadmin (plataforma) |
+| admin@prueba.com | admin |
+| director@prueba.com | director |
+| jefesala@prueba.com | jefe_sala |
+| camarero@prueba.com | camarero |
+| cocina@prueba.com | cocina |
+| barra@prueba.com | barra |
+
+**Nota:** para volver a tener acceso a estos usuarios en un entorno local, genera hashes nuevos con el script del paso 1 y actualiza la base de datos de ese entorno. No hay contraseña "correcta" documentada aquí a propósito.
