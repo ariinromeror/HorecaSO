@@ -1,0 +1,392 @@
+# PRD.md — Plan de Hardening Senior para HorecaSO
+
+> **Nota de alcance:** este documento es distinto de [`docs/PRD_HorecaSO.md`](docs/PRD_HorecaSO.md) (que es el PRD de **producto/negocio**). Este `PRD.md` es el PRD **técnico de hardening y escalabilidad** — seguridad, testing, CI/CD, infraestructura y calidad de ingeniería — derivado de una auditoría arquitectónica completa del repositorio realizada el 2026-07-02.
+
+## Cómo usar este documento
+
+- Es la **fuente única de verdad** del roadmap de hardening técnico.
+- Está dividido en **fases numeradas (0-13), secuenciales e independientes**. Cada fase se ejecuta bajo petición explícita (ej. "ejecuta la fase 2") y solo debe empezar si sus **Dependencias** están en estado `COMPLETADA`.
+- Cada fase tiene: Objetivo, Por qué, Alcance, Fuera de alcance, Criterios de aceptación, Dependencias y Estado.
+- Al completar una fase: marcar su casilla de **Estado** en este archivo (`PENDIENTE` → `EN PROGRESO` → `COMPLETADA`), añadir una entrada en `docs/BITACORA_HORECASO.md` (fecha, qué se hizo, archivos tocados, resultado), y documentar en `docs/BUGS_Y_SOLUCIONES.md` cualquier bug reproducible encontrado en el camino.
+- No mezclar trabajo de una fase con otra: si durante una fase se detecta algo fuera de su alcance, se anota como nota al pie de esa fase para una fase futura, no se ejecuta inline.
+
+## Leyenda de estado
+
+- `[ ] PENDIENTE` — no iniciada.
+- `[~] EN PROGRESO` — iniciada, no cerrada.
+- `[x] COMPLETADA` — criterios de aceptación verificados.
+- `[b] BLOQUEADA` — requiere una decisión o input externo antes de poder detallarse/ejecutarse.
+
+---
+
+## Fase 0 — Línea base y housekeeping
+
+**Objetivo:** dejar el repositorio en un estado limpio y verificado antes de empezar a tocar seguridad o infraestructura.
+
+**Por qué:** hay artefactos operativos (`backend/sql/_mcp_*.json`, `_shell_out*.json`, `_b64_*.txt`, `_args1*.json`) mezclados con migraciones SQL reales, y un archivo de credenciales de prueba (`docs/CREDENCIALES_PRUEBA.MD`) versionado con contraseñas y hashes bcrypt reales. Empezar por aquí evita arrastrar ruido y riesgo a las fases siguientes.
+
+**Alcance:**
+- [ ] Verificar que el backend arranca localmente (`pip install -r backend/requirements.txt` en venv, `python -c "from main import create_app"`).
+- [ ] Verificar que el frontend instala y compila (`npm install`, `npm run build` en `frontend/`).
+- [ ] Mover artefactos MCP/shell de `backend/sql/` (`_mcp_*.json`, `_shell_out*.json`, `_b64_*.txt`, `_args1*`, `_q1*`, `_decoded_args*`, `list_tables_mcp_*.json`) a `backend/sql/_artifacts/` y añadir esa carpeta a `.gitignore`.
+- [ ] Redactar/mitigar `docs/CREDENCIALES_PRUEBA.MD`: sustituir contraseñas reales por placeholders o mover el contenido sensible fuera del repo (ej. a un gestor de secretos / variable de entorno documentada), dejando solo instrucciones de cómo generar credenciales de prueba localmente (`backend/scripts/generate_test_hashes.py` ya existe para esto).
+- [ ] Confirmar (grep) que ningún `.env` real, `DATABASE_URL`, o clave viva está commiteada en el historial reciente.
+- [ ] Actualizar `.gitignore` si hace falta (carpeta `_artifacts/`, cualquier `*.local`).
+
+**Fuera de alcance:** cualquier cambio de código de negocio, reorganización completa de `backend/sql/` en `migrations/`/`seeds/` (eso es Fase 5).
+
+**Criterios de aceptación:**
+- `python -c "from main import create_app"` (dentro de `backend/`) no lanza excepción.
+- `npm run build` en `frontend/` termina con exit code 0.
+- `git status` muestra `backend/sql/` sin archivos `_mcp_*`/`_shell_out*`/`_b64_*` sueltos en el nivel raíz de esa carpeta.
+- `docs/CREDENCIALES_PRUEBA.MD` ya no contiene contraseñas en texto plano reutilizables.
+- `git grep` de patrones tipo `sk_live`, `DATABASE_URL=postgres`, `SECRET_KEY_AUTH=` sobre el árbol trackeado no devuelve coincidencias con valores reales.
+
+**Dependencias:** ninguna.
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 1 — Seguridad crítica (P0)
+
+**Objetivo:** cerrar los agujeros de seguridad multi-tenant y de autenticación identificados en la auditoría, antes de añadir más superficie de código.
+
+**Por qué:** se detectaron endpoints IDOR (lectura cross-tenant por UUID), rate limiting configurado pero no aplicado (`Limiter`/`SlowAPIMiddleware` en `backend/main.py` sin un solo `@limiter.limit(...)` en el código), y endpoints protegidos solo con `get_current_user` sin `require_roles` en módulos sensibles (Verifactu, TPV, dashboard). En un ERP SaaS multi-tenant esto es riesgo de fuga de datos entre clientes, no un bug cosmético.
+
+**Alcance:**
+- [ ] Crear una dependencia central de scope de tenant en `backend/auth/dependencies.py` (ej. `get_tenant_scope(current_user = Depends(get_current_user))` que devuelva `{tenant_id, outlet_id, role}` de forma consistente) para sustituir los helpers duplicados por router (`_get_user_tenant`, `_tenant_id_usuario`, `_get_user_tenant_outlet`, etc.).
+- [ ] Auditar (grep sistemático de `WHERE id = \$1` y patrones similares sin `tenant_id`/`outlet_id`) todos los endpoints `GET /.../{id}` y corregir como mínimo los ya identificados:
+  - `GET /api/mesas/{mesa_id}` (`backend/routers/mesas_list.py`)
+  - `GET /api/tpv/tickets/{ticket_id}` (`backend/routers/tpv/tpv_tickets_detalle.py`)
+  - Cualquier otro hallado durante el grep (documentar cada uno encontrado en `docs/BUGS_Y_SOLUCIONES.md`).
+- [ ] Aplicar `@limiter.limit(...)` (SlowAPI, ya instalado en `backend/main.py`) sobre: `POST /api/auth/login` (ej. `5/minute` por IP), endpoints de cobro TPV, creación de usuarios/superadmin.
+- [ ] Revisar todos los routers de Verifactu, TPV y dashboard que usan solo `Depends(get_current_user)` y añadir `Depends(require_roles([...]))` donde el endpoint no deba ser accesible por cualquier rol autenticado.
+- [ ] Documentar (no necesariamente migrar en esta fase) el riesgo de almacenar el JWT en `localStorage` en frontend (`frontend/src/context/AuthContext.jsx`) y dejar una recomendación explícita en este PRD sobre si migrar a cookie `httpOnly` + `SameSite=Strict` se aborda aquí o en una fase frontend futura.
+- [ ] Añadir test manual/checklist de verificación (los tests automatizados llegan en Fase 2, pero aquí se verifica a mano con `curl`/Postman con dos tenants de prueba).
+
+**Fuera de alcance:** implementar el framework de testing automatizado (Fase 2), Row Level Security en Postgres (se puede anotar como recomendación para una fase de base de datos futura, pero no se activa aquí para no arriesgar romper queries existentes sin tests que lo respalden).
+
+**Criterios de aceptación:**
+- Con dos usuarios de tenants distintos, intentar acceder a un `mesa_id`/`ticket_id` del otro tenant devuelve `403`/`404`, no el recurso.
+- `POST /api/auth/login` con más de N intentos fallidos en menos de 1 minuto devuelve `429`.
+- Revisión manual confirma que Verifactu, TPV y dashboard exigen rol adecuado, no solo autenticación.
+- No se rompe ningún flujo existente (login, TPV, KDS, dashboard) probado manualmente contra el tenant demo.
+
+**Dependencias:** Fase 0 completada.
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 2 — Infraestructura de testing backend
+
+**Objetivo:** introducir una suite de tests automatizados para el backend, empezando por los flujos más críticos y de mayor riesgo legal/financiero.
+
+**Por qué:** el backend no tiene ni un solo test (`test_*.py`, `pytest.ini`, `conftest.py` inexistentes). Para software que genera registros fiscales encadenados (Verifactu, hash SHA-256) y cobra dinero real (TPV), la ausencia total de tests es el mayor riesgo de regresión del proyecto.
+
+**Alcance:**
+- [ ] Añadir a `backend/requirements.txt` (o un `requirements-dev.txt` separado): `pytest`, `pytest-asyncio`, `httpx`.
+- [ ] Crear `backend/tests/conftest.py` con fixtures: instancia de la app FastAPI de test, pool de conexión a una base de datos de test (Postgres real — ver nota de dependencia con Fase 6/Docker para tener Postgres local reproducible; mientras tanto, usar una base Supabase de test o un Postgres local ad-hoc), cliente `httpx.AsyncClient` apuntando a la app.
+- [ ] Crear `backend/pytest.ini` (o sección `[tool.pytest.ini_options]` si se introduce `pyproject.toml`) con `asyncio_mode = auto`.
+- [ ] Tests mínimos obligatorios:
+  - `test_auth.py`: login válido devuelve token; login inválido devuelve 401 con mensaje genérico; login sin datos devuelve 422.
+  - `test_tenant_isolation.py`: regresión directa de la Fase 1 — usuario de tenant A no puede leer recursos de tenant B (mesas, tickets).
+  - `test_tpv_cobro_verifactu.py`: crear ticket, añadir líneas, cobrar completo, verificar que se genera un registro en `verifactu_registros` con hash válido y que no se puede hacer `UPDATE`/`DELETE` sobre esa tabla desde la capa de aplicación.
+  - `test_nominas.py`: cálculo de SS empleado (6.35%), SS empresa (29.9%) y estructura de líquido a percibir sobre un caso de ejemplo.
+- [ ] Documentar en `README.md` (sección de desarrollo) cómo correr `pytest` localmente.
+
+**Fuera de alcance:** cobertura exhaustiva de todos los routers (esto es un punto de partida, no cobertura total); tests de carga/performance.
+
+**Criterios de aceptación:**
+- `pytest` desde `backend/` corre sin errores de colección y todos los tests añadidos pasan en verde.
+- Los tests de aislamiento de tenant fallan si se revierte manualmente el fix de la Fase 1 (prueba de que el test realmente detecta la regresión).
+- El README documenta el comando exacto para ejecutar los tests.
+
+**Dependencias:** Fase 1 completada (para que los tests de aislamiento de tenant tengan algo correcto que verificar).
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 3 — Infraestructura de testing frontend
+
+**Objetivo:** introducir tests automatizados en el frontend para los flujos de autenticación y control de acceso por rol.
+
+**Por qué:** cero tests en frontend (~180 archivos `.jsx`/`.js`). El área de mayor riesgo es el manejo de sesión/token y las rutas protegidas por rol, que hoy dependen de lógica dispersa (`PrivateRoute` y variantes en `App.jsx`, más redirects a nivel de página).
+
+**Alcance:**
+- [ ] Añadir a `frontend/package.json` (devDependencies): `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`.
+- [ ] Crear `frontend/vitest.config.js` (o extender `vite.config.js` con `test: {...}`) y script `"test": "vitest run"` en `package.json`.
+- [ ] Tests mínimos obligatorios:
+  - `AuthContext.test.jsx`: login exitoso persiste token en `localStorage` y actualiza `isAuthenticated`; logout limpia el estado; carga inicial desde `localStorage` funciona.
+  - `PrivateRoute.test.jsx` (y al menos una variante con `allowedRoles`): usuario sin rol permitido es redirigido; usuario con rol permitido ve el contenido.
+  - Un test de un hook de polling (ej. `useVentaLivePolling`) verificando que un error de red no resetea los datos ya cargados (regla explícita del proyecto).
+- [ ] Documentar en `README.md`/`frontend/README` cómo correr `npm run test`.
+
+**Fuera de alcance:** tests end-to-end con Playwright/Cypress (se puede evaluar como fase futura opcional, no incluida en este PRD todavía); cobertura de todos los componentes.
+
+**Criterios de aceptación:**
+- `npm run test` corre sin errores y todos los tests pasan.
+- Los tests de `PrivateRoute` fallan deliberadamente si se comenta la comprobación de rol (prueba de que el test es significativo).
+
+**Dependencias:** ninguna estricta, pero se recomienda ejecutar después de la Fase 2 para mantener el orden backend→frontend del PRD.
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 4 — CI/CD con GitHub Actions
+
+**Objetivo:** que ningún cambio llegue a `main` sin pasar lint, build y tests automáticamente.
+
+**Por qué:** hoy no existe `.github/workflows/`; nada impide subir código roto. Las Fases 2 y 3 no aportan valor completo hasta que se ejecutan automáticamente en cada PR.
+
+**Alcance:**
+- [ ] Crear `.github/workflows/backend.yml`: en push/PR, instalar Python 3.12, `pip install -r backend/requirements.txt` (+ dev deps), correr `pytest` (Fase 2), y un smoke check `python -c "from main import create_app"`.
+- [ ] Crear `.github/workflows/frontend.yml`: en push/PR, instalar Node, `npm ci`, `npm run lint`, `npm run build`, `npm run test` (Fase 3).
+- [ ] Añadir badges de estado de los workflows en `README.md`.
+- [ ] Documentar en `docs/GUIA_PRODUCCION_COMPLETA.md` (o en una nueva sección) que se recomienda activar "branch protection" en GitHub exigiendo estos checks antes de mergear a `main` — esto es una configuración manual del usuario en GitHub (el agente no puede activarla desde el repo).
+
+**Fuera de alcance:** despliegue automático a Render/Vercel desde el workflow (ya existe integración nativa de Render/Vercel con GitHub; no se duplica aquí salvo que el usuario lo pida explícitamente en una fase futura).
+
+**Criterios de aceptación:**
+- Un PR de prueba (o el propio historial de PRs de este proyecto a partir de ahora) dispara ambos workflows y estos aparecen como checks en GitHub.
+- Un cambio que rompe un test o el build hace fallar el workflow correspondiente (verificar con un commit de prueba temporal si es necesario, revertido después).
+
+**Dependencias:** Fase 2 y Fase 3 completadas.
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 5 — Migraciones de base de datos versionadas
+
+**Objetivo:** eliminar el proceso manual de "copiar y pegar SQL en Supabase" como único mecanismo de evolución de esquema.
+
+**Por qué:** el historial de bugs (`BUG-008`, `BUG-013` en `docs/BUGS_Y_SOLUCIONES.md`) muestra reiteradamente el mismo patrón: una migración no se aplicó en un entorno y el código en producción falla por columna/tabla inexistente. No hay tabla de control de qué migraciones están aplicadas en qué entorno.
+
+**Alcance:**
+- [ ] Decidir e implementar mecanismo de versionado: opción A (recomendada, menor esfuerzo) — tabla `schema_migrations(version text primary key, applied_at timestamptz)` + script `backend/scripts/migrate.py` que recorra `backend/sql/migrations/*.sql` en orden numérico/alfabético, aplique solo las no registradas, y las registre dentro de la misma transacción; opción B — adoptar Supabase CLI migrations si el flujo de trabajo con Supabase lo permite sin fricción.
+- [ ] Reorganizar `backend/sql/`: mover migraciones reales (`migration_*.sql`) a `backend/sql/migrations/`, seeds (`seed_*.sql`, `_seed_*.sql`) a `backend/sql/seeds/`, y confirmar que los artefactos MCP quedan en `backend/sql/_artifacts/` (ya movidos en Fase 0) o se eliminan si no aportan valor histórico.
+- [ ] Renombrar migraciones existentes con prefijo numérico/fecha para garantizar orden de aplicación determinista (ej. `0001_fase_b.sql`, `0002_gastos_operativos.sql`, ...).
+- [ ] Ejecutar `migrate.py` contra un entorno de test para verificar que aplica todas las migraciones existentes de forma idempotente desde cero.
+- [ ] Actualizar `docs/GUIA_PRODUCCION_COMPLETA.md` con el nuevo flujo (cómo crear una migración nueva, cómo aplicarla en Supabase de producción).
+
+**Fuera de alcance:** rollback automático de migraciones (se puede documentar como limitación conocida); cambios de esquema nuevos que no sean puramente de tooling.
+
+**Criterios de aceptación:**
+- Correr `python backend/scripts/migrate.py` dos veces seguidas es idempotente (la segunda vez no reaplica nada y no falla).
+- La tabla `schema_migrations` (o equivalente) refleja exactamente qué migraciones están aplicadas.
+- El flujo nuevo está documentado y es reproducible por alguien que no sea el autor original.
+
+**Dependencias:** Fase 0 completada.
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 6 — Dockerización
+
+**Objetivo:** reproducibilidad total del entorno de backend (dev, CI, producción) y una base de datos Postgres local para tests de integración sin depender de Supabase remoto.
+
+**Por qué:** hoy el despliegue es Python nativo en Render (`render.yaml`) y no hay `Dockerfile`/`docker-compose.yml` en ningún punto del repo. Esto complica tener un Postgres real y determinista en CI para los tests de la Fase 2, y abre la puerta a divergencias sutiles entre entornos.
+
+**Alcance:**
+- [ ] Crear `backend/Dockerfile` (multi-stage: build de dependencias + imagen final `python:3.12-slim`, usuario no root, `gunicorn` + `uvicorn.workers.UvicornWorker` como `CMD`, coherente con `render.yaml`).
+- [ ] Crear `docker-compose.yml` en la raíz del repo con dos servicios: `backend` (build desde `backend/Dockerfile`) y `db` (Postgres 15, con las tablas base cargadas vía las migraciones de la Fase 5 en el arranque o mediante un script de inicialización).
+- [ ] Añadir `backend/.dockerignore`.
+- [ ] Actualizar el workflow de CI (Fase 4) para levantar el `db` de Docker Compose (o un servicio `postgres:15` nativo de GitHub Actions) y correr `pytest` contra él en vez de contra Supabase remoto.
+- [ ] Documentar en `README.md` cómo levantar todo el stack local con `docker compose up`.
+
+**Fuera de alcance:** dockerizar el frontend (Vercel ya gestiona su propio build; no aporta valor claro dockerizarlo salvo que cambie el hosting).
+
+**Criterios de aceptación:**
+- `docker compose up` levanta backend + Postgres local y `GET /api/health` responde `{"status": "ok"}`.
+- El pipeline de CI de backend corre contra el Postgres de Docker/Compose en vez de (o además de) Supabase remoto.
+- La imagen del backend se construye sin errores (`docker build -f backend/Dockerfile backend/`).
+
+**Dependencias:** Fase 5 completada (para poder inicializar el Postgres local con el esquema correcto vía migraciones versionadas).
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 7 — Observabilidad
+
+**Objetivo:** dejar de operar "a ciegas" en producción — capturar excepciones, correlacionar requests, y ampliar el health check.
+
+**Por qué:** hoy solo hay `logging.basicConfig` a nivel INFO y un health check con `SELECT 1`. No hay Sentry, ni logs estructurados, ni request ID de correlación. Un incidente en producción hoy solo se puede investigar con logs planos de Render.
+
+**Alcance:**
+- [ ] Backend: añadir `sentry-sdk[fastapi]` a `requirements.txt`, inicializar en `backend/main.py` (con `SENTRY_DSN` como variable de entorno opcional — si no está definida, no se activa), configurar `environment` (`development`/`production`) desde `settings.ENVIRONMENT`.
+- [ ] Frontend: añadir `@sentry/react`, inicializar en `main.jsx` de forma condicional a una env var `VITE_SENTRY_DSN`.
+- [ ] Middleware de `request_id` en `backend/main.py`: generar/propagar un ID por request, incluirlo en los logs (`logger` con `extra={"request_id": ...}`) y en la respuesta como header (`X-Request-ID`).
+- [ ] Migrar el formato de logging a JSON estructurado (librería `python-json-logger` o formato manual) para facilitar futura ingestión en herramientas externas.
+- [ ] Ampliar `GET /api/health` para incluir: versión de la app (`settings.APP_VERSION`), estado del pool de conexiones (tamaño actual/máximo), y un segundo endpoint `GET /api/health/ready` si se quiere distinguir liveness de readiness.
+
+**Fuera de alcance:** dashboards de métricas (Prometheus/Grafana) — se puede anotar como posible fase futura si el volumen de tráfico lo justifica.
+
+**Criterios de aceptación:**
+- Una excepción no controlada provocada deliberadamente en un entorno de test con `SENTRY_DSN` configurado aparece en el proyecto de Sentry correspondiente.
+- Los logs incluyen `request_id` y este mismo valor aparece en el header `X-Request-ID` de la respuesta.
+- `GET /api/health` devuelve la información ampliada sin romper el `healthCheckPath` que usa Render (`render.yaml`).
+
+**Dependencias:** ninguna estricta; se recomienda tras la Fase 4 (CI) para poder verificar que Sentry no rompe el arranque en CI cuando el DSN no está definido.
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 8 — Resiliencia y performance frontend
+
+**Objetivo:** evitar pantallas en blanco ante errores de render, reducir el bundle inicial, y eliminar la duplicación de lógica de fetch/polling.
+
+**Por qué:** `App.jsx` importa todas las ~30 páginas de forma eager y no existe ningún `ErrorBoundary`; un error de render en cualquier componente deja la app completamente en blanco. Además, cada hook reimplementa manualmente fetch/loading/error/polling sin ninguna capa de cache compartida.
+
+**Alcance:**
+- [ ] Añadir un componente `ErrorBoundary` global envolviendo el árbol de rutas en `App.jsx`, con una pantalla de fallback coherente con el design system del proyecto (dark/light, botón de "recargar").
+- [ ] Convertir las importaciones de páginas en `App.jsx` a `React.lazy(() => import(...))`, envolviendo `<Routes>` en `<Suspense fallback={<Loader />}>` (usando el `Loader` compartido ya existente en `components/shared/`).
+- [ ] Añadir `@tanstack/react-query` a `frontend/package.json`, configurar un `QueryClientProvider` en el punto de entrada, y migrar al menos 2-3 hooks representativos (uno de datos estáticos tipo listado, uno de polling tipo Venta Live usando `refetchInterval: 30000` para respetar la regla del proyecto de "polling cada 30s, no resetear datos en error") como prueba de patrón para migraciones futuras incrementales.
+- [ ] Documentar en el propio código (o en un `frontend/README.md` de convenciones) el patrón estándar a seguir para nuevos hooks de datos usando React Query.
+
+**Fuera de alcance:** migrar el 100% de los hooks existentes a React Query en esta fase (se hace incrementalmente después, no es bloqueante).
+
+**Criterios de aceptación:**
+- Un error de render forzado en un componente de prueba muestra la pantalla de fallback del `ErrorBoundary` en vez de una pantalla en blanco.
+- El bundle de producción (`npm run build`) muestra chunks separados por ruta (verificable en el output de Vite o con un analizador de bundle).
+- Los hooks migrados a React Query siguen sin resetear los datos mostrados cuando el polling falla (verificado con un test de la Fase 3 o manualmente).
+
+**Dependencias:** Fase 3 completada (para poder testear el `ErrorBoundary` y los hooks migrados).
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 9 — Formularios y validación
+
+**Objetivo:** reducir la validación manual repetida en formularios críticos usando una librería dedicada, sin romper la convención del proyecto de no usar `<form>` con submit nativo.
+
+**Por qué:** hoy toda la validación es manual (`if (!email.trim() || !password) setError(...)`), duplicada en cada página con formulario, propensa a inconsistencias.
+
+**Alcance:**
+- [ ] Añadir `react-hook-form` y `zod` (+ `@hookform/resolvers`) a `frontend/package.json`.
+- [ ] Migrar `LoginPage.jsx` como caso piloto: esquema `zod` para email/password, `react-hook-form` con `handleSubmit` disparado desde el `onClick` del botón (no `<form onSubmit>`, respetando `.cursorrules`).
+- [ ] Migrar al menos un formulario adicional de alta de datos (ej. alta de empleado/usuario en `admin/usuarios` o alta de cliente) como segundo caso de referencia.
+- [ ] Documentar el patrón (esquema zod + `useForm` + botón con `onClick={handleSubmit(onSubmit)}`) para que sirva de plantilla al resto de formularios del proyecto.
+
+**Fuera de alcance:** migrar todos los formularios del proyecto en esta fase (queda como trabajo incremental posterior siguiendo la plantilla documentada).
+
+**Criterios de aceptación:**
+- El login y el formulario piloto adicional validan campos usando `zod` y muestran errores inline consistentes con el design system.
+- Ningún formulario migrado usa `<form onSubmit>` nativo.
+- Los tests de frontend (Fase 3) para `LoginPage` (si existen) se actualizan y siguen pasando.
+
+**Dependencias:** Fase 3 completada.
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 10 — Consistencia de API
+
+**Objetivo:** normalizar la estrategia de prefijos de rutas del backend y sentar las bases para versionado futuro sin romper compatibilidad.
+
+**Por qué:** hoy conviven routers que ya incluyen `/api` en su propio prefijo (`/api/auth`, `/api/tpv`) con routers que reciben `/api` añadido externamente en `backend/main.py` (`/reservas`, `/inventario`, `/fifo`). Esto genera fragilidad y confusión al añadir nuevos routers.
+
+**Alcance:**
+- [ ] Auditar todos los `include_router(...)` en `backend/main.py` y todos los `APIRouter(prefix=...)` en `backend/routers/**`, documentando la tabla completa de rutas efectivas actuales.
+- [ ] Normalizar a un único patrón (recomendado: todos los routers definen su prefijo de dominio sin `/api`, y `main.py` añade `/api` de forma consistente a todos por igual).
+- [ ] Evaluar (documentar la decisión, no necesariamente implementar todavía) introducir `/api/v1` como prefijo de versión, dejando `/api` como alias temporal de compatibilidad si hiciera falta.
+- [ ] Actualizar `frontend/src/services/api.js` y cualquier URL hardcodeada si el cambio de prefijos afecta al cliente.
+- [ ] Actualizar `docs/REFERENCIA_TECNICA.md` con el mapa de endpoints resultante.
+
+**Fuera de alcance:** cambiar la lógica de negocio de los endpoints; introducir breaking changes sin periodo de compatibilidad si el proyecto ya tiene consumidores externos de la API.
+
+**Criterios de aceptación:**
+- Todas las rutas expuestas siguen el mismo patrón de prefijo, verificable listando `app.routes` en un script o vía `/openapi.json`.
+- El frontend sigue funcionando end-to-end tras el cambio (verificación manual de los flujos principales: login, mesas, TPV, KDS, dashboard).
+- La documentación técnica refleja el estado real.
+
+**Dependencias:** Fase 4 completada (para que el CI detecte roturas si algún endpoint cambia de forma no intencionada).
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 11 — Pasarela de pago (BLOQUEADA — requiere decisión de negocio)
+
+**Objetivo:** integrar un procesador de pagos real, **una vez decidido el caso de uso**.
+
+**Por qué queda bloqueada:** hoy `ticket_pagos.metodo_pago` es solo una etiqueta contable (`efectivo | tarjeta_credito | tarjeta_debito | bizum | transferencia | invitacion`); no hay integración real con ningún PSP. Antes de diseñar la integración hace falta que el usuario confirme **cuál** de estos casos de uso es prioritario, porque cada uno implica una arquitectura distinta:
+
+- **Opción A — Depósitos/señales de reservas online:** un cliente final paga una señal al reservar mesa → **Stripe Checkout** (o Redsys si se prioriza el mercado español con tarjetas de bancos locales) integrado en el flujo de `reservas`.
+- **Opción B — Suscripciones SaaS a los propios tenants:** cobrar automáticamente los planes Básico/Profesional/Premium/Enterprise mencionados en `.cursorrules` → **Stripe Billing** integrado en `superadmin`/gestión de tenants.
+- **Opción C — Datáfono/TPV virtual real en sala:** sustituir el registro manual de "tarjeta_credito/débito" por una integración real con un datáfono o pasarela bancaria española (típicamente **Redsys**) en el flujo de cobro de `tpv`.
+
+**Alcance (a definir tras la decisión):** se completará esta sección con: alcance de endpoints nuevos, esquema de webhooks, tabla(s) nuevas (ej. `pagos_stripe`/`suscripciones_tenant` para Opción B), manejo de idempotencia, y su relación con el motor Verifactu (si un pago con PSP debe seguir disparando el mismo flujo de facturación fiscal).
+
+**Fuera de alcance hasta la decisión:** cualquier código de integración con Stripe/Redsys.
+
+**Criterios de aceptación:** a definir tras la decisión.
+
+**Dependencias:** Fase 1 (seguridad) y Fase 2 (tests backend) completadas — no se debe integrar manejo de dinero real sin esas bases.
+
+**Estado:** `[b] BLOQUEADA — pendiente de que el usuario elija Opción A, B o C (o combinación) antes de detallar esta fase.`
+
+---
+
+## Fase 12 — Background jobs (opcional, largo plazo)
+
+**Objetivo:** sacar del ciclo de request/response síncrono las tareas pesadas: generación de PDFs (`services/pdf_*.py`) y escaneo de facturas con IA (Groq, `routers/proveedores/facturas_proveedor_escaneo.py`).
+
+**Por qué:** hoy estas operaciones ocurren inline en el request (con `asyncio.to_thread` para Groq como paliativo), lo que bloquea workers de `gunicorn` bajo carga y da mala experiencia de usuario en operaciones lentas.
+
+**Alcance:**
+- [ ] Evaluar e introducir una cola ligera (`arq` + Redis es la opción recomendada por simplicidad frente a Celery, dado el tamaño del proyecto).
+- [ ] Mover generación de PDFs (nóminas, reportes, inventario) a jobs en background con un endpoint de polling de estado o notificación (coherente con el patrón de polling ya usado en frontend).
+- [ ] Mover el escaneo de facturas con IA a un job en background.
+- [ ] Documentar el nuevo requisito de infraestructura (Redis) en `render.yaml`/`docker-compose.yml` (de la Fase 6).
+
+**Fuera de alcance:** reescribir la lógica de negocio de generación de PDFs o del escaneo IA; solo se cambia el mecanismo de ejecución (síncrono → asíncrono en cola).
+
+**Criterios de aceptación:**
+- Una generación de PDF/escaneo de factura de prueba se ejecuta correctamente vía la cola y el resultado es recuperable por el cliente.
+- El tiempo de respuesta del endpoint que dispara el job baja significativamente (responde con un ID de job, no con el resultado final).
+
+**Dependencias:** Fase 6 (Docker) completada, para poder añadir Redis como servicio local/CI de forma reproducible.
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Fase 13 — Migración incremental a TypeScript (opcional, largo plazo)
+
+**Objetivo:** introducir tipado estático en el frontend de forma incremental, empezando por las zonas de mayor superficie compartida.
+
+**Por qué:** ~180 archivos `.jsx`/`.js` sin ningún tipo; a medida que el proyecto crece, la falta de tipos aumenta el coste de mantenimiento y el riesgo de errores en refactors (ej. cambios de forma de respuesta de la API que rompen consumidores silenciosamente).
+
+**Alcance:**
+- [ ] Añadir `typescript` y `tsconfig.json` con `allowJs: true` para permitir convivencia de `.js`/`.jsx` y `.ts`/`.tsx` durante la migración.
+- [ ] Migrar primero `frontend/src/services/api.js` → `api.ts` con tipos de request/response básicos.
+- [ ] Migrar `AuthContext.jsx` y `ThemeContext.jsx` → `.tsx`.
+- [ ] Establecer convención: todo código nuevo se escribe en TypeScript a partir de este punto; el código legacy se migra oportunistamente al tocarlo.
+
+**Fuera de alcance:** migrar el 100% del código frontend en esta fase.
+
+**Criterios de aceptación:**
+- `npm run build` sigue funcionando con la convivencia JS/TS.
+- Los archivos migrados no introducen `any` implícito sin justificar.
+- Existe una convención documentada para nuevas contribuciones.
+
+**Dependencias:** Fase 8 completada (para no migrar tipos sobre una base de hooks que va a cambiar de forma significativa con React Query).
+
+**Estado:** `[ ] PENDIENTE`
+
+---
+
+## Registro de ejecución
+
+| Fecha | Fase | Resultado | Commit/PR |
+|-------|------|-----------|-----------|
+| 2026-07-02 | — | PRD creado | (este commit) |
