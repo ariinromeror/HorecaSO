@@ -19,7 +19,7 @@ from services.verifactu_engine import generar_huella
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/verifactu",
+    prefix="/verifactu",
     tags=["Verifactu"],
     responses={
         401: {"description": "No autorizado"},

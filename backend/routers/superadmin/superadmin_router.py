@@ -18,7 +18,7 @@ from rate_limit import limiter
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/superadmin",
+    prefix="/superadmin",
     tags=["Superadmin"],
     responses={
         401: {"description": "No autorizado"},

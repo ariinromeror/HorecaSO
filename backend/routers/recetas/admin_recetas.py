@@ -26,7 +26,7 @@ from .admin_recetas_shared import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/admin",
+    prefix="/admin",
     tags=["Admin Recetas"],
     responses={
         401: {"description": "No autorizado"},

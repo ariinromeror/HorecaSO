@@ -5,7 +5,7 @@ Router TPV (tickets y líneas) para HorecaSO.
 from fastapi import APIRouter
 
 router = APIRouter(
-    prefix="/api/tpv",
+    prefix="/tpv",
     tags=["TPV"],
     responses={
         401: {"description": "No autorizado"},

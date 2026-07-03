@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 pwd_context = CryptContext(schemes=["bcrypt"])
 
 router = APIRouter(
-    prefix="/api/auth",
+    prefix="/auth",
     tags=["Auth"],
     responses={
         401: {"description": "No autorizado"},

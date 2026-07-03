@@ -398,6 +398,27 @@ El patrón completo (esquema `zod`, `useForm`, `register`, cuándo usar `Control
 
 ---
 
+## 1.8 Consistencia de prefijos de API (Fase 10)
+
+Desde la Fase 10, **todos** los routers de `backend/routers/**` definen su `APIRouter(prefix=...)` como un prefijo de dominio **relativo** (p. ej. `/auth`, `/mesas`, `/tpv`, `/admin`, `/dashboard`), y es `backend/main.py` quien añade `/api` de forma **uniforme** en las 36 llamadas a `app.include_router(...)`. Antes de esta fase convivían dos patrones: 16 routers hardcodeaban `/api` en su propio prefijo y se registraban en `main.py` sin argumento `prefix`, mientras que el resto ya usaba el patrón relativo + `prefix="/api"` explícito. Ambos producían las mismas URLs, pero la inconsistencia de código era un riesgo real al añadir un router nuevo (¿hardcodeo `/api` o dejo que lo añada `main.py`? — antes dependía de a qué router mirases como referencia).
+
+**Regla para routers nuevos (a partir de ahora):**
+
+```python
+# routers/mi_dominio.py
+router = APIRouter(prefix="/mi-dominio", tags=["Mi Dominio"])  # SIN /api
+
+# backend/main.py
+from routers.mi_dominio import router as mi_dominio_router
+app.include_router(mi_dominio_router, prefix="/api")  # /api se añade SIEMPRE aquí
+```
+
+**Por qué no se introdujo `/api/v1` en esta fase:** el único consumidor de la API es el frontend propio del mismo monorepo, desplegado junto con el backend — no hay apps móviles ni integraciones de terceros con un ciclo de vida independiente que se puedan romper por un cambio no versionado. Introducir un prefijo de versión ahora habría añadido complejidad (rutas duplicadas o aliasing) sin beneficio inmediato. Revisar esta decisión en cuanto aparezca un segundo consumidor con despliegue independiente, o sea necesario introducir un cambio incompatible en un endpoint ya usado en producción.
+
+**Verificación tras el cambio:** comparación automatizada de `app.routes` (método + path) antes/después del refactor con `diff` — 0 diferencias en la superficie pública. Suite de tests backend completa (40/40) en verde. El frontend (`frontend/src/services/api.js`) no requirió cambios: ya usaba rutas relativas sobre `baseURL: '/api'`.
+
+---
+
 # 2. CÓMO HACKEAR TU PROPIO SISTEMA
 
 ## 2.1 Herramientas que necesitas (todas gratuitas)
