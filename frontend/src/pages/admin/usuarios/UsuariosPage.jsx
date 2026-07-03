@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Controller, useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import {
   AlertTriangle,
   Check,
@@ -22,6 +25,35 @@ const ROLES_OPERATIVOS = [
   { value: 'barra', label: 'Barra' },
   { value: 'almacen', label: 'Almacén' },
 ]
+
+const ROLES_OPERATIVOS_VALUES = ROLES_OPERATIVOS.map((r) => r.value)
+
+/**
+ * Segundo caso piloto de la Fase 9 del PRD de hardening (formularios +
+ * validación), además corrige una violación preexistente de `.cursorrules`
+ * (`<form onSubmit>` nativo) en los dos modales de este archivo. Ver
+ * `frontend/README.md` para el patrón completo.
+ */
+const usuarioCreateSchema = z.object({
+  nombre: z.string().trim().min(1, 'El nombre es obligatorio'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'El email es obligatorio')
+    .email('Introduce un email válido'),
+  password: z
+    .string()
+    .min(8, 'La contraseña debe tener al menos 8 caracteres'),
+  rol: z.enum(ROLES_OPERATIVOS_VALUES),
+  outlet_id: z.string(),
+})
+
+const usuarioEditSchema = z.object({
+  nombre: z.string().trim().min(1, 'El nombre es obligatorio'),
+  rol: z.enum(ROLES_OPERATIVOS_VALUES),
+  outlet_id: z.string(),
+  activo: z.boolean(),
+})
 
 function rolBadgeClass(rol) {
   const map = {
@@ -332,22 +364,31 @@ export default function UsuariosPage() {
   )
 }
 
-function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
-  const [nombre, setNombre] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [rol, setRol] = useState('camarero')
-  const [outletId, setOutletId] = useState('')
+const fieldErrorClass = 'mt-1 text-xs text-red-500'
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (password.length < 8) return
+function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(usuarioCreateSchema),
+    defaultValues: {
+      nombre: '',
+      email: '',
+      password: '',
+      rol: 'camarero',
+      outlet_id: '',
+    },
+  })
+
+  const submit = (values) => {
     onSubmit({
-      nombre: nombre.trim(),
-      email: email.trim(),
-      password,
-      rol,
-      outlet_id: outletId || null,
+      nombre: values.nombre.trim(),
+      email: values.email.trim(),
+      password: values.password,
+      rol: values.rol,
+      outlet_id: values.outlet_id || null,
     })
   }
 
@@ -375,18 +416,19 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
             <X size={22} strokeWidth={1.5} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-3">
           <div>
             <label htmlFor="cu-nombre" className={labelClass}>
               Nombre
             </label>
             <input
               id="cu-nombre"
-              required
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
+              {...register('nombre')}
               className={inputClass}
             />
+            {errors.nombre ? (
+              <p className={fieldErrorClass}>{errors.nombre.message}</p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="cu-email" className={labelClass}>
@@ -395,11 +437,12 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
             <input
               id="cu-email"
               type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              {...register('email')}
               className={inputClass}
             />
+            {errors.email ? (
+              <p className={fieldErrorClass}>{errors.email.message}</p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="cu-pass" className={labelClass}>
@@ -408,24 +451,19 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
             <input
               id="cu-pass"
               type="password"
-              required
-              minLength={8}
               autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              {...register('password')}
               className={inputClass}
             />
+            {errors.password ? (
+              <p className={fieldErrorClass}>{errors.password.message}</p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="cu-rol" className={labelClass}>
               Rol
             </label>
-            <select
-              id="cu-rol"
-              value={rol}
-              onChange={(e) => setRol(e.target.value)}
-              className={inputClass}
-            >
+            <select id="cu-rol" {...register('rol')} className={inputClass}>
               {ROLES_OPERATIVOS.map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
@@ -439,8 +477,7 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
             </label>
             <select
               id="cu-outlet"
-              value={outletId}
-              onChange={(e) => setOutletId(e.target.value)}
+              {...register('outlet_id')}
               className={inputClass}
             >
               <option value="">— Ninguno —</option>
@@ -461,32 +498,42 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
               Cancelar
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit(submit)}
               disabled={submitting}
               className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-[#111827] hover:bg-amber-400 disabled:opacity-50"
             >
               {submitting ? 'Guardando…' : 'Crear'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )
 }
 
 function UsuarioEditModal({ userRow, outletOptions, submitting, onClose, onSubmit }) {
-  const [nombre, setNombre] = useState(userRow.nombre || '')
-  const [rol, setRol] = useState(userRow.rol || 'camarero')
-  const [outletId, setOutletId] = useState(userRow.outlet_id || '')
-  const [activo, setActivo] = useState(!!userRow.activo)
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(usuarioEditSchema),
+    defaultValues: {
+      nombre: userRow.nombre || '',
+      rol: userRow.rol || 'camarero',
+      outlet_id: userRow.outlet_id || '',
+      activo: !!userRow.activo,
+    },
+  })
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const submit = (values) => {
     onSubmit({
-      nombre: nombre.trim(),
-      rol,
-      outlet_id: outletId || null,
-      activo,
+      nombre: values.nombre.trim(),
+      rol: values.rol,
+      outlet_id: values.outlet_id || null,
+      activo: values.activo,
     })
   }
 
@@ -514,7 +561,7 @@ function UsuarioEditModal({ userRow, outletOptions, submitting, onClose, onSubmi
             <X size={22} strokeWidth={1.5} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-3">
           <div>
             <span className={labelClass}>Email</span>
             <p className="mt-1 text-sm text-[#111827] dark:text-[#e8eaf0]">
@@ -530,22 +577,18 @@ function UsuarioEditModal({ userRow, outletOptions, submitting, onClose, onSubmi
             </label>
             <input
               id="eu-nombre"
-              required
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
+              {...register('nombre')}
               className={inputClass}
             />
+            {errors.nombre ? (
+              <p className={fieldErrorClass}>{errors.nombre.message}</p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="eu-rol" className={labelClass}>
               Rol
             </label>
-            <select
-              id="eu-rol"
-              value={rol}
-              onChange={(e) => setRol(e.target.value)}
-              className={inputClass}
-            >
+            <select id="eu-rol" {...register('rol')} className={inputClass}>
               {ROLES_OPERATIVOS.map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
@@ -559,8 +602,7 @@ function UsuarioEditModal({ userRow, outletOptions, submitting, onClose, onSubmi
             </label>
             <select
               id="eu-outlet"
-              value={outletId}
-              onChange={(e) => setOutletId(e.target.value)}
+              {...register('outlet_id')}
               className={inputClass}
             >
               <option value="">— Ninguno —</option>
@@ -571,28 +613,37 @@ function UsuarioEditModal({ userRow, outletOptions, submitting, onClose, onSubmi
               ))}
             </select>
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-[#e2e5ed] px-3 py-3 dark:border-[#2e3347]">
-            <span className="text-sm font-medium text-[#111827] dark:text-[#e8eaf0]">
-              Usuario activo
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={activo}
-              onClick={() => setActivo((a) => !a)}
-              className={[
-                'relative h-7 w-12 shrink-0 rounded-full transition-colors',
-                activo ? 'bg-amber-500' : 'bg-[#d1d5db] dark:bg-[#3b4154]',
-              ].join(' ')}
-            >
-              <span
-                className={[
-                  'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform',
-                  activo ? 'left-5' : 'left-0.5',
-                ].join(' ')}
-              />
-            </button>
-          </div>
+          <Controller
+            name="activo"
+            control={control}
+            render={({ field }) => (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-[#e2e5ed] px-3 py-3 dark:border-[#2e3347]">
+                <span className="text-sm font-medium text-[#111827] dark:text-[#e8eaf0]">
+                  Usuario activo
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={field.value}
+                  aria-label="Usuario activo"
+                  onClick={() => field.onChange(!field.value)}
+                  className={[
+                    'relative h-7 w-12 shrink-0 rounded-full transition-colors',
+                    field.value
+                      ? 'bg-amber-500'
+                      : 'bg-[#d1d5db] dark:bg-[#3b4154]',
+                  ].join(' ')}
+                >
+                  <span
+                    className={[
+                      'absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform',
+                      field.value ? 'left-5' : 'left-0.5',
+                    ].join(' ')}
+                  />
+                </button>
+              </div>
+            )}
+          />
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
@@ -603,14 +654,15 @@ function UsuarioEditModal({ userRow, outletOptions, submitting, onClose, onSubmi
               Cancelar
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit(submit)}
               disabled={submitting}
               className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-[#111827] hover:bg-amber-400 disabled:opacity-50"
             >
               {submitting ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

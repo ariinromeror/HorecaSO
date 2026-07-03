@@ -315,10 +315,10 @@
 **Por qué:** hoy toda la validación es manual (`if (!email.trim() || !password) setError(...)`), duplicada en cada página con formulario, propensa a inconsistencias.
 
 **Alcance:**
-- [ ] Añadir `react-hook-form` y `zod` (+ `@hookform/resolvers`) a `frontend/package.json`.
-- [ ] Migrar `LoginPage.jsx` como caso piloto: esquema `zod` para email/password, `react-hook-form` con `handleSubmit` disparado desde el `onClick` del botón (no `<form onSubmit>`, respetando `.cursorrules`).
-- [ ] Migrar al menos un formulario adicional de alta de datos (ej. alta de empleado/usuario en `admin/usuarios` o alta de cliente) como segundo caso de referencia.
-- [ ] Documentar el patrón (esquema zod + `useForm` + botón con `onClick={handleSubmit(onSubmit)}`) para que sirva de plantilla al resto de formularios del proyecto.
+- [x] Añadir `react-hook-form` y `zod` (+ `@hookform/resolvers`) a `frontend/package.json`.
+- [x] Migrar `LoginPage.jsx` como caso piloto: esquema `zod` para email/password, `react-hook-form` con `handleSubmit` disparado desde el `onClick` del botón (no `<form onSubmit>`, respetando `.cursorrules`).
+- [x] Migrar al menos un formulario adicional de alta de datos (ej. alta de empleado/usuario en `admin/usuarios` o alta de cliente) como segundo caso de referencia.
+- [x] Documentar el patrón (esquema zod + `useForm` + botón con `onClick={handleSubmit(onSubmit)}`) para que sirva de plantilla al resto de formularios del proyecto.
 
 **Fuera de alcance:** migrar todos los formularios del proyecto en esta fase (queda como trabajo incremental posterior siguiendo la plantilla documentada).
 
@@ -329,7 +329,16 @@
 
 **Dependencias:** Fase 3 completada.
 
-**Estado:** `[ ] PENDIENTE`
+**Estado:** `[x] COMPLETADA`
+
+**Resumen de ejecución (2026-07-02):**
+- `react-hook-form@^7.80.0`, `zod@^4.4.3`, `@hookform/resolvers@^5.4.0` añadidos a `frontend/package.json`.
+- `frontend/src/pages/LoginPage.jsx` (caso piloto): esquema `loginSchema` (`email` con `.trim().min(1).email()`, `password` con `.min(1)`); `useForm({ resolver: zodResolver(loginSchema) })`; el botón "Entrar" pasa de `onClick={handleEntrar}` (validación manual) a `onClick={handleSubmit(onSubmit)}`; los inputs usan `{...register('email')}`/`{...register('password')}` en vez de `value`/`onChange` manuales; `formState.isSubmitting` sustituye al `useState(false)` de loading. El login con cuentas demo (`handleDemoLogin`) sigue como flujo aparte (usa `setValue` para reflejar el email/password en el formulario, pero no pasa por la validación de `zod` al ser credenciales ya conocidas y correctas).
+- **Segundo caso piloto — `frontend/src/pages/admin/usuarios/UsuariosPage.jsx`** (`UsuarioCreateModal`/`UsuarioEditModal`): dos esquemas `zod` (`usuarioCreateSchema` con `password.min(8)`, `usuarioEditSchema` sin contraseña/email). De paso se corrigió una violación **preexistente** de `.cursorrules` en ambos modales (usaban `<form onSubmit={...}>` nativo) — ahora ambos usan `onClick={handleSubmit(submit)}` en un botón `type="button"`. El toggle "Usuario activo" (un control a medida, no un `<input type="checkbox">`) se migró con `Controller` de `react-hook-form` en vez de `watch()`, para evitar el aviso de `eslint-plugin-react-hooks` sobre APIs no memoizables de forma segura (`react-hooks/incompatible-library`) — verificado que tras el cambio ese archivo queda con **cero** errores/warnings de lint.
+- Tests nuevos: `frontend/src/pages/LoginPage.test.jsx` (4 tests: errores de `zod` con campos vacíos, error de formato de email, `login()` se llama con los datos correctos y navega a `/mesas`, un error de la API se muestra sin romper el formulario) y `frontend/src/pages/admin/usuarios/UsuariosPage.test.jsx` (3 tests: errores de validación bloquean el `POST`, alta válida llama a `createAdminUsuario` con el payload esperado, el toggle "Usuario activo" parte de `true`/cambia a `false` con `aria-checked` y se refleja en el `PATCH`). Suite completa frontend: **20/20 en verde**.
+- `frontend/README.md` ampliado con la sección "Formularios con react-hook-form + zod": patrón completo, por qué `Controller` en vez de `watch()` para controles a medida, y por qué nunca `<form onSubmit>`.
+- Verificado `npm run lint` (16 errores preexistentes sin cambios, 9 warnings — igual que al cierre de la Fase 8) y `npm run build` sin errores.
+- **Decisión:** no se migraron el resto de formularios del proyecto en esta fase (explícitamente fuera de alcance); el login con cuentas demo se dejó fuera de la validación `zod` a propósito, al ser un atajo con credenciales ya conocidas y correctas, no una entrada de usuario libre.
 
 ---
 
@@ -461,3 +470,4 @@
 | 2026-07-02 | Fase 6 | COMPLETADA — `backend/Dockerfile` multi-stage (usuario no root, healthcheck propio) + `backend/.dockerignore`; `docker-compose.yml` (backend + Postgres 15, init vía `backend/docker/initdb.sh` con schema_test.sql + migraciones de Fase 5); step "Build Docker image" añadido a `backend.yml`; README con sección Docker. **Verificado end-to-end instalando Docker Engine en la propia VM del agente**: build de imagen OK, init de DB con 21 tablas (incl. `schema_migrations`) OK; limitación de red *bridge* Docker-en-Docker de esta sandbox concreta detectada y documentada, verificada la conexión real Postgres↔FastAPI con `--network host` sobre la misma imagen | PR #1 |
 | 2026-07-02 | Fase 7 | COMPLETADA — `backend/observability.py` nuevo (logging JSON con `request_id`, `RequestIdMiddleware`, `init_sentry` condicional a `SENTRY_DSN`); `pool_status()` en `database.py`; `GET /api/health` ampliado (`version`/`pool`) + nuevo `GET /api/health/ready`; `@sentry/react` en frontend condicional a `VITE_SENTRY_DSN`; 6 tests nuevos (`test_observability.py`), suite backend 40/40 en verde; documentado en GUIA_PRODUCCION_COMPLETA.md (sección 1.5) y README | PR #1 |
 | 2026-07-02 | Fase 8 | COMPLETADA — `ErrorBoundary` global en `App.jsx` (fuera de todos los providers); ~30 páginas migradas a `React.lazy`/`Suspense` (chunks por ruta verificados en `npm run build`); `@tanstack/react-query` añadido con `QueryClientProvider` centralizado (`src/lib/queryClient.js`); 2 hooks migrados como patrón de referencia (`useProveedores` — listado estático, `useVentaLivePolling` — polling 30s con `refetchInterval`/`retry:false`, sin resetear datos en error); `frontend/README.md` nuevo documentando ambos patrones; tests nuevos/actualizados (`ErrorBoundary.test.jsx`, `useVentaLivePolling.test.jsx` con `QueryClientProvider` propio por test), suite frontend 13/13 en verde; `npm run lint`/`npm run build` sin errores nuevos | PR #1 |
+| 2026-07-02 | Fase 9 | COMPLETADA — `react-hook-form`/`zod`/`@hookform/resolvers` añadidos; `LoginPage.jsx` migrado (esquema `zod`, `handleSubmit` en `onClick`, `isSubmitting`); segundo caso piloto en `admin/usuarios/UsuariosPage.jsx` (`UsuarioCreateModal`/`UsuarioEditModal`) que además corrige una violación preexistente de `.cursorrules` (`<form onSubmit>` nativo) y migra el toggle "activo" a `Controller` para evitar el aviso `react-hooks/incompatible-library` de `watch()`; 7 tests nuevos (`LoginPage.test.jsx` ×4, `UsuariosPage.test.jsx` ×3); patrón documentado en `frontend/README.md`; suite frontend 20/20 en verde; `npm run lint` (16 errores preexistentes sin cambios, 9 warnings) y `npm run build` sin regresiones | PR #1 |

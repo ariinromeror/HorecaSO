@@ -386,6 +386,18 @@ Todas las páginas de `App.jsx` se cargan con `React.lazy(() => import(...))` de
 
 ---
 
+## 1.7 Formularios y validación: react-hook-form + zod (Fase 9)
+
+Desde la Fase 9, `react-hook-form` + `zod` (+ `@hookform/resolvers`) están disponibles para validar formularios sin reimplementar a mano `if (!campo) setError(...)` en cada página. Adopción incremental, igual que React Query — hay dos casos de referencia ya migrados (`LoginPage.jsx`, y `UsuarioCreateModal`/`UsuarioEditModal` en `admin/usuarios/UsuariosPage.jsx`).
+
+De paso, la migración del segundo caso corrigió una violación **preexistente** de `.cursorrules` que llevaba tiempo en el repo: ambos modales de `UsuariosPage.jsx` usaban `<form onSubmit={...}>` nativo en vez de un botón con `onClick` — la regla del proyecto es no usar `<form>` con submit nunca, precisamente para evitar comportamientos de navegador implícitos (recarga de página, `Enter` disparando el submit equivocado en formularios con varios inputs, etc.).
+
+El patrón completo (esquema `zod`, `useForm`, `register`, cuándo usar `Controller` en vez de `watch()` para controles a medida como toggles) está documentado en `frontend/README.md` — no se duplica aquí.
+
+**Fuera de alcance de esta fase:** migrar el resto de formularios del proyecto (queda como trabajo incremental siguiendo la plantilla documentada).
+
+---
+
 # 2. CÓMO HACKEAR TU PROPIO SISTEMA
 
 ## 2.1 Herramientas que necesitas (todas gratuitas)
