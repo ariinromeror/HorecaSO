@@ -54,6 +54,9 @@ const TenantsListPage = lazy(() => import('./pages/superadmin/TenantsListPage'))
 const TenantDetailPage = lazy(() => import('./pages/superadmin/TenantDetailPage'))
 const PlatformLogsPage = lazy(() => import('./pages/superadmin/PlatformLogsPage'))
 const UsuariosPage = lazy(() => import('./pages/admin/usuarios/UsuariosPage'))
+const FacturacionPage = lazy(() =>
+  import('./pages/admin/facturacion/FacturacionPage'),
+)
 
 function AdminDirectorRoute() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -258,6 +261,9 @@ export default function App() {
                       </Route>
                       <Route element={<AdminOnlyRoute />}>
                         <Route path="/admin/usuarios" element={<UsuariosPage />} />
+                      </Route>
+                      <Route element={<AdminDirectorRoute />}>
+                        <Route path="/facturacion" element={<FacturacionPage />} />
                       </Route>
                       <Route element={<AdminDirectorCocinaRoute />}>
                         <Route path="/admin/recetas" element={<RecetasPage />} />

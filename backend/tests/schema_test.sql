@@ -26,7 +26,32 @@ CREATE TABLE IF NOT EXISTS tenants (
     email VARCHAR,
     logo_url TEXT,
     plan VARCHAR DEFAULT 'basico',
-    activo BOOLEAN DEFAULT true
+    activo BOOLEAN DEFAULT true,
+    -- Fase 11 — Stripe Billing (ver sql/migrations/0006_stripe_billing.sql)
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT,
+    subscription_status TEXT,
+    current_period_end TIMESTAMPTZ,
+    plan_price_id TEXT
+);
+
+-- ALTER explícito (además del CREATE TABLE de arriba) por si `tenants` ya
+-- existía en una base de test creada antes de la Fase 11 — `CREATE TABLE IF
+-- NOT EXISTS` no añade columnas a una tabla preexistente.
+ALTER TABLE tenants
+    ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT,
+    ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT,
+    ADD COLUMN IF NOT EXISTS subscription_status TEXT,
+    ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS plan_price_id TEXT;
+
+CREATE TABLE IF NOT EXISTS billing_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
+    stripe_event_id TEXT NOT NULL UNIQUE,
+    tipo TEXT NOT NULL,
+    payload_json JSONB,
+    procesado_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS outlets (
