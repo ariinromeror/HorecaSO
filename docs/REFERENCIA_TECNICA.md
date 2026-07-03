@@ -289,11 +289,13 @@ Ejecutar en **Supabase â†’ SQL Editor** (en orden, segÃºn necesidad):
 
 | Archivo | Obligatorio siâ€¦ |
 |---------|-----------------|
-| `backend/sql/migration_kds_barra_destino.sql` | Usas KDS/TPV con destino cocina/barra |
-| `backend/sql/migration_fase_b.sql` | Panel superadmin y tenant de prueba |
-| `backend/sql/migration_gastos_operativos.sql` | MÃ³dulo Costes |
-| `backend/sql/migration_articulos_calibracion_merma.sql` | CalibraciÃ³n de merma en inventario |
-| `backend/sql/migration_articulos_elaborados_receta.sql` | Elaboraciones (artÃ­culos elaborados) |
+| `backend/sql/migrations/0001_kds_barra_destino.sql` | Usas KDS/TPV con destino cocina/barra |
+| `backend/sql/migrations/0002_fase_b_superadmin_tenants.sql` | Panel superadmin y tenant de prueba |
+| `backend/sql/migrations/0003_gastos_operativos.sql` | MÃ³dulo Costes |
+| `backend/sql/migrations/0004_articulos_calibracion_merma.sql` | CalibraciÃ³n de merma en inventario |
+| `backend/sql/migrations/0005_articulos_elaborados_receta.sql` | Elaboraciones (artÃ­culos elaborados) |
+
+Desde la Fase 5 del hardening técnico (`PRD.md`), aplicar estas migraciones con `python backend/scripts/migrate.py` (idempotente, registra lo aplicado en `schema_migrations`) en vez de copiar/pegar manualmente en el SQL Editor.
 
 Para hashes bcrypt del seed Fase B:
 

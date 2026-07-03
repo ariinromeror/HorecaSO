@@ -25,8 +25,8 @@ Este orden está alineado con [BITACORA_HORECASO.md](BITACORA_HORECASO.md) y [ST
 | Entregable | Ubicación / nota |
 |------------|------------------|
 | App completa multi-módulo (TPV, KDS, RRHH, inventario, etc.) | Código según bitácora |
-| Migración KDS barra / `destino_kds` | [backend/sql/migration_kds_barra_destino.sql](backend/sql/migration_kds_barra_destino.sql) — **debe ejecutarse en Supabase** si aún no lo hiciste |
-| Migración Fase B (DDL + seed tenant prueba + superadmin SQL) | [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) |
+| Migración KDS barra / `destino_kds` | [backend/sql/migrations/0001_kds_barra_destino.sql](backend/sql/migrations/0001_kds_barra_destino.sql) — **debe ejecutarse en Supabase** si aún no lo hiciste |
+| Migración Fase B (DDL + seed tenant prueba + superadmin SQL) | [backend/sql/migrations/0002_fase_b_superadmin_tenants.sql](backend/sql/migrations/0002_fase_b_superadmin_tenants.sql) |
 | Generador de hashes bcrypt para pegar en el SQL | [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py) |
 | Schema BD documentado (regenerable desde MCP) | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) · script [backend/scripts/schema_mcp_json_to_markdown.py](backend/scripts/schema_mcp_json_to_markdown.py) |
 | Guía de deploy detallada | Esta misma guía, [§1.2](#12-pasos-exactos-de-deploy) |
@@ -110,7 +110,7 @@ Siguiente
 
 | # | Qué | Dónde | Cómo verificar |
 |---|-----|-------|----------------|
-| 1 | Migración KDS aplicada en Supabase | `backend/sql/migration_kds_barra_destino.sql` | `GET /api/kds/comandas` responde 200 |
+| 1 | Migración KDS aplicada en Supabase | `backend/sql/migrations/0001_kds_barra_destino.sql` | `GET /api/kds/comandas` responde 200 |
 | 2 | Variables de entorno en Render | Dashboard Render | `GET /api/health` responde OK |
 | 3 | `SECRET_KEY_AUTH` generada aleatoriamente (no la de dev) | `.env` de Render | Mínimo 32 chars aleatorios |
 | 4 | `ALLOWED_ORIGINS` solo con URL de Vercel (no `*`) | `backend/config.py` | CORS rechaza otras origins |
@@ -262,6 +262,60 @@ Estos workflows **corren automáticamente** en cada Pull Request y aparecen como
 Esto es una **configuración manual en GitHub** — ningún agente ni script del repo puede activarla por su cuenta.
 
 **Nota — lint frontend no bloqueante (deuda temporal):** el step "Lint" de `frontend.yml` usa `continue-on-error: true` porque, al activarlo, salieron a la luz ~20 problemas de ESLint preexistentes en el frontend (documentados en `docs/BUGS_Y_SOLUCIONES.md`, sección "Fase 4"): la mayoría son **falsos positivos** de `no-unused-vars` con JSX (limitación conocida de usar solo `js.configs.recommended` sin `eslint-plugin-react`) y el resto son reglas de estilo (`set-state-in-effect`, `only-export-components`) que no afectan producción. Cuando se sanee esa deuda en una fase de limpieza frontend dedicada, quitar `continue-on-error: true` para que el lint vuelva a ser bloqueante.
+
+---
+
+## 1.4 Migraciones de base de datos versionadas (Fase 5)
+
+Desde la Fase 5 del hardening técnico (`PRD.md`), `backend/sql/` está organizado así:
+
+```
+backend/sql/
+├── migrations/     -- cambios de esquema reales, con prefijo numérico (0001_, 0002_, ...)
+├── seeds/          -- datos de demo/prueba opcionales (seed_*.sql)
+├── maintenance/     -- scripts puntuales de mantenimiento, no forman parte del ciclo de vida del esquema
+└── _artifacts/      -- artefactos históricos del MCP de Supabase (ignorado por git, no aporta valor de producción)
+```
+
+Cada migración se aplica **como mucho una vez** por entorno, controlado por una tabla `schema_migrations(version, applied_at)` que crea automáticamente el propio runner.
+
+### Cómo crear una migración nueva
+
+1. Crear un fichero nuevo en `backend/sql/migrations/` con el **siguiente número** en la secuencia y un nombre descriptivo: `000N_descripcion_corta.sql` (ej. `0006_añadir_campo_x.sql`).
+2. Escribir el SQL de forma **idempotente** siempre que sea posible: `ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`, `DROP CONSTRAINT IF EXISTS` + `ADD CONSTRAINT`, `ON CONFLICT DO NOTHING`. Esto no es solo higiene: el runner no soporta rollback automático, así que una migración que pueda re-ejecutarse sin romper nada es la mejor red de seguridad ante un fallo a mitad de aplicación en producción.
+3. Probarla localmente contra un Postgres de test antes de aplicarla en Supabase (ver más abajo).
+
+### Cómo aplicar migraciones
+
+```bash
+# Contra el Postgres que apunte DATABASE_URL (local, CI, o Supabase de producción):
+cd backend
+DATABASE_URL="postgresql://usuario:pass@host:5432/basededatos" python scripts/migrate.py
+
+# Ver qué migraciones están pendientes sin aplicar nada:
+python scripts/migrate.py --dry-run
+
+# Ver el estado completo (aplicadas + pendientes):
+python scripts/migrate.py --status
+```
+
+En **producción (Supabase)**: apuntar `DATABASE_URL` a la cadena de conexión directa de Supabase (no la de pgbouncer/pooling, para evitar problemas con `CREATE TABLE`/`ALTER TABLE` en modo transacción) y ejecutar `migrate.py` como paso manual de despliegue tras el `git push` a producción, antes de que el nuevo código que depende del cambio de esquema empiece a recibir tráfico.
+
+### Verificación de idempotencia
+
+El criterio de aceptación de la Fase 5 es que ejecutar `migrate.py` dos veces seguidas sea un no-op seguro la segunda vez:
+
+```bash
+python scripts/migrate.py   # aplica lo pendiente
+python scripts/migrate.py   # "Nada que aplicar: todas las migraciones ya están registradas."
+```
+
+Esto está cubierto además por un test de integración automatizado: `backend/tests/test_migrate.py` (aplica todas las migraciones existentes contra un esquema Postgres aislado y verifica que una segunda pasada no reaplica nada).
+
+### Limitación conocida (fuera de alcance de la Fase 5)
+
+- **No hay rollback automático.** Si una migración necesita revertirse, se escribe una migración nueva que deshaga el cambio (patrón estándar en herramientas de migración sin `down` scripts, p. ej. muchos flujos de Flyway en modo solo-forward).
+- **No existe todavía una migración "baseline" que reconstruya el esquema completo de producción desde cero.** Las migraciones en `backend/sql/migrations/` son incrementales sobre un esquema base que hoy solo existe realmente en Supabase (documentado en `docs/SCHEMA_BASE_DATOS.md`) y, de forma mínima para tests, en `backend/tests/schema_test.sql`. Generar esa baseline completa (p. ej. con `pg_dump --schema-only` de Supabase) queda como trabajo futuro si se necesita levantar un Postgres nuevo desde cero sin partir de un backup.
 
 ---
 
@@ -1999,7 +2053,7 @@ IDs fijos para que tus tests sean reproducibles:
 -- pedro@prueba.com    → rol almacen
 ```
 
-Ver DDL + seed de Fase B en `backend/sql/migration_fase_b.sql` y generación de hashes en `backend/scripts/generate_test_hashes.py` (el nombre histórico `seed_restauranteprueba.sql` del PRD quedó unificado en ese archivo).
+Ver DDL + seed de Fase B en `backend/sql/migrations/0002_fase_b_superadmin_tenants.sql` y generación de hashes en `backend/scripts/generate_test_hashes.py` (el nombre histórico `seed_restauranteprueba.sql` del PRD quedó unificado en ese archivo).
 
 ---
 
@@ -2069,7 +2123,7 @@ Este anexo sustituye al documento histórico **`PRD_SUPERADMIN_TENANTS_PRUEBAS.m
 - Rol **superadmin** (plataforma), separado del **admin** del restaurante (tenant).
 - **Auditoría** mínima: `platform_logs`, `tenant_audit_log`; **permisos** opcionales por usuario en `usuario_permisos`.
 - **API + UI** para operaciones de plataforma y para que el **admin del tenant** gestione usuarios (`/admin/usuarios`) sin ser superadmin.
-- **Tenant de prueba** reproducible vía `backend/sql/migration_fase_b.sql` + `backend/scripts/generate_test_hashes.py`.
+- **Tenant de prueba** reproducible vía `backend/sql/migrations/0002_fase_b_superadmin_tenants.sql` + `backend/scripts/generate_test_hashes.py`.
 
 **Estado:** implementado en repo (véase [BITACORA_HORECASO.md](BITACORA_HORECASO.md) §1 y §8).
 
@@ -2077,7 +2131,7 @@ Este anexo sustituye al documento histórico **`PRD_SUPERADMIN_TENANTS_PRUEBAS.m
 
 | Entregable | Ubicación |
 |------------|-----------|
-| DDL + CHECK `rol` (`superadmin`, …) + seed | [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) |
+| DDL + CHECK `rol` (`superadmin`, …) + seed | [backend/sql/migrations/0002_fase_b_superadmin_tenants.sql](backend/sql/migrations/0002_fase_b_superadmin_tenants.sql) |
 | Hashes bcrypt para el SQL | [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py) |
 | Columnas y tablas documentadas | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) |
 
