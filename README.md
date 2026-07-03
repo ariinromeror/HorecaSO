@@ -164,12 +164,14 @@ HorecaSO/
 │
 ├── docker-compose.yml             # backend + Postgres 15 for local dev (`docker compose up`)
 ├── frontend/
+│   ├── README.md                  # React Query hook conventions (static list / polling patterns)
 │   └── src/
 │       ├── components/
 │       │   ├── layout/            # AppLayout, Sidebar (role-filtered nav)
-│       │   └── shared/            # StatCard, Loader, EmptyState
+│       │   └── shared/            # StatCard, Loader, EmptyState, ErrorBoundary
 │       ├── context/               # AuthContext, ThemeContext (dark/light)
-│       ├── pages/
+│       ├── lib/queryClient.js     # Shared React Query QueryClient instance
+│       ├── pages/                 # Route-level components, lazy-loaded (React.lazy)
 │       │   ├── sala/              # Table map
 │       │   ├── tpv/               # POS with split billing
 │       │   ├── cocina/            # KDS fullscreen
@@ -477,7 +479,9 @@ npm run test          # single run
 npm run test:watch    # watch mode
 ```
 
-Uses Vitest + `@testing-library/react` with a jsdom environment (`frontend/vitest.config.js`, kept separate from `vite.config.js` since the PWA/Tailwind plugins aren't needed for unit tests). Current suite covers: `AuthContext` (session bootstrap from `localStorage`, login persists token, logout clears it), `PrivateRoute` (redirect to `/login` when unauthenticated, redirect to `/mesas` when the role isn't allowed, render content otherwise), and the Venta Live polling hook (a network error during a background poll must **not** wipe already-loaded data — an explicit project rule for all `/venta-live` and `/kds` polling screens).
+Uses Vitest + `@testing-library/react` with a jsdom environment (`frontend/vitest.config.js`, kept separate from `vite.config.js` since the PWA/Tailwind plugins aren't needed for unit tests). Current suite covers: `AuthContext` (session bootstrap from `localStorage`, login persists token, logout clears it), `PrivateRoute` (redirect to `/login` when unauthenticated, redirect to `/mesas` when the role isn't allowed, render content otherwise), the global `ErrorBoundary` (a forced render error shows the fallback screen instead of a blank page), and the Venta Live polling hook, now backed by React Query (`refetchInterval: 30000`) — a network error during a background poll must **not** wipe already-loaded data, an explicit project rule for all `/venta-live` and `/kds` polling screens, verified against the library's default behavior rather than hand-rolled state guards.
+
+See `frontend/README.md` for the React Query conventions (query-key patterns for static lists vs. polling screens, how to test hooks that use `useQuery`) introduced in Fase 8 of `PRD.md`.
 
 ---
 

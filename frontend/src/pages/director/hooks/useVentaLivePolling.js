@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   getDashboardDirector,
   getMesas,
@@ -8,97 +9,108 @@ import {
 
 const POLL_MS = 30000
 
+async function fetchVentaLive() {
+  const [dashRes, mesasRes, ticketsRes] = await Promise.all([
+    getDashboardDirector(),
+    getMesas(),
+    getTicketsHoy(),
+  ])
+  return {
+    dashboard: dashRes.data,
+    mesas: Array.isArray(mesasRes.data) ? mesasRes.data : [],
+    ticketsDia: Array.isArray(ticketsRes.data) ? ticketsRes.data : [],
+  }
+}
+
+/**
+ * Hook de referencia para la migración a React Query (Fase 8 del PRD de
+ * hardening) de pantallas con polling. Ver `frontend/README.md` para el
+ * patrón completo.
+ *
+ * Puntos clave que replican la regla del proyecto ("polling cada 30s, NUNCA
+ * resetear datos en error"):
+ * - `refetchInterval: POLL_MS` sustituye al `setInterval` manual.
+ * - `retry: false`: un fallo de polling se refleja de inmediato en `error`,
+ *   sin reintentos silenciosos que compliquen "cada cuánto se reintenta".
+ * - React Query mantiene `data` (dashboard/mesas/tickets) intacto cuando un
+ *   refetch en background falla — no hace falta lógica extra para eso, es el
+ *   comportamiento por defecto (a diferencia de state manual con `useState`
+ *   donde había que evitar pisar el estado en el `catch`).
+ */
 export function useVentaLivePolling() {
-  const [dashboard, setDashboard] = useState(null)
-  const [mesas, setMesas] = useState([])
-  const [ticketsDia, setTicketsDia] = useState([])
-  const [initialLoad, setInitialLoad] = useState(true)
-  const [error, setError] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(() => Date.now())
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [secondsAgo, setSecondsAgo] = useState(0)
-
-  const [ticketDetalle, setTicketDetalle] = useState(null)
   const [panelTicketId, setPanelTicketId] = useState(null)
-  const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [panelAbierto, setPanelAbierto] = useState(false)
-  const [detalleError, setDetalleError] = useState(null)
   const [panelAnimIn, setPanelAnimIn] = useState(false)
+  // `now` se actualiza cada segundo vía efecto (nunca leyendo Date.now()
+  // directamente en el cuerpo del hook, para mantenerlo puro en render).
+  const [now, setNow] = useState(() => Date.now())
 
-  const fetchAll = useCallback(async () => {
-    setIsRefreshing(true)
-    setError(null)
-    try {
-      const [dashRes, mesasRes, ticketsRes] = await Promise.all([
-        getDashboardDirector(),
-        getMesas(),
-        getTicketsHoy(),
-      ])
-      setDashboard(dashRes.data)
-      setMesas(Array.isArray(mesasRes.data) ? mesasRes.data : [])
-      const raw = Array.isArray(ticketsRes.data) ? ticketsRes.data : []
-      setTicketsDia(raw)
-      setLastUpdated(Date.now())
-    } catch (e) {
-      setError(
-        e.response?.data?.detail || 'No se pudieron actualizar los datos'
-      )
-    } finally {
-      setIsRefreshing(false)
-      setInitialLoad(false)
-    }
+  const {
+    data,
+    error: queryError,
+    isLoading,
+    isFetching,
+    dataUpdatedAt,
+  } = useQuery({
+    queryKey: ['venta-live'],
+    queryFn: fetchVentaLive,
+    refetchInterval: POLL_MS,
+    retry: false,
+  })
+
+  const dashboard = data?.dashboard ?? null
+  const mesas = data?.mesas ?? []
+  const ticketsDia = data?.ticketsDia ?? []
+  const initialLoad = isLoading
+  const isRefreshing = isFetching
+  const error = queryError
+    ? queryError.response?.data?.detail || 'No se pudieron actualizar los datos'
+    : null
+  const lastUpdated = dataUpdatedAt || now
+
+  // `dataUpdatedAt` solo cambia con cada fetch exitoso; este tick fuerza un
+  // re-render cada segundo para que "Actualizado hace X segundos" avance.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
   }, [])
 
-  useEffect(() => {
-    fetchAll()
-    const interval = setInterval(fetchAll, POLL_MS)
-    return () => clearInterval(interval)
-  }, [fetchAll])
+  const secondsAgo = Math.max(0, Math.floor((now - lastUpdated) / 1000))
+
+  const detalleQuery = useQuery({
+    queryKey: ['ticket-detalle', panelTicketId],
+    queryFn: () => getTicketDetalle(panelTicketId).then((r) => r.data),
+    enabled: panelAbierto && !!panelTicketId,
+    retry: false,
+  })
+
+  const ticketDetalle = detalleQuery.data ?? null
+  const loadingDetalle = panelAbierto && detalleQuery.isLoading
+  const detalleError = detalleQuery.error
+    ? detalleQuery.error.response?.data?.detail || 'No se pudo cargar el detalle'
+    : null
 
   useEffect(() => {
-    const t = setInterval(() => {
-      setSecondsAgo(Math.floor((Date.now() - lastUpdated) / 1000))
-    }, 1000)
-    return () => clearInterval(t)
-  }, [lastUpdated])
-
-  useEffect(() => {
-    if (!panelAbierto) {
-      setPanelAnimIn(false)
-      return
-    }
+    // El cierre (`cerrarPanel`) ya resetea `panelAnimIn` a `false`
+    // explícitamente como parte de la acción del usuario; este efecto solo
+    // necesita disparar la animación de entrada al abrir.
+    if (!panelAbierto) return
     const id = requestAnimationFrame(() => {
       requestAnimationFrame(() => setPanelAnimIn(true))
     })
     return () => cancelAnimationFrame(id)
   }, [panelAbierto])
 
-  const abrirDetalleTicket = useCallback(async (ticketId) => {
+  const abrirDetalleTicket = useCallback((ticketId) => {
     if (!ticketId) return
     setPanelAbierto(true)
     setPanelTicketId(ticketId)
-    setLoadingDetalle(true)
-    setTicketDetalle(null)
-    setDetalleError(null)
-    try {
-      const r = await getTicketDetalle(ticketId)
-      setTicketDetalle(r.data)
-    } catch (e) {
-      setDetalleError(
-        e.response?.data?.detail || 'No se pudo cargar el detalle'
-      )
-    } finally {
-      setLoadingDetalle(false)
-    }
   }, [])
 
   const cerrarPanel = useCallback(() => {
     setPanelAbierto(false)
     setPanelAnimIn(false)
     setPanelTicketId(null)
-    setTicketDetalle(null)
-    setDetalleError(null)
-    setLoadingDetalle(false)
   }, [])
 
   const mesasActivas = useMemo(() => {
