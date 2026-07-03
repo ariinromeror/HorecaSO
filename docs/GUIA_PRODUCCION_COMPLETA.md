@@ -319,6 +319,53 @@ Esto está cubierto además por un test de integración automatizado: `backend/t
 
 ---
 
+## 1.5 Observabilidad: Sentry, request_id y logs JSON (Fase 7)
+
+Desde la Fase 7 del hardening técnico, el backend (y opcionalmente el frontend) capturan excepciones no controladas en Sentry, cada request tiene un ID de correlación propagado en logs y respuesta, y los logs del backend salen en JSON estructurado (una línea = un objeto JSON) en vez de texto plano.
+
+### Activar Sentry
+
+Todo es **opt-in por variable de entorno** — sin configurarlas, el comportamiento es idéntico a antes de esta fase (nada se activa, no hay overhead ni llamadas de red):
+
+| Variable | Dónde | Efecto |
+|----------|-------|--------|
+| `SENTRY_DSN` | `backend/.env` (o env var en Render) | Si tiene valor, `backend/observability.py` inicializa `sentry_sdk` con las integraciones de FastAPI/Starlette al arrancar la app. |
+| `VITE_SENTRY_DSN` | `frontend/.env`/`.env.local` (o env var de build en Vercel) | Si tiene valor, `frontend/src/main.jsx` inicializa `@sentry/react` antes de montar la app. |
+
+Para probarlo: crea un proyecto en [sentry.io](https://sentry.io) (plan free), copia el DSN del proyecto Python (backend) y/o React (frontend), pégalo en la variable correspondiente, reinicia el servicio, y provoca una excepción no controlada (p. ej. una ruta de prueba que haga `raise Exception("test")`) — debería aparecer en el proyecto de Sentry en segundos.
+
+### request_id de correlación
+
+`backend/observability.py` → `RequestIdMiddleware`: cada request recibe un `request_id` (UUID v4, o el valor entrante del header `X-Request-ID` si ya viene de un proxy/CDN que lo propague). Ese mismo valor:
+- Aparece en **todas las líneas de log** generadas durante esa request (campo `"request_id"` en el JSON de log — ver más abajo).
+- Se devuelve en la respuesta como header `X-Request-ID`.
+
+Esto permite, dado un error reportado por un usuario con su `X-Request-ID` (visible en las DevTools del navegador, pestaña Network), buscar exactamente esa request en los logs de Render sin tener que correlacionar por timestamp aproximado.
+
+### Logs en JSON estructurado
+
+`configure_logging()` sustituye el `logging.basicConfig` de texto plano por un formateador JSON (`python-json-logger`). Cada línea de log ahora es un objeto con `timestamp`, `level`, `logger`, `request_id` y `message`, por ejemplo:
+
+```json
+{"timestamp": "2026-07-02 23:10:00,123", "level": "ERROR", "logger": "routers.tpv.tpv_cobro", "request_id": "3fa8...", "message": "Error en cobrar_ticket: ..."}
+```
+
+Esto no cambia **qué** se loguea (los `logger.info(...)`/`logger.error(...)` existentes en cada router siguen igual) — solo el formato de salida, pensado para poder filtrar/agregar por `request_id` o `level` en cualquier herramienta que ingiera logs (Render los muestra igual como texto, pero cada línea ya es JSON parseable).
+
+### Health check ampliado
+
+`GET /api/health` (el mismo `healthCheckPath` que usa `render.yaml` — el código de estado 200/503 no cambió) ahora devuelve también `version` (de `settings.APP_VERSION`) y `pool` (tamaño actual/mínimo/máximo/idle del pool de `asyncpg`):
+
+```json
+{"status": "ok", "version": "1.0.0", "pool": {"initialized": true, "size": 2, "min_size": 2, "max_size": 10, "idle": 2}}
+```
+
+`GET /api/health/ready` hace la misma comprobación (pensado para un futuro orquestador tipo Kubernetes que distinga liveness/readiness; Render solo usa `/api/health`).
+
+**Fuera de alcance de esta fase:** dashboards de métricas (Prometheus/Grafana) — se puede añadir en el futuro si el volumen de tráfico lo justifica.
+
+---
+
 # 2. CÓMO HACKEAR TU PROPIO SISTEMA
 
 ## 2.1 Herramientas que necesitas (todas gratuitas)

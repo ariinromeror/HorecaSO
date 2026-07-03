@@ -21,7 +21,8 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from config import settings
-from database import close_connection_pool, init_connection_pool, get_db
+from database import close_connection_pool, init_connection_pool, get_db, pool_status
+from observability import RequestIdMiddleware, configure_logging, init_sentry
 from rate_limit import limiter
 from routers.admin_carta.admin_carta import router as admin_carta_router
 from routers.admin_carta.admin_carta import router_alergenos as alergenos_router
@@ -69,12 +70,17 @@ from routers.reportes.reportes import router as reportes_router
 from routers.admin_usuarios import router as admin_usuarios_router
 from routers.superadmin import router as superadmin_router
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+configure_logging(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
+
+_sentry_activo = init_sentry(
+    dsn=settings.SENTRY_DSN,
+    environment=settings.ENVIRONMENT,
+    release=settings.APP_VERSION,
+)
+if _sentry_activo:
+    logger.info("Sentry inicializado (environment=%s)", settings.ENVIRONMENT)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -132,6 +138,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestIdMiddleware)
 
     # Global exception handler — 500 sin stack trace (HTTPException se re-lanza)
     @app.exception_handler(Exception)
@@ -194,17 +201,41 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     async def health_check():
-        """Health check — verifica conexión a DB con SELECT 1."""
+        """
+        Health check — verifica conexión a DB con SELECT 1.
+        Usado como `healthCheckPath` por Render (render.yaml): el código de
+        estado (200/503) no cambia respecto a antes de la Fase 7, solo se
+        amplía el cuerpo con versión de la app y estado del pool.
+        """
         try:
             async with get_db() as conn:
                 await conn.fetchval("SELECT 1")
-            return {"status": "ok"}
+            return {
+                "status": "ok",
+                "version": settings.APP_VERSION,
+                "pool": pool_status(),
+            }
         except Exception as e:
             logger.error("Health check fallido: %s", e)
             return JSONResponse(
                 status_code=503,
-                content={"status": "error", "detail": "DB no disponible"},
+                content={
+                    "status": "error",
+                    "detail": "DB no disponible",
+                    "version": settings.APP_VERSION,
+                    "pool": pool_status(),
+                },
             )
+
+    @app.get("/api/health/ready")
+    async def readiness_check():
+        """
+        Readiness — misma verificación que `/api/health` (¿puede el servicio
+        atender tráfico ahora mismo?). Endpoint separado por convención
+        liveness/readiness para poder apuntar aquí un futuro orquestador
+        (k8s, etc.) sin depender del path que usa Render.
+        """
+        return await health_check()
 
     return app
 

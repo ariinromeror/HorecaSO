@@ -241,22 +241,33 @@
 **Por qué:** hoy solo hay `logging.basicConfig` a nivel INFO y un health check con `SELECT 1`. No hay Sentry, ni logs estructurados, ni request ID de correlación. Un incidente en producción hoy solo se puede investigar con logs planos de Render.
 
 **Alcance:**
-- [ ] Backend: añadir `sentry-sdk[fastapi]` a `requirements.txt`, inicializar en `backend/main.py` (con `SENTRY_DSN` como variable de entorno opcional — si no está definida, no se activa), configurar `environment` (`development`/`production`) desde `settings.ENVIRONMENT`.
-- [ ] Frontend: añadir `@sentry/react`, inicializar en `main.jsx` de forma condicional a una env var `VITE_SENTRY_DSN`.
-- [ ] Middleware de `request_id` en `backend/main.py`: generar/propagar un ID por request, incluirlo en los logs (`logger` con `extra={"request_id": ...}`) y en la respuesta como header (`X-Request-ID`).
-- [ ] Migrar el formato de logging a JSON estructurado (librería `python-json-logger` o formato manual) para facilitar futura ingestión en herramientas externas.
-- [ ] Ampliar `GET /api/health` para incluir: versión de la app (`settings.APP_VERSION`), estado del pool de conexiones (tamaño actual/máximo), y un segundo endpoint `GET /api/health/ready` si se quiere distinguir liveness de readiness.
+- [x] Backend: añadir `sentry-sdk[fastapi]` a `requirements.txt`, inicializar en `backend/main.py` (con `SENTRY_DSN` como variable de entorno opcional — si no está definida, no se activa), configurar `environment` (`development`/`production`) desde `settings.ENVIRONMENT`.
+- [x] Frontend: añadir `@sentry/react`, inicializar en `main.jsx` de forma condicional a una env var `VITE_SENTRY_DSN`.
+- [x] Middleware de `request_id` en `backend/main.py`: generar/propagar un ID por request, incluirlo en los logs (`logger` con `extra={"request_id": ...}`) y en la respuesta como header (`X-Request-ID`).
+- [x] Migrar el formato de logging a JSON estructurado (librería `python-json-logger` o formato manual) para facilitar futura ingestión en herramientas externas.
+- [x] Ampliar `GET /api/health` para incluir: versión de la app (`settings.APP_VERSION`), estado del pool de conexiones (tamaño actual/máximo), y un segundo endpoint `GET /api/health/ready` si se quiere distinguir liveness de readiness.
 
 **Fuera de alcance:** dashboards de métricas (Prometheus/Grafana) — se puede anotar como posible fase futura si el volumen de tráfico lo justifica.
 
 **Criterios de aceptación:**
-- Una excepción no controlada provocada deliberadamente en un entorno de test con `SENTRY_DSN` configurado aparece en el proyecto de Sentry correspondiente.
-- Los logs incluyen `request_id` y este mismo valor aparece en el header `X-Request-ID` de la respuesta.
-- `GET /api/health` devuelve la información ampliada sin romper el `healthCheckPath` que usa Render (`render.yaml`).
+- [x] Una excepción no controlada provocada deliberadamente en un entorno de test con `SENTRY_DSN` configurado aparece en el proyecto de Sentry correspondiente. → Verificado que `init_sentry(dsn=...)` activa realmente el SDK (`sentry_sdk.get_client().is_active()` es `True`) cuando hay DSN, y que es un no-op (`False`, sin importar `sentry_sdk` más allá de la función) sin DSN — cubierto por `backend/tests/test_observability.py`. No se dispone de un proyecto Sentry real en este entorno para verificar la llegada del evento end-to-end; queda documentado como paso manual de verificación en `docs/GUIA_PRODUCCION_COMPLETA.md` §1.5 al configurar el DSN real.
+- [x] Los logs incluyen `request_id` y este mismo valor aparece en el header `X-Request-ID` de la respuesta. → Verificado: logs en JSON con campo `request_id` (confirmado en la salida de `pytest -q` capturada), y test de integración que confirma que el header `X-Request-ID` se genera si no viene en la request, y se reutiliza tal cual si el cliente ya lo manda.
+- [x] `GET /api/health` devuelve la información ampliada sin romper el `healthCheckPath` que usa Render (`render.yaml`). → El código de estado (200/503) y el campo `status` no cambiaron; solo se añadieron `version` y `pool` al cuerpo. Verificado con test de integración.
 
 **Dependencias:** ninguna estricta; se recomienda tras la Fase 4 (CI) para poder verificar que Sentry no rompe el arranque en CI cuando el DSN no está definido.
 
-**Estado:** `[ ] PENDIENTE`
+**Estado:** `[x] COMPLETADA`
+
+**Resumen de ejecución (2026-07-02):**
+- `backend/observability.py` (nuevo): `configure_logging()` (JSON estructurado vía `python-json-logger`, con filtro que inyecta `request_id` desde un `contextvars.ContextVar` en cada línea), `RequestIdMiddleware` (genera/reutiliza `X-Request-ID`, lo expone en logs y en la respuesta), `init_sentry(dsn, environment, release)` (no-op total sin DSN; con DSN, inicializa `sentry_sdk` con integraciones de Starlette/FastAPI, sin tracing de performance).
+- `backend/database.py`: nueva función `pool_status()` (tamaño actual/mínimo/máximo/idle del pool `asyncpg`, o `{"initialized": False}` si el pool no está levantado).
+- `backend/main.py`: `logging.basicConfig` sustituido por `configure_logging()`; `init_sentry(...)` llamado al importar el módulo con los valores de `settings`; `RequestIdMiddleware` añadido como middleware más externo (para cubrir toda la respuesta, incluidas las cabeceras de seguridad); `GET /api/health` ampliado con `version`/`pool` (mismo código de estado que antes); nuevo `GET /api/health/ready` (misma comprobación, para un futuro distingo liveness/readiness).
+- `backend/config.py`: nuevo campo `SENTRY_DSN: str = ""`.
+- `backend/requirements.txt`: `sentry-sdk[fastapi]==2.64.0`, `python-json-logger==4.1.0`.
+- `frontend/src/main.jsx`: `@sentry/react` (`^10.63.0`) inicializado solo si `import.meta.env.VITE_SENTRY_DSN` tiene valor.
+- Tests nuevos: `backend/tests/test_observability.py` (6 tests: health check con `version`/`pool`, `/api/health/ready`, generación y reutilización de `X-Request-ID`, `init_sentry` activa/no-activa según DSN). Suite completa backend: **40/40 en verde**. Frontend: `npm run build`/`npm run test` verificados sin regresiones tras añadir `@sentry/react`.
+- Documentado en `docs/GUIA_PRODUCCION_COMPLETA.md` (nueva sección "1.5 Observabilidad") y `README.md` (tabla de variables de entorno, cobertura de tests).
+- **Decisión:** no se implementó ingestión real en un proyecto Sentry (requeriría credenciales externas que no aportan valor de verificación automatizada); la activación condicional y el comportamiento del SDK sí están cubiertos por tests reales contra el propio `sentry_sdk`.
 
 ---
 
@@ -436,3 +447,4 @@
 | 2026-07-02 | Fase 4 | COMPLETADA — `.github/workflows/backend.yml` (Postgres efímero + pytest + smoke check) y `frontend.yml` (npm ci/lint/build/test) creados; badges en README; sección 1.3 de branch protection en GUIA_PRODUCCION_COMPLETA.md; BUG-014 real corregido (`ElaboracionesPage.jsx`); deuda de lint preexistente investigada y documentada (mayoría falsos positivos JSX de ESLint), lint frontend queda `continue-on-error` hasta una limpieza dedicada. **Confirmado en el runner real de GitHub Actions**: primer push del workflow backend falló de verdad por BUG-015 (`ModuleNotFoundError: database` — divergencia `pytest` vs `python -m pytest`); corregido con `sys.path.insert` en `conftest.py`; ambos workflows en verde tras el fix | PR #1 |
 | 2026-07-02 | Fase 5 | COMPLETADA — `backend/sql/` reorganizado en `migrations/`/`seeds/`/`maintenance/` con prefijo numérico; `backend/scripts/migrate.py` (tabla `schema_migrations`, `--dry-run`/`--status`) creado y verificado idempotente contra Postgres local (2 pasadas); `backend/tests/test_migrate.py` nuevo (aplica las 5 migraciones reales en un esquema aislado); `schema_test.sql` ampliado con `recetas`/`receta_ingredientes`; suite completa (34 tests) sigue en verde; flujo documentado en GUIA_PRODUCCION_COMPLETA.md (sección 1.4) y README | PR #1 |
 | 2026-07-02 | Fase 6 | COMPLETADA — `backend/Dockerfile` multi-stage (usuario no root, healthcheck propio) + `backend/.dockerignore`; `docker-compose.yml` (backend + Postgres 15, init vía `backend/docker/initdb.sh` con schema_test.sql + migraciones de Fase 5); step "Build Docker image" añadido a `backend.yml`; README con sección Docker. **Verificado end-to-end instalando Docker Engine en la propia VM del agente**: build de imagen OK, init de DB con 21 tablas (incl. `schema_migrations`) OK; limitación de red *bridge* Docker-en-Docker de esta sandbox concreta detectada y documentada, verificada la conexión real Postgres↔FastAPI con `--network host` sobre la misma imagen | PR #1 |
+| 2026-07-02 | Fase 7 | COMPLETADA — `backend/observability.py` nuevo (logging JSON con `request_id`, `RequestIdMiddleware`, `init_sentry` condicional a `SENTRY_DSN`); `pool_status()` en `database.py`; `GET /api/health` ampliado (`version`/`pool`) + nuevo `GET /api/health/ready`; `@sentry/react` en frontend condicional a `VITE_SENTRY_DSN`; 6 tests nuevos (`test_observability.py`), suite backend 40/40 en verde; documentado en GUIA_PRODUCCION_COMPLETA.md (sección 1.5) y README | PR #1 |

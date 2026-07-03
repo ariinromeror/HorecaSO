@@ -435,12 +435,14 @@ See [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md#14-migra
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime | Optional |
 | `ENVIRONMENT` | `development` / `production` — controls `/docs` | Optional |
 | `GROQ_API_KEY` | Groq API key for AI invoice scanning | Optional |
+| `SENTRY_DSN` | Sentry DSN for error tracking (unset = Sentry never initializes) | Optional |
 
 **Frontend** (`frontend/.env`):
 
 | Variable | Description |
 |----------|-------------|
 | `VITE_API_URL` | Backend URL (only needed in production, e.g. `https://...onrender.com/api`) |
+| `VITE_SENTRY_DSN` | Sentry DSN for frontend error tracking (unset = Sentry never initializes) |
 
 ---
 
@@ -464,7 +466,7 @@ pytest
 
 `pytest.ini` sets `asyncio_mode = auto`; `tests/conftest.py` creates a minimal schema (`tests/schema_test.sql`) and truncates all tables before every test for isolation. Override the connection string with `TEST_DATABASE_URL` if your local Postgres uses different credentials (default: `postgresql://postgres:test@localhost:5432/horecaso_test`).
 
-Current suite covers: auth + rate limiting, multi-tenant isolation (IDOR regressions), RBAC on sensitive endpoints, the full TPV charge → Verifactu flow (including hash chaining and the immutability rule), payroll (nóminas) calculations, and the `scripts/migrate.py` runner itself (applies every migration in `backend/sql/migrations/` against an isolated Postgres schema and asserts a second pass is a no-op).
+Current suite covers: auth + rate limiting, multi-tenant isolation (IDOR regressions), RBAC on sensitive endpoints, the full TPV charge → Verifactu flow (including hash chaining and the immutability rule), payroll (nóminas) calculations, the `scripts/migrate.py` runner itself (applies every migration in `backend/sql/migrations/` against an isolated Postgres schema and asserts a second pass is a no-op), and observability (health check payload, request-id propagation, conditional Sentry init).
 
 ### Frontend (Vitest)
 
