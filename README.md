@@ -152,11 +152,17 @@ HorecaSO/
 │   │   ├── ml_predicciones.py     # Waste forecasting (trend + seasonality)
 │   │   └── pdf_*.py               # ReportLab document builders
 │   │
-│   ├── sql/                       # Versioned migrations & seeds (Supabase)
+│   ├── sql/
+│   │   ├── migrations/            # Numbered, idempotent schema changes (scripts/migrate.py)
+│   │   ├── seeds/                 # Optional demo data
+│   │   └── maintenance/           # One-off maintenance scripts
+│   ├── scripts/migrate.py         # Migration runner (schema_migrations tracking table)
+│   ├── Dockerfile                 # Multi-stage build, non-root user
 │   ├── config.py                  # pydantic-settings, env vars
 │   ├── database.py                # asyncpg pool, pgbouncer fix
 │   └── main.py                    # App factory, CORS, security middleware
 │
+├── docker-compose.yml             # backend + Postgres 15 for local dev (`docker compose up`)
 ├── frontend/
 │   └── src/
 │       ├── components/
@@ -357,8 +363,30 @@ The app installs to the home screen with a translucent status bar. All fixed hea
 - Python 3.12
 - Node.js 18+
 - A Supabase project (or local PostgreSQL 15)
+- Docker + Docker Compose (only needed for the one-command setup below)
 
-### Backend
+### Docker (backend + Postgres in one command)
+
+The fastest way to get a working backend + database locally, with the same image used to build for production:
+
+```bash
+docker compose up --build
+```
+
+This starts two containers:
+
+| Service | What it does |
+|---------|---------------|
+| `db` | Postgres 15. On first boot (empty volume) it loads the minimal schema (`backend/tests/schema_test.sql`) and applies every migration in `backend/sql/migrations/` — see `backend/docker/initdb.sh`. |
+| `backend` | Built from `backend/Dockerfile` (multi-stage, non-root user, same `gunicorn` + `uvicorn.workers.UvicornWorker` command as `render.yaml`). |
+
+Once it's up: API at `http://localhost:8000`, health check at `http://localhost:8000/api/health`. Postgres is exposed on the host at `localhost:5433` (not `5432`, to avoid clashing with a local Postgres install) with `postgres`/`postgres`/`horecaso_dev`.
+
+The frontend is **not** dockerized (Vercel manages its own build) — run it separately with `npm run dev` pointing `VITE_API_URL` at `http://localhost:8000`.
+
+This is a local **dev** database, not a 1:1 mirror of the real Supabase production schema (see the known-limitations note in `backend/tests/schema_test.sql` and PRD.md Fase 5) — it's the same minimal-but-functional schema the automated test suite uses, plus the real migrations layered on top.
+
+### Backend (without Docker)
 
 ```bash
 cd backend
