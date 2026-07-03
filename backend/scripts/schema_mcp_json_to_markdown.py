@@ -111,7 +111,7 @@ def main() -> None:
             "",
             "## Tablas Fase B (plataforma)",
             "",
-            "Incluidas en este volcado: `platform_logs`, `tenant_audit_log`, `usuario_permisos` (DDL en [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql)).",
+            "Incluidas en este volcado: `platform_logs`, `tenant_audit_log`, `usuario_permisos` (DDL en [backend/sql/migrations/0002_fase_b_superadmin_tenants.sql](backend/sql/migrations/0002_fase_b_superadmin_tenants.sql)).",
             "",
             "---",
             "",

@@ -1,9 +1,18 @@
 -- Esquema mínimo para tests de integración (pytest).
 -- NO es una migración de producción: solo cubre las tablas que ejercitan
--- los tests actuales. La fuente de verdad del esquema completo real está
--- documentada en docs/SCHEMA_BASE_DATOS.md (Supabase). Cuando la Fase 5
--- (migraciones versionadas) esté lista, este archivo debería derivarse de
--- la migración base en vez de mantenerse a mano por separado.
+-- los tests actuales, más las columnas/tablas adicionales que las
+-- migraciones de backend/sql/migrations/ necesitan como base para poder
+-- aplicarse limpiamente sobre este esquema (ver test_migrate.py, Fase 5).
+-- La fuente de verdad del esquema completo real está documentada en
+-- docs/SCHEMA_BASE_DATOS.md (Supabase).
+--
+-- Nota arquitectónica (limitación conocida, Fase 5): este proyecto no tiene
+-- todavía una migración "0000_baseline" que reconstruya el esquema completo
+-- de producción desde cero; las migraciones en sql/migrations/ son
+-- incrementales sobre un esquema base que hoy solo existe en Supabase y en
+-- este fichero de test. Crear esa baseline es trabajo futuro fuera del
+-- alcance de la Fase 5 (que se centra en el mecanismo de versionado, no en
+-- reconstruir el histórico completo).
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -191,6 +200,29 @@ CREATE TABLE IF NOT EXISTS turnos (
     tipo VARCHAR DEFAULT 'normal',
     incidencia VARCHAR,
     firmado_empleado BOOLEAN DEFAULT false
+);
+
+CREATE TABLE IF NOT EXISTS recetas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    producto_id UUID REFERENCES productos(id),
+    rendimiento NUMERIC DEFAULT 1,
+    instrucciones TEXT,
+    tiempo_preparacion INT,
+    foto_url TEXT,
+    coste_calculado NUMERIC,
+    margen_porcentaje NUMERIC,
+    semaforo VARCHAR,
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS receta_ingredientes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    receta_id UUID REFERENCES recetas(id),
+    articulo_id UUID REFERENCES articulos(id),
+    cantidad_neta NUMERIC NOT NULL,
+    porcentaje_merma NUMERIC DEFAULT 0,
+    unidad VARCHAR,
+    orden INT DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS nominas (

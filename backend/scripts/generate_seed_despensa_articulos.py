@@ -1,4 +1,4 @@
-"""Genera backend/sql/seed_despensa_articulos_prueba.sql con ≥150 artículos para el tenant demo."""
+"""Genera backend/sql/seeds/seed_despensa_articulos_prueba.sql con ≥150 artículos para el tenant demo."""
 from __future__ import annotations
 
 import textwrap
@@ -309,7 +309,7 @@ def main() -> None:
 
     out = "\n".join(lines) + "\n"
     root = __file__.rsplit("scripts", 1)[0]
-    path = root + "sql/seed_despensa_articulos_prueba.sql"
+    path = root + "sql/seeds/seed_despensa_articulos_prueba.sql"
     with open(path, "w", encoding="utf-8") as f:
         f.write(out)
     print(f"Wrote {path} ({len(ITEMS)} items)")

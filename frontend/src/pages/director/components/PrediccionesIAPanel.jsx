@@ -149,7 +149,7 @@ export default function PrediccionesIAPanel() {
               Registra movimientos de tipo merma en Inventario, o ejecuta en
               Supabase el script{' '}
               <code className="rounded bg-black/10 px-1 py-0.5 text-xs dark:bg-white/10">
-                backend/sql/seed_predicciones_mermas_demo.sql
+                backend/sql/seeds/seed_predicciones_mermas_demo.sql
               </code>{' '}
               para cargar datos de demostración.
             </p>

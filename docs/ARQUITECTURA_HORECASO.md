@@ -161,8 +161,9 @@ No son routers; los importan routers u otros servicios.
 
 ### 4.4 Migraciones SQL locales
 
-- [backend/sql/migration_kds_barra_destino.sql](backend/sql/migration_kds_barra_destino.sql) — `destino_kds`, columnas barra en líneas, rol `barra`: aplicar manualmente en Supabase si el entorno aún no las tiene.
-- [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) — Fase B: CHECK `rol`, `superadmin`, tablas `platform_logs` / `tenant_audit_log` / `usuario_permisos`, seed tenant prueba: **en repo**; ejecutar en Supabase cuando proceda (hashes: [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py)).
+- [backend/sql/migrations/0001_kds_barra_destino.sql](backend/sql/migrations/0001_kds_barra_destino.sql) — `destino_kds`, columnas barra en líneas, rol `barra`: aplicar manualmente en Supabase si el entorno aún no las tiene.
+- [backend/sql/migrations/0002_fase_b_superadmin_tenants.sql](backend/sql/migrations/0002_fase_b_superadmin_tenants.sql) — Fase B: CHECK `rol`, `superadmin`, tablas `platform_logs` / `tenant_audit_log` / `usuario_permisos`, seed tenant prueba: **en repo**; ejecutar en Supabase cuando proceda (hashes: [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py)).
+- Desde la Fase 5 del hardening técnico (`PRD.md`), estas migraciones se aplican con `python backend/scripts/migrate.py` (tabla de control `schema_migrations`) en vez de copiar/pegar manualmente en el SQL Editor de Supabase — ver `docs/GUIA_PRODUCCION_COMPLETA.md` §1.4.
 
 ---
 

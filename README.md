@@ -384,7 +384,15 @@ App available at: `http://localhost:5173` — the Vite dev proxy forwards `/api`
 
 ### Database
 
-Run the SQL migrations from `backend/sql/` in the Supabase SQL Editor (see [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md) for the exact order and seeds).
+Schema changes live in `backend/sql/migrations/` as numbered, idempotent SQL files, tracked in a `schema_migrations` table so each one applies at most once per environment:
+
+```bash
+cd backend
+DATABASE_URL="postgresql://user:pass@host:5432/db" python scripts/migrate.py          # apply pending migrations
+python scripts/migrate.py --status    # list applied/pending without changing anything
+```
+
+See [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md#14-migraciones-de-base-de-datos-versionadas-fase-5) for the full workflow (creating new migrations, applying against Supabase production, known limitations).
 
 ### Environment Variables
 
@@ -428,7 +436,7 @@ pytest
 
 `pytest.ini` sets `asyncio_mode = auto`; `tests/conftest.py` creates a minimal schema (`tests/schema_test.sql`) and truncates all tables before every test for isolation. Override the connection string with `TEST_DATABASE_URL` if your local Postgres uses different credentials (default: `postgresql://postgres:test@localhost:5432/horecaso_test`).
 
-Current suite covers: auth + rate limiting, multi-tenant isolation (IDOR regressions), RBAC on sensitive endpoints, the full TPV charge → Verifactu flow (including hash chaining and the immutability rule), and payroll (nóminas) calculations.
+Current suite covers: auth + rate limiting, multi-tenant isolation (IDOR regressions), RBAC on sensitive endpoints, the full TPV charge → Verifactu flow (including hash chaining and the immutability rule), payroll (nóminas) calculations, and the `scripts/migrate.py` runner itself (applies every migration in `backend/sql/migrations/` against an isolated Postgres schema and asserts a second pass is a no-op).
 
 ### Frontend (Vitest)
 
