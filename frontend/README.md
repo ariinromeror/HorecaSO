@@ -118,6 +118,78 @@ function renderWithClient(hook) {
 }
 ```
 
+## Formularios con react-hook-form + zod (Fase 9 del PRD de hardening)
+
+Desde la Fase 9, los formularios nuevos (y los que se toquen por otro motivo)
+usan `react-hook-form` + `zod` (+ `@hookform/resolvers`) en vez de validación
+manual con `useState` + `if (!campo) setError(...)`. **No es obligatorio
+migrar formularios existentes de golpe** — igual que con React Query, es una
+adopción incremental.
+
+Hay dos casos de referencia ya migrados:
+
+- `src/pages/LoginPage.jsx` — formulario simple de dos campos.
+- `src/pages/admin/usuarios/UsuariosPage.jsx` (`UsuarioCreateModal` /
+  `UsuarioEditModal`) — formulario con `select`, un toggle custom (no un
+  `<input type="checkbox">` nativo) y dos modos (alta/edición) con esquemas
+  `zod` distintos.
+
+### Patrón
+
+```jsx
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+
+const schema = z.object({
+  nombre: z.string().trim().min(1, 'El nombre es obligatorio'),
+  email: z.string().trim().min(1, 'El email es obligatorio').email('Introduce un email válido'),
+})
+
+function MiFormulario({ onSubmit }) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({ resolver: zodResolver(schema), defaultValues: { nombre: '', email: '' } })
+
+  return (
+    <div>
+      <input {...register('nombre')} className={inputClass} />
+      {errors.nombre ? <p className="mt-1 text-xs text-red-500">{errors.nombre.message}</p> : null}
+
+      <input {...register('email')} className={inputClass} />
+      {errors.email ? <p className="mt-1 text-xs text-red-500">{errors.email.message}</p> : null}
+
+      {/* NUNCA <form onSubmit={...}> — handleSubmit se dispara desde onClick, regla `.cursorrules` */}
+      <button type="button" disabled={isSubmitting} onClick={handleSubmit(onSubmit)}>
+        {isSubmitting ? 'Guardando…' : 'Guardar'}
+      </button>
+    </div>
+  )
+}
+```
+
+Puntos clave:
+- **Nunca `<form onSubmit={...}>`** — el botón de envío es `type="button"`
+  con `onClick={handleSubmit(onSubmit)}`. `handleSubmit` ya se encarga de
+  validar contra el esquema `zod` antes de invocar `onSubmit` y de poblar
+  `formState.errors` si falla.
+- Los mensajes de error de `zod` (segundo argumento de cada regla, ej.
+  `.min(1, 'El nombre es obligatorio')`) se muestran tal cual, en un `<p>`
+  rojo justo debajo del campo — no hace falta un componente de error
+  reutilizable todavía con solo dos casos migrados, pero si aparece un
+  tercer formulario, considerar extraer un `<FieldError message={...} />`.
+- Para controles que **no** son un `<input>`/`<select>` nativo (un toggle a
+  medida, un date-picker, etc.), usar `Controller` de `react-hook-form` en
+  vez de leer con `watch()` — `watch()` funciona, pero el compilador de React
+  (`eslint-plugin-react-hooks` con reglas de pureza) avisa de que `watch()`
+  no es memoizable de forma segura. `Controller` no tiene ese problema y es
+  el patrón recomendado por la propia librería para este caso.
+- `isSubmitting` de `formState` sustituye a un `useState(false)` manual de
+  loading del botón — ya tiene en cuenta tanto la validación síncrona de
+  `zod` como el tiempo que tarda la promesa de `onSubmit`.
+
 ## Code-splitting por ruta
 
 Todas las páginas en `src/App.jsx` se importan con `React.lazy(() =>

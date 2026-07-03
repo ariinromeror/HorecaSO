@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import {
   AlertTriangle,
   BriefcaseBusiness,
@@ -13,6 +16,21 @@ import {
 import ProjectInfoModal from '../components/ProjectInfoModal'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+
+/**
+ * Caso piloto de la Fase 9 del PRD de hardening (formularios + validación):
+ * esquema `zod` + `react-hook-form`, con `handleSubmit` disparado desde el
+ * `onClick` del botón — nunca `<form onSubmit>` nativo (regla `.cursorrules`).
+ * Ver `frontend/README.md` para el patrón completo.
+ */
+const loginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Introduce tu email')
+    .email('Introduce un email válido'),
+  password: z.string().min(1, 'Introduce tu contraseña'),
+})
 
 /** Cuentas demo del tenant "Restaurante Prueba" (seed Fase B). */
 const DEMO_ACCOUNTS = [
@@ -44,12 +62,19 @@ export default function LoginPage() {
   const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [formError, setFormError] = useState('')
   const [demoLoading, setDemoLoading] = useState(null)
   const [showProjectModal, setShowProjectModal] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  })
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
@@ -66,42 +91,39 @@ export default function LoginPage() {
         : 'Error al iniciar sesión'
   }
 
-  const handleEntrar = async () => {
-    setError('')
-    if (!email.trim() || !password) {
-      setError('Introduce email y contraseña')
-      return
-    }
-    setLoading(true)
+  const onSubmit = async ({ email, password }) => {
+    setFormError('')
     try {
       await login(email.trim(), password)
       navigate('/mesas', { replace: true })
     } catch (e) {
-      setError(extractError(e))
-    } finally {
-      setLoading(false)
+      setFormError(extractError(e))
     }
   }
 
   const handleDemoLogin = async (account) => {
-    setError('')
-    setEmail(account.email)
-    setPassword(account.password)
+    setFormError('')
+    setValue('email', account.email)
+    setValue('password', account.password)
     setDemoLoading(account.rol)
     try {
       await login(account.email, account.password)
       navigate('/mesas', { replace: true })
     } catch (e) {
-      setError(extractError(e))
+      setFormError(extractError(e))
     } finally {
       setDemoLoading(null)
     }
   }
 
-  const inputClass =
-    'w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-4 py-3 text-[15px] text-[#111827] placeholder-[#9ca3af] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0] dark:placeholder-[#5a5f7a]'
+  const inputClass = (hasError) =>
+    `w-full rounded-lg border bg-[#f0f2f5] px-4 py-3 text-[15px] text-[#111827] placeholder-[#9ca3af] focus:outline-none dark:bg-[#222536] dark:text-[#e8eaf0] dark:placeholder-[#5a5f7a] ${
+      hasError
+        ? 'border-red-500 focus:border-red-500'
+        : 'border-[#e2e5ed] focus:border-amber-500 dark:border-[#2e3347]'
+    }`
 
-  const anyLoading = loading || demoLoading !== null
+  const anyLoading = isSubmitting || demoLoading !== null
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9] p-4 dark:bg-[#0f1117]">
@@ -150,11 +172,15 @@ export default function LoginPage() {
             id="login-email"
             type="email"
             autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
+            {...register('email')}
+            className={inputClass(!!errors.email)}
             placeholder="tu@email.com"
           />
+          {errors.email ? (
+            <p className="mt-1.5 text-sm text-red-500" role="alert">
+              {errors.email.message}
+            </p>
+          ) : null}
         </div>
 
         <div className="mb-6">
@@ -168,30 +194,34 @@ export default function LoginPage() {
             id="login-password"
             type="password"
             autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
+            {...register('password')}
+            className={inputClass(!!errors.password)}
             placeholder="••••••••"
           />
+          {errors.password ? (
+            <p className="mt-1.5 text-sm text-red-500" role="alert">
+              {errors.password.message}
+            </p>
+          ) : null}
         </div>
 
-        {error ? (
+        {formError ? (
           <div
             className="mb-4 flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-500"
             role="alert"
           >
             <AlertTriangle size={16} strokeWidth={1.5} className="shrink-0" />
-            <span>{error}</span>
+            <span>{formError}</span>
           </div>
         ) : null}
 
         <button
           type="button"
-          onClick={handleEntrar}
+          onClick={handleSubmit(onSubmit)}
           disabled={anyLoading}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 font-semibold text-black transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {loading ? (
+          {isSubmitting ? (
             <>
               <Loader2
                 className="h-5 w-5 shrink-0 animate-spin"
