@@ -20,7 +20,7 @@ from routers.recetas.admin_recetas_shared import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/admin",
+    prefix="/admin",
     tags=["Admin Costes"],
     responses={401: {"description": "No autorizado"}, 403: {"description": "Prohibido"}},
 )

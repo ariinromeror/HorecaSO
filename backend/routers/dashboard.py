@@ -15,7 +15,7 @@ from database import get_db
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/dashboard",
+    prefix="/dashboard",
     tags=["Dashboard"],
     responses={
         401: {"description": "No autorizado"},

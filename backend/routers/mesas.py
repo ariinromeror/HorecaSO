@@ -20,7 +20,7 @@ from .mesas_list import ROLES_LISTADO_OPERATIVO, list_mesas_handler
 
 router = APIRouter(
 
-    prefix="/api/mesas",
+    prefix="/mesas",
 
     tags=["Mesas"],
 

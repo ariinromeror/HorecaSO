@@ -42,7 +42,7 @@ RolOperativo = Literal[
 ]
 
 router = APIRouter(
-    prefix="/api/admin",
+    prefix="/admin",
     tags=["Admin usuarios"],
     responses={
         401: {"description": "No autorizado"},

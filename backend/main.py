@@ -159,25 +159,30 @@ def create_app() -> FastAPI:
             "version": settings.APP_VERSION,
         }
 
-    app.include_router(auth_router)
-    app.include_router(mesas_router)
-    app.include_router(tpv_router)
-    app.include_router(tpv_cobro_router)
-    app.include_router(verifactu_router)
-    app.include_router(carta_tpv_router)
-    app.include_router(carta_publica_router)
-    app.include_router(admin_carta_router)
-    app.include_router(admin_productos_router)
-    app.include_router(admin_usuarios_router)
-    app.include_router(alergenos_router)
-    app.include_router(admin_recetas_router)
-    app.include_router(admin_recetas_ingredientes_router)
-    app.include_router(admin_gastos_operativos_router)
+    # Convención única (Fase 10 PRD): todos los routers definen su prefijo
+    # de dominio SIN "/api" (p.ej. "/auth", "/mesas", "/admin"); el prefijo
+    # "/api" se añade aquí, de forma uniforme, para los 36 routers. Las URLs
+    # externas no cambian respecto a versiones anteriores — solo se
+    # normaliza dónde vive el prefijo a nivel de código.
+    app.include_router(auth_router, prefix="/api")
+    app.include_router(mesas_router, prefix="/api")
+    app.include_router(tpv_router, prefix="/api")
+    app.include_router(tpv_cobro_router, prefix="/api")
+    app.include_router(verifactu_router, prefix="/api")
+    app.include_router(carta_tpv_router, prefix="/api")
+    app.include_router(carta_publica_router, prefix="/api")
+    app.include_router(admin_carta_router, prefix="/api")
+    app.include_router(admin_productos_router, prefix="/api")
+    app.include_router(admin_usuarios_router, prefix="/api")
+    app.include_router(alergenos_router, prefix="/api")
+    app.include_router(admin_recetas_router, prefix="/api")
+    app.include_router(admin_recetas_ingredientes_router, prefix="/api")
+    app.include_router(admin_gastos_operativos_router, prefix="/api")
     app.include_router(inventario_router, prefix="/api")
     app.include_router(inventario_movimientos_router, prefix="/api")
     app.include_router(kds_router, prefix="/api")
     app.include_router(kds_estados_router, prefix="/api")
-    app.include_router(dashboard_router)
+    app.include_router(dashboard_router, prefix="/api")
     app.include_router(analytics_mesas_router, prefix="/api")
     app.include_router(analytics_menu_router, prefix="/api")
     app.include_router(analytics_personal_router, prefix="/api")
@@ -197,7 +202,7 @@ def create_app() -> FastAPI:
     app.include_router(fifo_router, prefix="/api")
     app.include_router(fifo_consumo_router, prefix="/api")
     app.include_router(reportes_router, prefix="/api")
-    app.include_router(superadmin_router)
+    app.include_router(superadmin_router, prefix="/api")
 
     @app.get("/api/health")
     async def health_check():
