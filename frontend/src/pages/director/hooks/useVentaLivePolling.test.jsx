@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useVentaLivePolling } from './useVentaLivePolling'
 
 vi.mock('../../../services/api', () => ({
@@ -19,6 +20,16 @@ const DASHBOARD_OK = { ventas_hoy: 1234, top_5_productos_hoy: [] }
 const MESAS_OK = [{ id: 'm1', estado: 'libre' }]
 const TICKETS_OK = [{ id: 't1' }]
 
+function renderWithClient() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const wrapper = ({ children }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  )
+  return renderHook(() => useVentaLivePolling(), { wrapper })
+}
+
 describe('useVentaLivePolling', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
@@ -33,7 +44,7 @@ describe('useVentaLivePolling', () => {
   })
 
   it('carga los datos al montar', async () => {
-    const { result } = renderHook(() => useVentaLivePolling())
+    const { result } = renderWithClient()
 
     await waitFor(() => expect(result.current.initialLoad).toBe(false))
 
@@ -47,7 +58,7 @@ describe('useVentaLivePolling', () => {
     'un error de red en el polling NO resetea los datos ya cargados ' +
       '(regla explícita del proyecto: no vaciar la pantalla ante un fallo transitorio)',
     async () => {
-      const { result } = renderHook(() => useVentaLivePolling())
+      const { result } = renderWithClient()
       await waitFor(() => expect(result.current.initialLoad).toBe(false))
 
       expect(result.current.dashboard).toEqual(DASHBOARD_OK)

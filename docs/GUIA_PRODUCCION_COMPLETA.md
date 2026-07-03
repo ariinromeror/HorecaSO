@@ -366,6 +366,26 @@ Esto no cambia **qué** se loguea (los `logger.info(...)`/`logger.error(...)` ex
 
 ---
 
+## 1.6 Resiliencia y performance frontend: ErrorBoundary, code-splitting, React Query (Fase 8)
+
+Desde la Fase 8 del hardening técnico, el frontend tiene tres mejoras orientadas a que un fallo puntual no tumbe toda la app, a que la carga inicial no dependa de descargar las ~30 páginas de golpe, y a que las pantallas de datos compartan una capa de cache en vez de reimplementar fetch/loading/error a mano cada vez.
+
+### ErrorBoundary global
+
+`frontend/src/components/shared/ErrorBoundary.jsx` envuelve todo el árbol en `App.jsx` — incluso por fuera de `QueryClientProvider`/`ThemeProvider`/`AuthProvider`. Si cualquier componente lanza una excepción durante el render (un `undefined.algo`, un dato inesperado del backend sin validar, etc.), en vez de una pantalla en blanco el usuario ve un mensaje coherente con el design system y un botón "Recargar página". Esto **no sustituye** el manejo de errores de red/API (eso lo sigue gestionando cada hook con su propio estado `error`) — solo cubre errores de *render* que antes tumbaban toda la SPA.
+
+### Code-splitting por ruta
+
+Todas las páginas de `App.jsx` se cargan con `React.lazy(() => import(...))` dentro de `<Suspense fallback={<Loader />}>`. Efecto práctico: al entrar por primera vez a `/mesas`, el navegador no descarga el código de `/nominas`, `/reportes`, `/admin/recetas`, etc. — cada uno es su propio chunk que se pide bajo demanda al navegar. Verificable con `npm run build`: el output lista un archivo `.js` por página (`TPVPage-*.js`, `KDSPage-*.js`, ...) en vez de un único bundle con todo.
+
+### React Query para hooks de datos (adopción incremental)
+
+`@tanstack/react-query` está disponible y configurado (`frontend/src/lib/queryClient.js` + `<QueryClientProvider>` en `App.jsx`), pero **no se migró todo el código existente** — es una adopción incremental, hook a hook. Hay dos hooks de referencia ya migrados (`useProveedores` para listados, `useVentaLivePolling` para polling cada 30s) que sirven de plantilla. El patrón completo, con ejemplos de código y cómo testear estos hooks, está documentado en `frontend/README.md` — no se duplica aquí para no tener dos fuentes de verdad que puedan desincronizarse.
+
+**Fuera de alcance de esta fase:** migrar el 100% de los hooks a React Query; un ErrorBoundary granular por página (hoy es uno solo, global).
+
+---
+
 # 2. CÓMO HACKEAR TU PROPIO SISTEMA
 
 ## 2.1 Herramientas que necesitas (todas gratuitas)
