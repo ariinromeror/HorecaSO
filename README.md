@@ -438,6 +438,11 @@ See [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md#14-migra
 | `ENVIRONMENT` | `development` / `production` — controls `/docs` | Optional |
 | `GROQ_API_KEY` | Groq API key for AI invoice scanning | Optional |
 | `SENTRY_DSN` | Sentry DSN for error tracking (unset = Sentry never initializes) | Optional |
+| `FRONTEND_URL` | Frontend base URL, used for Stripe Checkout/Portal `success_url`/`cancel_url`/`return_url` | Optional (Stripe) |
+| `STRIPE_SECRET_KEY` | Stripe secret API key (`sk_test_...` / `sk_live_...`) | Optional (Stripe) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for `/api/billing/webhook` (`whsec_...`) | Optional (Stripe) |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (currently unused client-side; reserved for future Stripe.js use) | Optional (Stripe) |
+| `STRIPE_PRICE_BASICO` / `_PROFESIONAL` / `_PREMIUM` / `_ENTERPRISE` | Stripe recurring `Price` IDs, one per subscription plan | Optional (Stripe) |
 
 **Frontend** (`frontend/.env`):
 
@@ -445,6 +450,35 @@ See [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md#14-migra
 |----------|-------------|
 | `VITE_API_URL` | Backend URL (only needed in production, e.g. `https://...onrender.com/api`) |
 | `VITE_SENTRY_DSN` | Sentry DSN for frontend error tracking (unset = Sentry never initializes) |
+
+---
+
+## 💳 Stripe Billing (SaaS subscriptions)
+
+HorecaSO bills **tenants** (the restaurants using the platform) for their subscription plan (Básico/Profesional/Premium/Enterprise) via [Stripe Billing](https://stripe.com/billing) — see `backend/routers/billing.py`. Stripe owns the full billing lifecycle (checkout, recurring charge, dunning, cancellation); the backend only reacts to webhook events to keep `tenants.subscription_status` in sync, and `require_active_subscription` (`backend/auth/dependencies.py`) blocks tenant-facing routers with `402 Payment Required` once a subscription is `canceled`/`unpaid` or `past_due` beyond a 7-day grace period.
+
+### Local webhook testing with Stripe CLI
+
+Checkout/Portal sessions can be exercised end-to-end against a real **Stripe test-mode** account, but webhook events (`checkout.session.completed`, `invoice.payment_failed`, etc.) need the [Stripe CLI](https://docs.stripe.com/stripe-cli) to reach your local backend:
+
+```bash
+# 1. Log in once (opens a browser to link your Stripe test account)
+stripe login
+
+# 2. Forward webhook events to your local backend (keep this running)
+stripe listen --forward-to localhost:8000/api/billing/webhook
+
+# The CLI prints a `whsec_...` value the first time you run it — copy it into
+# backend/.env as STRIPE_WEBHOOK_SECRET (it's different from your dashboard's
+# webhook secret, which is only used in production).
+
+# 3. In another terminal, trigger a test event
+stripe trigger checkout.session.completed
+```
+
+With `stripe listen` running, use the "Cambiar de plan" button in the frontend's **"Mi plan / Facturación"** page (`/facturacion`, `admin`/`director` only) to open a real Stripe Checkout page in test mode (card `4242 4242 4242 4242`, any future expiry/CVC). On completion, Stripe redirects back to `/facturacion?checkout=success` and the CLI forwards the corresponding webhook to your backend, updating `tenants.subscription_status`.
+
+Backend tests (`backend/tests/test_billing.py`) never call the real Stripe API — the SDK is mocked at the `stripe.*` call sites, so the suite runs without any Stripe credentials.
 
 ---
 
@@ -497,6 +531,8 @@ See `frontend/README.md` for the React Query conventions (Fase 8) and the `react
 | Health Check | `/api/health` |
 
 A `render.yaml` blueprint is included. Python is pinned to 3.12 via `.python-version` / `runtime.txt`.
+
+**Stripe webhook (production):** in the Stripe Dashboard (live mode), add an endpoint pointing to `https://<your-render-domain>/api/billing/webhook` listening for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` and `invoice.payment_failed`. Copy the endpoint's signing secret into Render's environment variables as `STRIPE_WEBHOOK_SECRET`, alongside `STRIPE_SECRET_KEY` and the four `STRIPE_PRICE_*` IDs — set these as Render secrets, never committed to `.env`.
 
 ### Frontend — Vercel
 
