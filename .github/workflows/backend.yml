@@ -69,3 +69,12 @@ jobs:
         # local; si no, `tests/conftest.py` falla con
         # `ModuleNotFoundError: No module named 'database'`.
         run: python -m pytest -v
+
+      - name: Build Docker image
+        # No sustituye a los tests de arriba (que ya corren contra un
+        # Postgres efímero nativo de GitHub Actions, opción explícitamente
+        # válida de la Fase 6 del PRD). Solo verifica que backend/Dockerfile
+        # sigue construyendo sin errores, para detectar cuanto antes una
+        # imagen rota (dependencia del sistema que falta, typo en el CMD...).
+        working-directory: .
+        run: docker build -f backend/Dockerfile -t horecaso-backend:ci backend/

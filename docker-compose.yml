@@ -1,0 +1,50 @@
+# Stack local de desarrollo para HorecaSO (Fase 6 del PRD de hardening técnico).
+# `docker compose up` levanta un Postgres 15 con el esquema de tests + las
+# migraciones versionadas ya aplicadas, y el backend FastAPI apuntando a él.
+#
+# El frontend NO se dockeriza (Vercel gestiona su propio build — ver PRD.md
+# Fase 6, "Fuera de alcance"); en local sigue corriendo con `npm run dev`
+# apuntando a este backend en http://localhost:8000.
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: horecaso_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - horecaso_db_data:/var/lib/postgresql/data
+      - ./backend/tests/schema_test.sql:/docker-entrypoint-initdb.d/schema_test.sql:ro
+      - ./backend/sql/migrations:/docker-entrypoint-initdb.d/migrations:ro
+      - ./backend/docker/initdb.sh:/docker-entrypoint-initdb.d/01-initdb.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d horecaso_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/horecaso_dev
+      SECRET_KEY_AUTH: dev_secret_key_do_not_use_in_production_0123456789
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "480"
+      ALLOWED_ORIGINS: http://localhost:5173
+      ENVIRONMENT: development
+      APP_NAME: HorecaSO ERP
+      APP_VERSION: "1.0.0"
+      GROQ_API_KEY: ""
+    ports:
+      - "8000:8000"
+
+volumes:
+  horecaso_db_data:
