@@ -23,6 +23,7 @@ import {
   ScrollText,
   UserCog,
   Wallet,
+  CreditCard,
 } from 'lucide-react'
 
 /** Panel plataforma — solo `superadmin`. */
@@ -84,6 +85,12 @@ export const NAV_ITEMS = [
     label: 'Usuarios',
     Icon: UserCog,
     roles: ['admin'],
+  },
+  {
+    path: '/facturacion',
+    label: 'Mi plan / Facturación',
+    Icon: CreditCard,
+    roles: ['admin', 'director'],
   },
   {
     path: '/venta-live',

@@ -53,6 +53,7 @@ pwd_context = CryptContext(schemes=["bcrypt"])
 SCHEMA_SQL = Path(__file__).parent.joinpath("schema_test.sql").read_text()
 
 TABLES_TO_TRUNCATE = (
+    "billing_events",
     "nominas",
     "turnos",
     "empleados",
