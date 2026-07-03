@@ -12,7 +12,6 @@ export default function NominasPage() {
   const {
     authLoading,
     user,
-    puedeAcceder,
     empleados,
     loadingEmp,
     errorEmp,

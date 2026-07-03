@@ -4,20 +4,21 @@ Router de autenticación.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from auth.dependencies import get_current_user
 from auth.schemas import LoginRequest, TokenResponse
 from auth.jwt_handler import create_access_token
 from database import get_db
 from passlib.context import CryptContext
+from rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"])
 
 router = APIRouter(
-    prefix="/api/auth",
+    prefix="/auth",
     tags=["Auth"],
     responses={
         401: {"description": "No autorizado"},
@@ -27,10 +28,12 @@ router = APIRouter(
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(login_data: LoginRequest):
+@limiter.limit("5/minute")
+async def login(request: Request, login_data: LoginRequest):
     """
     Login: verifica email/password y devuelve JWT.
     HTTP 401 si credenciales incorrectas.
+    Limitado a 5 intentos/minuto por IP (SlowAPI) para mitigar fuerza bruta.
     """
     async with get_db() as conn:
         row = await conn.fetchrow(

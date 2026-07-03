@@ -391,6 +391,20 @@ export function getSuperadminPlatformLogs(filtros = {}) {
   return api.get('/superadmin/platform-logs', { params: filtros })
 }
 
+// --- Facturación (Stripe Billing — admin | director del tenant) ---
+
+export function getBillingEstado() {
+  return api.get('/billing/estado')
+}
+
+export function createBillingCheckoutSession(plan) {
+  return api.post('/billing/checkout-session', { plan })
+}
+
+export function createBillingPortalSession() {
+  return api.post('/billing/portal-session', {})
+}
+
 // --- Admin tenant — usuarios ---
 
 export function getAdminUsuarios() {

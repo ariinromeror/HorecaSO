@@ -5,7 +5,7 @@ Router TPV: cobro, pagos parciales y Verifactu al cerrar ticket.
 from fastapi import APIRouter
 
 router = APIRouter(
-    prefix="/api/tpv",
+    prefix="/tpv",
     tags=["TPV"],
     responses={
         401: {"description": "No autorizado"},

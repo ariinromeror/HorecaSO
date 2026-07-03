@@ -11,6 +11,9 @@
 ![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
 
+[![Backend CI](https://github.com/ariinromeror/HorecaSO/actions/workflows/backend.yml/badge.svg)](https://github.com/ariinromeror/HorecaSO/actions/workflows/backend.yml)
+[![Frontend CI](https://github.com/ariinromeror/HorecaSO/actions/workflows/frontend.yml/badge.svg)](https://github.com/ariinromeror/HorecaSO/actions/workflows/frontend.yml)
+
 **Full-stack multi-tenant ERP for the Spanish hospitality industry (restaurants & bars)**
 
 **Live on Render · Vercel · Supabase — Installable as PWA**
@@ -149,18 +152,26 @@ HorecaSO/
 │   │   ├── ml_predicciones.py     # Waste forecasting (trend + seasonality)
 │   │   └── pdf_*.py               # ReportLab document builders
 │   │
-│   ├── sql/                       # Versioned migrations & seeds (Supabase)
+│   ├── sql/
+│   │   ├── migrations/            # Numbered, idempotent schema changes (scripts/migrate.py)
+│   │   ├── seeds/                 # Optional demo data
+│   │   └── maintenance/           # One-off maintenance scripts
+│   ├── scripts/migrate.py         # Migration runner (schema_migrations tracking table)
+│   ├── Dockerfile                 # Multi-stage build, non-root user
 │   ├── config.py                  # pydantic-settings, env vars
 │   ├── database.py                # asyncpg pool, pgbouncer fix
 │   └── main.py                    # App factory, CORS, security middleware
 │
+├── docker-compose.yml             # backend + Postgres 15 for local dev (`docker compose up`)
 ├── frontend/
+│   ├── README.md                  # React Query hook conventions (static list / polling patterns)
 │   └── src/
 │       ├── components/
 │       │   ├── layout/            # AppLayout, Sidebar (role-filtered nav)
-│       │   └── shared/            # StatCard, Loader, EmptyState
+│       │   └── shared/            # StatCard, Loader, EmptyState, ErrorBoundary
 │       ├── context/               # AuthContext, ThemeContext (dark/light)
-│       ├── pages/
+│       ├── lib/queryClient.js     # Shared React Query QueryClient instance
+│       ├── pages/                 # Route-level components, lazy-loaded (React.lazy)
 │       │   ├── sala/              # Table map
 │       │   ├── tpv/               # POS with split billing
 │       │   ├── cocina/            # KDS fullscreen
@@ -354,8 +365,30 @@ The app installs to the home screen with a translucent status bar. All fixed hea
 - Python 3.12
 - Node.js 18+
 - A Supabase project (or local PostgreSQL 15)
+- Docker + Docker Compose (only needed for the one-command setup below)
 
-### Backend
+### Docker (backend + Postgres in one command)
+
+The fastest way to get a working backend + database locally, with the same image used to build for production:
+
+```bash
+docker compose up --build
+```
+
+This starts two containers:
+
+| Service | What it does |
+|---------|---------------|
+| `db` | Postgres 15. On first boot (empty volume) it loads the minimal schema (`backend/tests/schema_test.sql`) and applies every migration in `backend/sql/migrations/` — see `backend/docker/initdb.sh`. |
+| `backend` | Built from `backend/Dockerfile` (multi-stage, non-root user, same `gunicorn` + `uvicorn.workers.UvicornWorker` command as `render.yaml`). |
+
+Once it's up: API at `http://localhost:8000`, health check at `http://localhost:8000/api/health`. Postgres is exposed on the host at `localhost:5433` (not `5432`, to avoid clashing with a local Postgres install) with `postgres`/`postgres`/`horecaso_dev`.
+
+The frontend is **not** dockerized (Vercel manages its own build) — run it separately with `npm run dev` pointing `VITE_API_URL` at `http://localhost:8000`.
+
+This is a local **dev** database, not a 1:1 mirror of the real Supabase production schema (see the known-limitations note in `backend/tests/schema_test.sql` and PRD.md Fase 5) — it's the same minimal-but-functional schema the automated test suite uses, plus the real migrations layered on top.
+
+### Backend (without Docker)
 
 ```bash
 cd backend
@@ -381,7 +414,15 @@ App available at: `http://localhost:5173` — the Vite dev proxy forwards `/api`
 
 ### Database
 
-Run the SQL migrations from `backend/sql/` in the Supabase SQL Editor (see [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md) for the exact order and seeds).
+Schema changes live in `backend/sql/migrations/` as numbered, idempotent SQL files, tracked in a `schema_migrations` table so each one applies at most once per environment:
+
+```bash
+cd backend
+DATABASE_URL="postgresql://user:pass@host:5432/db" python scripts/migrate.py          # apply pending migrations
+python scripts/migrate.py --status    # list applied/pending without changing anything
+```
+
+See [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md#14-migraciones-de-base-de-datos-versionadas-fase-5) for the full workflow (creating new migrations, applying against Supabase production, known limitations).
 
 ### Environment Variables
 
@@ -396,12 +437,85 @@ Run the SQL migrations from `backend/sql/` in the Supabase SQL Editor (see [docs
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime | Optional |
 | `ENVIRONMENT` | `development` / `production` — controls `/docs` | Optional |
 | `GROQ_API_KEY` | Groq API key for AI invoice scanning | Optional |
+| `SENTRY_DSN` | Sentry DSN for error tracking (unset = Sentry never initializes) | Optional |
+| `FRONTEND_URL` | Frontend base URL, used for Stripe Checkout/Portal `success_url`/`cancel_url`/`return_url` | Optional (Stripe) |
+| `STRIPE_SECRET_KEY` | Stripe secret API key (`sk_test_...` / `sk_live_...`) | Optional (Stripe) |
+| `STRIPE_WEBHOOK_SECRET` | Signing secret for `/api/billing/webhook` (`whsec_...`) | Optional (Stripe) |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (currently unused client-side; reserved for future Stripe.js use) | Optional (Stripe) |
+| `STRIPE_PRICE_BASICO` / `_PROFESIONAL` / `_PREMIUM` / `_ENTERPRISE` | Stripe recurring `Price` IDs, one per subscription plan | Optional (Stripe) |
 
 **Frontend** (`frontend/.env`):
 
 | Variable | Description |
 |----------|-------------|
 | `VITE_API_URL` | Backend URL (only needed in production, e.g. `https://...onrender.com/api`) |
+| `VITE_SENTRY_DSN` | Sentry DSN for frontend error tracking (unset = Sentry never initializes) |
+
+---
+
+## 💳 Stripe Billing (SaaS subscriptions)
+
+HorecaSO bills **tenants** (the restaurants using the platform) for their subscription plan (Básico/Profesional/Premium/Enterprise) via [Stripe Billing](https://stripe.com/billing) — see `backend/routers/billing.py`. Stripe owns the full billing lifecycle (checkout, recurring charge, dunning, cancellation); the backend only reacts to webhook events to keep `tenants.subscription_status` in sync, and `require_active_subscription` (`backend/auth/dependencies.py`) blocks tenant-facing routers with `402 Payment Required` once a subscription is `canceled`/`unpaid` or `past_due` beyond a 7-day grace period.
+
+### Local webhook testing with Stripe CLI
+
+Checkout/Portal sessions can be exercised end-to-end against a real **Stripe test-mode** account, but webhook events (`checkout.session.completed`, `invoice.payment_failed`, etc.) need the [Stripe CLI](https://docs.stripe.com/stripe-cli) to reach your local backend:
+
+```bash
+# 1. Log in once (opens a browser to link your Stripe test account)
+stripe login
+
+# 2. Forward webhook events to your local backend (keep this running)
+stripe listen --forward-to localhost:8000/api/billing/webhook
+
+# The CLI prints a `whsec_...` value the first time you run it — copy it into
+# backend/.env as STRIPE_WEBHOOK_SECRET (it's different from your dashboard's
+# webhook secret, which is only used in production).
+
+# 3. In another terminal, trigger a test event
+stripe trigger checkout.session.completed
+```
+
+With `stripe listen` running, use the "Cambiar de plan" button in the frontend's **"Mi plan / Facturación"** page (`/facturacion`, `admin`/`director` only) to open a real Stripe Checkout page in test mode (card `4242 4242 4242 4242`, any future expiry/CVC). On completion, Stripe redirects back to `/facturacion?checkout=success` and the CLI forwards the corresponding webhook to your backend, updating `tenants.subscription_status`.
+
+Backend tests (`backend/tests/test_billing.py`) never call the real Stripe API — the SDK is mocked at the `stripe.*` call sites, so the suite runs without any Stripe credentials.
+
+---
+
+## 🧪 Running Tests
+
+### Backend (Pytest)
+
+Requires a real PostgreSQL instance for the test database (no mocks/SQLite — the app relies on Postgres-specific features like `gen_random_uuid()`).
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
+
+# One-time: create the test database (adjust user/host as needed)
+createdb -h localhost -U postgres horecaso_test
+
+pytest
+```
+
+`pytest.ini` sets `asyncio_mode = auto`; `tests/conftest.py` creates a minimal schema (`tests/schema_test.sql`) and truncates all tables before every test for isolation. Override the connection string with `TEST_DATABASE_URL` if your local Postgres uses different credentials (default: `postgresql://postgres:test@localhost:5432/horecaso_test`).
+
+Current suite covers: auth + rate limiting, multi-tenant isolation (IDOR regressions), RBAC on sensitive endpoints, the full TPV charge → Verifactu flow (including hash chaining and the immutability rule), payroll (nóminas) calculations, the `scripts/migrate.py` runner itself (applies every migration in `backend/sql/migrations/` against an isolated Postgres schema and asserts a second pass is a no-op), and observability (health check payload, request-id propagation, conditional Sentry init).
+
+### Frontend (Vitest)
+
+```bash
+cd frontend
+npm install
+npm run test          # single run
+npm run test:watch    # watch mode
+```
+
+Uses Vitest + `@testing-library/react` with a jsdom environment (`frontend/vitest.config.js`, kept separate from `vite.config.js` since the PWA/Tailwind plugins aren't needed for unit tests). Current suite covers: `AuthContext` (session bootstrap from `localStorage`, login persists token, logout clears it), `PrivateRoute` (redirect to `/login` when unauthenticated, redirect to `/mesas` when the role isn't allowed, render content otherwise), the global `ErrorBoundary` (a forced render error shows the fallback screen instead of a blank page), the Venta Live polling hook, now backed by React Query (`refetchInterval: 30000`) — a network error during a background poll must **not** wipe already-loaded data, an explicit project rule for all `/venta-live` and `/kds` polling screens, verified against the library's default behavior rather than hand-rolled state guards — and two forms migrated to `react-hook-form` + `zod` (`LoginPage`, the user create/edit modals in `admin/usuarios`): inline validation errors, no native `<form onSubmit>`, and API errors surfaced without breaking the form state.
+
+See `frontend/README.md` for the React Query conventions (Fase 8) and the `react-hook-form`/`zod` form conventions (Fase 9) — query-key patterns, when to use `Controller` over `watch()`, and how to test hooks/forms in isolation.
 
 ---
 
@@ -417,6 +531,8 @@ Run the SQL migrations from `backend/sql/` in the Supabase SQL Editor (see [docs
 | Health Check | `/api/health` |
 
 A `render.yaml` blueprint is included. Python is pinned to 3.12 via `.python-version` / `runtime.txt`.
+
+**Stripe webhook (production):** in the Stripe Dashboard (live mode), add an endpoint pointing to `https://<your-render-domain>/api/billing/webhook` listening for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` and `invoice.payment_failed`. Copy the endpoint's signing secret into Render's environment variables as `STRIPE_WEBHOOK_SECRET`, alongside `STRIPE_SECRET_KEY` and the four `STRIPE_PRICE_*` IDs — set these as Render secrets, never committed to `.env`.
 
 ### Frontend — Vercel
 

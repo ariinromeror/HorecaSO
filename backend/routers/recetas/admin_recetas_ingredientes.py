@@ -115,7 +115,7 @@ async def _sync_articulo_elaborado_coste(conn, receta_id: UUID) -> None:
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/admin",
+    prefix="/admin",
     tags=["Admin Recetas"],
     responses={
         401: {"description": "No autorizado"},

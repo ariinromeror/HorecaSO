@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import {
   Navigate,
   Outlet,
@@ -5,65 +6,57 @@ import {
   BrowserRouter,
   Routes,
 } from 'react-router-dom'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import AppLayout from './components/layout/AppLayout'
 import Loader from './components/shared/Loader'
-import LoginPage from './pages/LoginPage'
-import MesasPage from './pages/sala/MesasPage'
-import TPVPage from './pages/tpv/TPVPage'
-import DashboardPage from './pages/director/DashboardPage'
-import AnalyticsPage from './pages/analytics/AnalyticsPage'
-import VentaLivePage from './pages/director/VentaLivePage'
-import CartaPage from './pages/admin/carta/CartaPage'
-import RecetasPage from './pages/admin/recetas/RecetasPage'
-import ElaboracionesPage from './pages/admin/recetas/ElaboracionesPage'
-import CostesPage from './pages/admin/costes/CostesPage'
-import GestionSalaPage from './pages/admin/sala/GestionSalaPage'
-import InventarioPage from './pages/inventario/InventarioPage'
-import MermasPage from './pages/inventario/MermasPage'
-import APPCCPage from './pages/inventario/APPCCPage'
-import FIFOPage from './pages/inventario/FIFOPage'
-import KDSPage from './pages/cocina/KDSPage'
-import ProveedoresPage from './pages/proveedores/ProveedoresPage'
-import FacturasProveedorPage from './pages/proveedores/FacturasPage'
-import EmpleadosPage from './pages/empleados/EmpleadosPage'
-import FichajesPage from './pages/empleados/FichajesPage'
-import CuadrantePage from './pages/empleados/CuadrantePage'
-import NominasPage from './pages/empleados/NominasPage'
-import ReservasPage from './pages/reservas/ReservasPage'
-import ClientesPage from './pages/clientes/ClientesPage'
-import ReportesPage from './pages/reportes/ReportesPage'
-import SuperadminLayout from './pages/superadmin/SuperadminLayout'
-import TenantsListPage from './pages/superadmin/TenantsListPage'
-import TenantDetailPage from './pages/superadmin/TenantDetailPage'
-import PlatformLogsPage from './pages/superadmin/PlatformLogsPage'
-import UsuariosPage from './pages/admin/usuarios/UsuariosPage'
+import ErrorBoundary from './components/shared/ErrorBoundary'
+import PrivateRoute from './components/routing/PrivateRoute'
+import { queryClient } from './lib/queryClient'
 
-function PrivateRoute({ children, allowedRoles }) {
-  const { isLoading, isAuthenticated, user } = useAuth()
-
-  if (isLoading) {
-    return <Loader />
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
-
-  if (allowedRoles != null && allowedRoles.length > 0) {
-    const rol = user?.rol
-    if (!rol || !allowedRoles.includes(rol)) {
-      return <Navigate to="/mesas" replace />
-    }
-  }
-
-  if (children != null) {
-    return children
-  }
-
-  return <Outlet />
-}
+// Fase 8 del PRD de hardening: cada página es su propio chunk (code-splitting
+// por ruta) en vez de import estático — reduce el bundle inicial. Envueltas
+// en <Suspense fallback={<Loader />}> más abajo.
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const MesasPage = lazy(() => import('./pages/sala/MesasPage'))
+const TPVPage = lazy(() => import('./pages/tpv/TPVPage'))
+const DashboardPage = lazy(() => import('./pages/director/DashboardPage'))
+const AnalyticsPage = lazy(() => import('./pages/analytics/AnalyticsPage'))
+const VentaLivePage = lazy(() => import('./pages/director/VentaLivePage'))
+const CartaPage = lazy(() => import('./pages/admin/carta/CartaPage'))
+const RecetasPage = lazy(() => import('./pages/admin/recetas/RecetasPage'))
+const ElaboracionesPage = lazy(() =>
+  import('./pages/admin/recetas/ElaboracionesPage'),
+)
+const CostesPage = lazy(() => import('./pages/admin/costes/CostesPage'))
+const GestionSalaPage = lazy(() =>
+  import('./pages/admin/sala/GestionSalaPage'),
+)
+const InventarioPage = lazy(() => import('./pages/inventario/InventarioPage'))
+const MermasPage = lazy(() => import('./pages/inventario/MermasPage'))
+const APPCCPage = lazy(() => import('./pages/inventario/APPCCPage'))
+const FIFOPage = lazy(() => import('./pages/inventario/FIFOPage'))
+const KDSPage = lazy(() => import('./pages/cocina/KDSPage'))
+const ProveedoresPage = lazy(() => import('./pages/proveedores/ProveedoresPage'))
+const FacturasProveedorPage = lazy(() =>
+  import('./pages/proveedores/FacturasPage'),
+)
+const EmpleadosPage = lazy(() => import('./pages/empleados/EmpleadosPage'))
+const FichajesPage = lazy(() => import('./pages/empleados/FichajesPage'))
+const CuadrantePage = lazy(() => import('./pages/empleados/CuadrantePage'))
+const NominasPage = lazy(() => import('./pages/empleados/NominasPage'))
+const ReservasPage = lazy(() => import('./pages/reservas/ReservasPage'))
+const ClientesPage = lazy(() => import('./pages/clientes/ClientesPage'))
+const ReportesPage = lazy(() => import('./pages/reportes/ReportesPage'))
+const SuperadminLayout = lazy(() => import('./pages/superadmin/SuperadminLayout'))
+const TenantsListPage = lazy(() => import('./pages/superadmin/TenantsListPage'))
+const TenantDetailPage = lazy(() => import('./pages/superadmin/TenantDetailPage'))
+const PlatformLogsPage = lazy(() => import('./pages/superadmin/PlatformLogsPage'))
+const UsuariosPage = lazy(() => import('./pages/admin/usuarios/UsuariosPage'))
+const FacturacionPage = lazy(() =>
+  import('./pages/admin/facturacion/FacturacionPage'),
+)
 
 function AdminDirectorRoute() {
   const { user, isLoading, isAuthenticated } = useAuth()
@@ -198,95 +191,104 @@ function ModulePlaceholder({ name }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/mesas" replace />} />
-            <Route path="/login" element={<LoginPage />} />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <BrowserRouter>
+              <Suspense fallback={<Loader />}>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/mesas" replace />} />
+                  <Route path="/login" element={<LoginPage />} />
 
-            <Route element={<PrivateRoute allowedRoles={['superadmin']} />}>
-              <Route path="/superadmin" element={<SuperadminLayout />}>
-                <Route
-                  index
-                  element={<Navigate to="/superadmin/tenants" replace />}
-                />
-                <Route path="tenants" element={<TenantsListPage />} />
-                <Route path="tenants/:id" element={<TenantDetailPage />} />
-                <Route path="logs" element={<PlatformLogsPage />} />
-              </Route>
-            </Route>
+                  <Route element={<PrivateRoute allowedRoles={['superadmin']} />}>
+                    <Route path="/superadmin" element={<SuperadminLayout />}>
+                      <Route
+                        index
+                        element={<Navigate to="/superadmin/tenants" replace />}
+                      />
+                      <Route path="tenants" element={<TenantsListPage />} />
+                      <Route path="tenants/:id" element={<TenantDetailPage />} />
+                      <Route path="logs" element={<PlatformLogsPage />} />
+                    </Route>
+                  </Route>
 
-            <Route
-              path="/kds"
-              element={
-                <PrivateRoute
-                  allowedRoles={[
-                    'admin',
-                    'director',
-                    'jefe_sala',
-                    'camarero',
-                    'cocina',
-                    'barra',
-                  ]}
-                >
-                  <KDSPage />
-                </PrivateRoute>
-              }
-            />
+                  <Route
+                    path="/kds"
+                    element={
+                      <PrivateRoute
+                        allowedRoles={[
+                          'admin',
+                          'director',
+                          'jefe_sala',
+                          'camarero',
+                          'cocina',
+                          'barra',
+                        ]}
+                      >
+                        <KDSPage />
+                      </PrivateRoute>
+                    }
+                  />
 
-            <Route element={<PrivateRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/mesas" element={<MesasPage />} />
-                <Route element={<AdminDirectorJefeSalaRoute />}>
-                  <Route
-                    path="/admin/sala"
-                    element={<GestionSalaPage />}
-                  />
-                </Route>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/venta-live" element={<VentaLivePage />} />
-                <Route element={<InventarioRoute />}>
-                  <Route path="/inventario" element={<InventarioPage />} />
-                  <Route path="/inventario/mermas" element={<MermasPage />} />
-                </Route>
-                <Route path="/appcc" element={<APPCCPage />} />
-                <Route path="/fifo" element={<FIFOPage />} />
-                <Route element={<ProveedoresRoute />}>
-                  <Route path="/proveedores" element={<ProveedoresPage />} />
-                  <Route
-                    path="/proveedores/facturas"
-                    element={<FacturasProveedorPage />}
-                  />
-                </Route>
-                <Route element={<AdminDirectorRoute />}>
-                  <Route path="/admin/carta" element={<CartaPage />} />
-                </Route>
-                <Route element={<AdminOnlyRoute />}>
-                  <Route path="/admin/usuarios" element={<UsuariosPage />} />
-                </Route>
-                <Route element={<AdminDirectorCocinaRoute />}>
-                  <Route path="/admin/recetas" element={<RecetasPage />} />
-                  <Route
-                    path="/admin/recetas/elaboraciones"
-                    element={<ElaboracionesPage />}
-                  />
-                  <Route path="/admin/costes" element={<CostesPage />} />
-                </Route>
-                <Route path="/empleados" element={<EmpleadosPage />} />
-                <Route path="/fichajes" element={<FichajesPage />} />
-                <Route path="/cuadrante" element={<CuadrantePage />} />
-                <Route path="/nominas" element={<NominasPage />} />
-                <Route path="/reservas" element={<ReservasPage />} />
-                <Route path="/clientes" element={<ClientesPage />} />
-                <Route path="/reportes" element={<ReportesPage />} />
-              </Route>
-              <Route path="/tpv/:mesaId" element={<TPVPage />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+                  <Route element={<PrivateRoute />}>
+                    <Route element={<AppLayout />}>
+                      <Route path="/mesas" element={<MesasPage />} />
+                      <Route element={<AdminDirectorJefeSalaRoute />}>
+                        <Route
+                          path="/admin/sala"
+                          element={<GestionSalaPage />}
+                        />
+                      </Route>
+                      <Route path="/dashboard" element={<DashboardPage />} />
+                      <Route path="/analytics" element={<AnalyticsPage />} />
+                      <Route path="/venta-live" element={<VentaLivePage />} />
+                      <Route element={<InventarioRoute />}>
+                        <Route path="/inventario" element={<InventarioPage />} />
+                        <Route path="/inventario/mermas" element={<MermasPage />} />
+                      </Route>
+                      <Route path="/appcc" element={<APPCCPage />} />
+                      <Route path="/fifo" element={<FIFOPage />} />
+                      <Route element={<ProveedoresRoute />}>
+                        <Route path="/proveedores" element={<ProveedoresPage />} />
+                        <Route
+                          path="/proveedores/facturas"
+                          element={<FacturasProveedorPage />}
+                        />
+                      </Route>
+                      <Route element={<AdminDirectorRoute />}>
+                        <Route path="/admin/carta" element={<CartaPage />} />
+                      </Route>
+                      <Route element={<AdminOnlyRoute />}>
+                        <Route path="/admin/usuarios" element={<UsuariosPage />} />
+                      </Route>
+                      <Route element={<AdminDirectorRoute />}>
+                        <Route path="/facturacion" element={<FacturacionPage />} />
+                      </Route>
+                      <Route element={<AdminDirectorCocinaRoute />}>
+                        <Route path="/admin/recetas" element={<RecetasPage />} />
+                        <Route
+                          path="/admin/recetas/elaboraciones"
+                          element={<ElaboracionesPage />}
+                        />
+                        <Route path="/admin/costes" element={<CostesPage />} />
+                      </Route>
+                      <Route path="/empleados" element={<EmpleadosPage />} />
+                      <Route path="/fichajes" element={<FichajesPage />} />
+                      <Route path="/cuadrante" element={<CuadrantePage />} />
+                      <Route path="/nominas" element={<NominasPage />} />
+                      <Route path="/reservas" element={<ReservasPage />} />
+                      <Route path="/clientes" element={<ClientesPage />} />
+                      <Route path="/reportes" element={<ReportesPage />} />
+                    </Route>
+                    <Route path="/tpv/:mesaId" element={<TPVPage />} />
+                  </Route>
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }

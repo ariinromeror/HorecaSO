@@ -34,8 +34,8 @@
 
 ### Fase B — SQL obligatorio para KDS cocina/barra (si usáis barra y `destino_kds`)
 
-1. En **Supabase → SQL Editor**, ejecutar el archivo completo  
-   **`backend/sql/migration_kds_barra_destino.sql`**  
+1. Ejecutar `python backend/scripts/migrate.py` (Fase 5 del hardening técnico, `PRD.md`) o, si prefieres el flujo manual anterior, en **Supabase → SQL Editor** ejecutar el archivo completo
+   **`backend/sql/migrations/0001_kds_barra_destino.sql`**
    (una vez por proyecto / base de datos).
 2. Comprobar que columnas `destino_kds` / líneas barra existen según el script.
 3. Probar con token: `GET /api/kds/comandas` → 200.
@@ -49,7 +49,7 @@
 1. **Generar hashes bcrypt** (mismos algoritmos que el login):  
    `python backend/scripts/generate_test_hashes.py`  
    desde la raíz del repo (o `cd backend` y ajustar ruta). Copia los hashes que imprime.
-2. **Editar** `backend/sql/migration_fase_b.sql`:
+2. **Editar** `backend/sql/migrations/0002_fase_b_superadmin_tenants.sql`:
    - Sustituir `REEMPLAZAR_CON_HASH_DE_generate_test_hashes.py` del **superadmin** por el hash de `superadmin@horecaso.com`.
    - Sustituir cada `PLACEHOLDER_HASH` de los usuarios `@prueba.com` por el hash correspondiente a cada email del script (mismo orden que en `generate_test_hashes.py`).
 3. **Ejecutar el archivo completo** en **Supabase → SQL Editor** (copiar/pegar o subir).

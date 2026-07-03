@@ -26,3 +26,6 @@ Thumbs.db
 
 # Tests
 TEST_CREDENTIALS.md
+
+# Artefactos operativos MCP/shell (no son migraciones ni seeds versionadas)
+backend/sql/_artifacts/

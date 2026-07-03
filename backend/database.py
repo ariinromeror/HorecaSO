@@ -52,6 +52,19 @@ async def close_connection_pool() -> None:
         raise
 
 
+def pool_status() -> dict:
+    """Estado del pool de conexiones para el health check (Fase 7)."""
+    if _pool is None:
+        return {"initialized": False}
+    return {
+        "initialized": True,
+        "size": _pool.get_size(),
+        "min_size": _pool.get_min_size(),
+        "max_size": _pool.get_max_size(),
+        "idle": _pool.get_idle_size(),
+    }
+
+
 @asynccontextmanager
 async def get_db():
     """

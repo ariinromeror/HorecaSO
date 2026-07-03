@@ -25,8 +25,8 @@ Este orden está alineado con [BITACORA_HORECASO.md](BITACORA_HORECASO.md) y [ST
 | Entregable | Ubicación / nota |
 |------------|------------------|
 | App completa multi-módulo (TPV, KDS, RRHH, inventario, etc.) | Código según bitácora |
-| Migración KDS barra / `destino_kds` | [backend/sql/migration_kds_barra_destino.sql](backend/sql/migration_kds_barra_destino.sql) — **debe ejecutarse en Supabase** si aún no lo hiciste |
-| Migración Fase B (DDL + seed tenant prueba + superadmin SQL) | [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) |
+| Migración KDS barra / `destino_kds` | [backend/sql/migrations/0001_kds_barra_destino.sql](backend/sql/migrations/0001_kds_barra_destino.sql) — **debe ejecutarse en Supabase** si aún no lo hiciste |
+| Migración Fase B (DDL + seed tenant prueba + superadmin SQL) | [backend/sql/migrations/0002_fase_b_superadmin_tenants.sql](backend/sql/migrations/0002_fase_b_superadmin_tenants.sql) |
 | Generador de hashes bcrypt para pegar en el SQL | [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py) |
 | Schema BD documentado (regenerable desde MCP) | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) · script [backend/scripts/schema_mcp_json_to_markdown.py](backend/scripts/schema_mcp_json_to_markdown.py) |
 | Guía de deploy detallada | Esta misma guía, [§1.2](#12-pasos-exactos-de-deploy) |
@@ -110,7 +110,7 @@ Siguiente
 
 | # | Qué | Dónde | Cómo verificar |
 |---|-----|-------|----------------|
-| 1 | Migración KDS aplicada en Supabase | `backend/sql/migration_kds_barra_destino.sql` | `GET /api/kds/comandas` responde 200 |
+| 1 | Migración KDS aplicada en Supabase | `backend/sql/migrations/0001_kds_barra_destino.sql` | `GET /api/kds/comandas` responde 200 |
 | 2 | Variables de entorno en Render | Dashboard Render | `GET /api/health` responde OK |
 | 3 | `SECRET_KEY_AUTH` generada aleatoriamente (no la de dev) | `.env` de Render | Mínimo 32 chars aleatorios |
 | 4 | `ALLOWED_ORIGINS` solo con URL de Vercel (no `*`) | `backend/config.py` | CORS rechaza otras origins |
@@ -242,6 +242,249 @@ curl https://tu-backend.onrender.com/api/mesas \
 curl https://tu-backend.onrender.com/docs
 # Debe devolver 404
 ```
+
+---
+
+## 1.3 CI/CD y branch protection (GitHub Actions)
+
+Desde la Fase 4 del hardening técnico (`PRD.md`) el repo tiene dos workflows en `.github/workflows/`:
+
+- **`backend.yml`** — en cada push/PR que toque `backend/`: instala Python 3.12, instala `backend/requirements-dev.txt`, hace un smoke check (`from main import create_app`) contra un Postgres 15 efímero (servicio de GitHub Actions) y corre la suite de `pytest` (Fase 2).
+- **`frontend.yml`** — en cada push/PR que toque `frontend/`: `npm ci`, `npm run lint` (no bloqueante — ver nota abajo), `npm run build`, `npm run test` (Vitest, Fase 3).
+
+Estos workflows **corren automáticamente** en cada Pull Request y aparecen como checks en la pestaña "Checks" del PR en GitHub, pero **por sí solos no bloquean el merge**. Para que ningún cambio roto pueda mergearse a `main`:
+
+1. Ir a **Settings → Branches** en GitHub.
+2. Añadir una **branch protection rule** para `main`.
+3. Activar **"Require status checks to pass before merging"** y seleccionar los jobs `Backend / test` y `Frontend / build-and-test`.
+4. (Recomendado) Activar también **"Require branches to be up to date before merging"**.
+
+Esto es una **configuración manual en GitHub** — ningún agente ni script del repo puede activarla por su cuenta.
+
+**Nota — lint frontend no bloqueante (deuda temporal):** el step "Lint" de `frontend.yml` usa `continue-on-error: true` porque, al activarlo, salieron a la luz ~20 problemas de ESLint preexistentes en el frontend (documentados en `docs/BUGS_Y_SOLUCIONES.md`, sección "Fase 4"): la mayoría son **falsos positivos** de `no-unused-vars` con JSX (limitación conocida de usar solo `js.configs.recommended` sin `eslint-plugin-react`) y el resto son reglas de estilo (`set-state-in-effect`, `only-export-components`) que no afectan producción. Cuando se sanee esa deuda en una fase de limpieza frontend dedicada, quitar `continue-on-error: true` para que el lint vuelva a ser bloqueante.
+
+---
+
+## 1.4 Migraciones de base de datos versionadas (Fase 5)
+
+Desde la Fase 5 del hardening técnico (`PRD.md`), `backend/sql/` está organizado así:
+
+```
+backend/sql/
+├── migrations/     -- cambios de esquema reales, con prefijo numérico (0001_, 0002_, ...)
+├── seeds/          -- datos de demo/prueba opcionales (seed_*.sql)
+├── maintenance/     -- scripts puntuales de mantenimiento, no forman parte del ciclo de vida del esquema
+└── _artifacts/      -- artefactos históricos del MCP de Supabase (ignorado por git, no aporta valor de producción)
+```
+
+Cada migración se aplica **como mucho una vez** por entorno, controlado por una tabla `schema_migrations(version, applied_at)` que crea automáticamente el propio runner.
+
+### Cómo crear una migración nueva
+
+1. Crear un fichero nuevo en `backend/sql/migrations/` con el **siguiente número** en la secuencia y un nombre descriptivo: `000N_descripcion_corta.sql` (ej. `0006_añadir_campo_x.sql`).
+2. Escribir el SQL de forma **idempotente** siempre que sea posible: `ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`, `DROP CONSTRAINT IF EXISTS` + `ADD CONSTRAINT`, `ON CONFLICT DO NOTHING`. Esto no es solo higiene: el runner no soporta rollback automático, así que una migración que pueda re-ejecutarse sin romper nada es la mejor red de seguridad ante un fallo a mitad de aplicación en producción.
+3. Probarla localmente contra un Postgres de test antes de aplicarla en Supabase (ver más abajo).
+
+### Cómo aplicar migraciones
+
+```bash
+# Contra el Postgres que apunte DATABASE_URL (local, CI, o Supabase de producción):
+cd backend
+DATABASE_URL="postgresql://usuario:pass@host:5432/basededatos" python scripts/migrate.py
+
+# Ver qué migraciones están pendientes sin aplicar nada:
+python scripts/migrate.py --dry-run
+
+# Ver el estado completo (aplicadas + pendientes):
+python scripts/migrate.py --status
+```
+
+En **producción (Supabase)**: apuntar `DATABASE_URL` a la cadena de conexión directa de Supabase (no la de pgbouncer/pooling, para evitar problemas con `CREATE TABLE`/`ALTER TABLE` en modo transacción) y ejecutar `migrate.py` como paso manual de despliegue tras el `git push` a producción, antes de que el nuevo código que depende del cambio de esquema empiece a recibir tráfico.
+
+### Verificación de idempotencia
+
+El criterio de aceptación de la Fase 5 es que ejecutar `migrate.py` dos veces seguidas sea un no-op seguro la segunda vez:
+
+```bash
+python scripts/migrate.py   # aplica lo pendiente
+python scripts/migrate.py   # "Nada que aplicar: todas las migraciones ya están registradas."
+```
+
+Esto está cubierto además por un test de integración automatizado: `backend/tests/test_migrate.py` (aplica todas las migraciones existentes contra un esquema Postgres aislado y verifica que una segunda pasada no reaplica nada).
+
+### Limitación conocida (fuera de alcance de la Fase 5)
+
+- **No hay rollback automático.** Si una migración necesita revertirse, se escribe una migración nueva que deshaga el cambio (patrón estándar en herramientas de migración sin `down` scripts, p. ej. muchos flujos de Flyway en modo solo-forward).
+- **No existe todavía una migración "baseline" que reconstruya el esquema completo de producción desde cero.** Las migraciones en `backend/sql/migrations/` son incrementales sobre un esquema base que hoy solo existe realmente en Supabase (documentado en `docs/SCHEMA_BASE_DATOS.md`) y, de forma mínima para tests, en `backend/tests/schema_test.sql`. Generar esa baseline completa (p. ej. con `pg_dump --schema-only` de Supabase) queda como trabajo futuro si se necesita levantar un Postgres nuevo desde cero sin partir de un backup.
+
+---
+
+## 1.5 Observabilidad: Sentry, request_id y logs JSON (Fase 7)
+
+Desde la Fase 7 del hardening técnico, el backend (y opcionalmente el frontend) capturan excepciones no controladas en Sentry, cada request tiene un ID de correlación propagado en logs y respuesta, y los logs del backend salen en JSON estructurado (una línea = un objeto JSON) en vez de texto plano.
+
+### Activar Sentry
+
+Todo es **opt-in por variable de entorno** — sin configurarlas, el comportamiento es idéntico a antes de esta fase (nada se activa, no hay overhead ni llamadas de red):
+
+| Variable | Dónde | Efecto |
+|----------|-------|--------|
+| `SENTRY_DSN` | `backend/.env` (o env var en Render) | Si tiene valor, `backend/observability.py` inicializa `sentry_sdk` con las integraciones de FastAPI/Starlette al arrancar la app. |
+| `VITE_SENTRY_DSN` | `frontend/.env`/`.env.local` (o env var de build en Vercel) | Si tiene valor, `frontend/src/main.jsx` inicializa `@sentry/react` antes de montar la app. |
+
+Para probarlo: crea un proyecto en [sentry.io](https://sentry.io) (plan free), copia el DSN del proyecto Python (backend) y/o React (frontend), pégalo en la variable correspondiente, reinicia el servicio, y provoca una excepción no controlada (p. ej. una ruta de prueba que haga `raise Exception("test")`) — debería aparecer en el proyecto de Sentry en segundos.
+
+### request_id de correlación
+
+`backend/observability.py` → `RequestIdMiddleware`: cada request recibe un `request_id` (UUID v4, o el valor entrante del header `X-Request-ID` si ya viene de un proxy/CDN que lo propague). Ese mismo valor:
+- Aparece en **todas las líneas de log** generadas durante esa request (campo `"request_id"` en el JSON de log — ver más abajo).
+- Se devuelve en la respuesta como header `X-Request-ID`.
+
+Esto permite, dado un error reportado por un usuario con su `X-Request-ID` (visible en las DevTools del navegador, pestaña Network), buscar exactamente esa request en los logs de Render sin tener que correlacionar por timestamp aproximado.
+
+### Logs en JSON estructurado
+
+`configure_logging()` sustituye el `logging.basicConfig` de texto plano por un formateador JSON (`python-json-logger`). Cada línea de log ahora es un objeto con `timestamp`, `level`, `logger`, `request_id` y `message`, por ejemplo:
+
+```json
+{"timestamp": "2026-07-02 23:10:00,123", "level": "ERROR", "logger": "routers.tpv.tpv_cobro", "request_id": "3fa8...", "message": "Error en cobrar_ticket: ..."}
+```
+
+Esto no cambia **qué** se loguea (los `logger.info(...)`/`logger.error(...)` existentes en cada router siguen igual) — solo el formato de salida, pensado para poder filtrar/agregar por `request_id` o `level` en cualquier herramienta que ingiera logs (Render los muestra igual como texto, pero cada línea ya es JSON parseable).
+
+### Health check ampliado
+
+`GET /api/health` (el mismo `healthCheckPath` que usa `render.yaml` — el código de estado 200/503 no cambió) ahora devuelve también `version` (de `settings.APP_VERSION`) y `pool` (tamaño actual/mínimo/máximo/idle del pool de `asyncpg`):
+
+```json
+{"status": "ok", "version": "1.0.0", "pool": {"initialized": true, "size": 2, "min_size": 2, "max_size": 10, "idle": 2}}
+```
+
+`GET /api/health/ready` hace la misma comprobación (pensado para un futuro orquestador tipo Kubernetes que distinga liveness/readiness; Render solo usa `/api/health`).
+
+**Fuera de alcance de esta fase:** dashboards de métricas (Prometheus/Grafana) — se puede añadir en el futuro si el volumen de tráfico lo justifica.
+
+---
+
+## 1.6 Resiliencia y performance frontend: ErrorBoundary, code-splitting, React Query (Fase 8)
+
+Desde la Fase 8 del hardening técnico, el frontend tiene tres mejoras orientadas a que un fallo puntual no tumbe toda la app, a que la carga inicial no dependa de descargar las ~30 páginas de golpe, y a que las pantallas de datos compartan una capa de cache en vez de reimplementar fetch/loading/error a mano cada vez.
+
+### ErrorBoundary global
+
+`frontend/src/components/shared/ErrorBoundary.jsx` envuelve todo el árbol en `App.jsx` — incluso por fuera de `QueryClientProvider`/`ThemeProvider`/`AuthProvider`. Si cualquier componente lanza una excepción durante el render (un `undefined.algo`, un dato inesperado del backend sin validar, etc.), en vez de una pantalla en blanco el usuario ve un mensaje coherente con el design system y un botón "Recargar página". Esto **no sustituye** el manejo de errores de red/API (eso lo sigue gestionando cada hook con su propio estado `error`) — solo cubre errores de *render* que antes tumbaban toda la SPA.
+
+### Code-splitting por ruta
+
+Todas las páginas de `App.jsx` se cargan con `React.lazy(() => import(...))` dentro de `<Suspense fallback={<Loader />}>`. Efecto práctico: al entrar por primera vez a `/mesas`, el navegador no descarga el código de `/nominas`, `/reportes`, `/admin/recetas`, etc. — cada uno es su propio chunk que se pide bajo demanda al navegar. Verificable con `npm run build`: el output lista un archivo `.js` por página (`TPVPage-*.js`, `KDSPage-*.js`, ...) en vez de un único bundle con todo.
+
+### React Query para hooks de datos (adopción incremental)
+
+`@tanstack/react-query` está disponible y configurado (`frontend/src/lib/queryClient.js` + `<QueryClientProvider>` en `App.jsx`), pero **no se migró todo el código existente** — es una adopción incremental, hook a hook. Hay dos hooks de referencia ya migrados (`useProveedores` para listados, `useVentaLivePolling` para polling cada 30s) que sirven de plantilla. El patrón completo, con ejemplos de código y cómo testear estos hooks, está documentado en `frontend/README.md` — no se duplica aquí para no tener dos fuentes de verdad que puedan desincronizarse.
+
+**Fuera de alcance de esta fase:** migrar el 100% de los hooks a React Query; un ErrorBoundary granular por página (hoy es uno solo, global).
+
+---
+
+## 1.7 Formularios y validación: react-hook-form + zod (Fase 9)
+
+Desde la Fase 9, `react-hook-form` + `zod` (+ `@hookform/resolvers`) están disponibles para validar formularios sin reimplementar a mano `if (!campo) setError(...)` en cada página. Adopción incremental, igual que React Query — hay dos casos de referencia ya migrados (`LoginPage.jsx`, y `UsuarioCreateModal`/`UsuarioEditModal` en `admin/usuarios/UsuariosPage.jsx`).
+
+De paso, la migración del segundo caso corrigió una violación **preexistente** de `.cursorrules` que llevaba tiempo en el repo: ambos modales de `UsuariosPage.jsx` usaban `<form onSubmit={...}>` nativo en vez de un botón con `onClick` — la regla del proyecto es no usar `<form>` con submit nunca, precisamente para evitar comportamientos de navegador implícitos (recarga de página, `Enter` disparando el submit equivocado en formularios con varios inputs, etc.).
+
+El patrón completo (esquema `zod`, `useForm`, `register`, cuándo usar `Controller` en vez de `watch()` para controles a medida como toggles) está documentado en `frontend/README.md` — no se duplica aquí.
+
+**Fuera de alcance de esta fase:** migrar el resto de formularios del proyecto (queda como trabajo incremental siguiendo la plantilla documentada).
+
+---
+
+## 1.8 Consistencia de prefijos de API (Fase 10)
+
+Desde la Fase 10, **todos** los routers de `backend/routers/**` definen su `APIRouter(prefix=...)` como un prefijo de dominio **relativo** (p. ej. `/auth`, `/mesas`, `/tpv`, `/admin`, `/dashboard`), y es `backend/main.py` quien añade `/api` de forma **uniforme** en las 36 llamadas a `app.include_router(...)`. Antes de esta fase convivían dos patrones: 16 routers hardcodeaban `/api` en su propio prefijo y se registraban en `main.py` sin argumento `prefix`, mientras que el resto ya usaba el patrón relativo + `prefix="/api"` explícito. Ambos producían las mismas URLs, pero la inconsistencia de código era un riesgo real al añadir un router nuevo (¿hardcodeo `/api` o dejo que lo añada `main.py`? — antes dependía de a qué router mirases como referencia).
+
+**Regla para routers nuevos (a partir de ahora):**
+
+```python
+# routers/mi_dominio.py
+router = APIRouter(prefix="/mi-dominio", tags=["Mi Dominio"])  # SIN /api
+
+# backend/main.py
+from routers.mi_dominio import router as mi_dominio_router
+app.include_router(mi_dominio_router, prefix="/api")  # /api se añade SIEMPRE aquí
+```
+
+**Por qué no se introdujo `/api/v1` en esta fase:** el único consumidor de la API es el frontend propio del mismo monorepo, desplegado junto con el backend — no hay apps móviles ni integraciones de terceros con un ciclo de vida independiente que se puedan romper por un cambio no versionado. Introducir un prefijo de versión ahora habría añadido complejidad (rutas duplicadas o aliasing) sin beneficio inmediato. Revisar esta decisión en cuanto aparezca un segundo consumidor con despliegue independiente, o sea necesario introducir un cambio incompatible en un endpoint ya usado en producción.
+
+**Verificación tras el cambio:** comparación automatizada de `app.routes` (método + path) antes/después del refactor con `diff` — 0 diferencias en la superficie pública. Suite de tests backend completa (40/40) en verde. El frontend (`frontend/src/services/api.js`) no requirió cambios: ya usaba rutas relativas sobre `baseURL: '/api'`.
+
+---
+
+## 1.9 Facturación SaaS: Stripe Billing (Fase 11)
+
+Desde la Fase 11, HorecaSO cobra a los **tenants** (los restaurantes clientes de la plataforma) por su plan de suscripción (Básico/Profesional/Premium/Enterprise) vía [Stripe Billing](https://stripe.com/billing), en vez de gestionar `tenants.plan` a mano desde el panel de superadmin. Stripe gestiona todo el ciclo de vida del cobro (checkout, cobro recurrente, impago, cancelación); el backend (`backend/routers/billing.py`) solo:
+
+1. Crea `checkout.Session` / `billing_portal.Session` de Stripe (redirect a páginas alojadas por Stripe — **nunca** se procesa un número de tarjeta en este backend).
+2. Escucha el webhook de Stripe (`POST /api/billing/webhook`) y sincroniza `tenants.subscription_status`, `stripe_subscription_id`, `current_period_end` y `plan_price_id`.
+
+### Esquema de datos (migración `0006_stripe_billing.sql`)
+
+- `tenants`: nuevas columnas `stripe_customer_id`, `stripe_subscription_id`, `subscription_status` (`trialing|active|past_due|canceled|unpaid|incomplete`, `CHECK` en BD), `current_period_end`, `plan_price_id`.
+- `billing_events`: tabla de auditoría/idempotencia — cada `stripe_event_id` se inserta una única vez (`UNIQUE` + `ON CONFLICT DO NOTHING`); reenviar el mismo evento de Stripe no duplica efectos de negocio.
+- **Tenants existentes con `subscription_status IS NULL`** ("grandfathered" — el tenant demo, datos de prueba, o cualquier tenant creado antes de esta fase) **no se bloquean**: se tratan como acceso permitido hasta que completen un checkout real. Esto evita romper el tenant demo (`00000000-0000-0000-0000-000000000001`) y cualquier entorno de desarrollo/test al desplegar esta fase.
+
+### Enforcement de acceso — `require_active_subscription`
+
+`backend/auth/dependencies.py` define `require_active_subscription`, aplicada como dependencia de **router** (no por endpoint) en `backend/main.py` sobre todos los routers operativos del tenant. **Excluida explícitamente** de: `auth` (login no puede depender de una suscripción activa), `billing` (el propio flujo de pago no puede bloquearse a sí mismo), `carta_publica` (menú público, sin JWT) y `superadmin` (no gestiona su propia suscripción). Reglas de bloqueo:
+
+| `subscription_status` | Acceso |
+|---|---|
+| `NULL` (grandfathered) | ✅ Permitido |
+| `active` / `trialing` | ✅ Permitido |
+| `past_due` | ✅ Permitido durante `SUBSCRIPTION_GRACE_PERIOD_DAYS` (7 días) desde `current_period_end`; bloqueado (`402 Payment Required`) pasado ese margen |
+| `canceled` / `unpaid` / `incomplete` | ❌ Bloqueado (`402 Payment Required`) |
+| Rol `superadmin` | ✅ Siempre permitido (no gestiona suscripción propia) |
+
+### Variables de entorno
+
+```bash
+FRONTEND_URL=https://tu-dominio-vercel.app       # success_url / cancel_url / return_url de Stripe
+STRIPE_SECRET_KEY=sk_test_...                    # sk_live_... en producción
+STRIPE_WEBHOOK_SECRET=whsec_...                  # distinto en local (Stripe CLI) y en producción (Dashboard)
+STRIPE_PUBLISHABLE_KEY=pk_test_...               # reservada; no usada aún en el frontend
+STRIPE_PRICE_BASICO=price_...
+STRIPE_PRICE_PROFESIONAL=price_...
+STRIPE_PRICE_PREMIUM=price_...
+STRIPE_PRICE_ENTERPRISE=price_...
+```
+
+### Probar webhooks en local con Stripe CLI
+
+```bash
+stripe login
+stripe listen --forward-to localhost:8000/api/billing/webhook
+# copiar el whsec_... que imprime a backend/.env → STRIPE_WEBHOOK_SECRET
+
+# en otra terminal:
+stripe trigger checkout.session.completed
+stripe trigger invoice.payment_failed
+stripe trigger customer.subscription.deleted
+```
+
+Con `stripe listen` corriendo, el botón "Elegir plan" de la página **Mi plan / Facturación** (`/facturacion`, roles `admin`/`director`) abre un Checkout real en modo test (tarjeta `4242 4242 4242 4242`, cualquier caducidad/CVC futura); al completarlo, Stripe redirige a `/facturacion?checkout=success` y el CLI reenvía el webhook correspondiente a tu backend local.
+
+### Producción (Render)
+
+En el Dashboard de Stripe (modo live), crear un endpoint de webhook apuntando a `https://<tu-dominio-render>/api/billing/webhook`, escuchando como mínimo: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Copiar el *signing secret* de ese endpoint a Render como `STRIPE_WEBHOOK_SECRET` (variable de entorno secreta, **nunca** en un `.env` commiteado), junto con `STRIPE_SECRET_KEY` y los cuatro `STRIPE_PRICE_*`.
+
+### Alta de tenants nuevos — decisión tomada en esta fase
+
+A fecha de la Fase 11, el panel de superadmin (`backend/routers/superadmin/superadmin_router.py`) **no tiene un endpoint de alta de tenant** (los tenants se provisionan manualmente vía SQL/soporte; el panel solo lista, consulta el detalle y activa/desactiva tenants existentes). Por tanto no existía ningún flujo de "creación de tenant" que actualizar para arrancar en `trialing` o forzar un checkout inicial. Queda documentado como comportamiento esperado: un tenant recién provisionado por SQL nace con `subscription_status = NULL` (grandfathered, acceso permitido) hasta que un `admin`/`director` de ese tenant complete un checkout desde `/facturacion` — momento en el que el webhook `checkout.session.completed` fija su `subscription_status` real. **Si en el futuro se construye un flujo de alta de tenant self-service** (fuera del alcance de esta fase), debe dejar `subscription_status` en `NULL` al crear el tenant (no asumir `trialing` sin que exista una `Subscription` real en Stripe) y redirigir inmediatamente al nuevo tenant a `checkout-session`.
+
+### Pruebas
+
+`backend/tests/test_billing.py` mockea el SDK de Stripe (`stripe.Customer.create`, `stripe.checkout.Session.create`, `stripe.billing_portal.Session.create`, `stripe.Webhook.construct_event`) — la suite completa corre **sin credenciales reales de Stripe**. Cobertura: creación de checkout/portal session (cliente nuevo y existente, price_id no configurado, autorización por rol), webhook (firma ausente/inválida, cada tipo de evento soportado, idempotencia con `stripe_event_id` duplicado) y `require_active_subscription` (bloqueo por `canceled`, `past_due` dentro/fuera del margen de gracia, `active`, `NULL` grandfathered, exención de `superadmin`, accesibilidad de `auth`/`billing` sin importar el estado de suscripción).
+
+**Fuera de alcance de esta fase:** verificación end-to-end contra una cuenta Stripe real (requiere credenciales que no viven en este entorno de agente — seguir la sección "Probar webhooks en local" con tu propia cuenta de Stripe en modo test antes de ir a producción); cobro a los clientes finales de cada restaurante (reservas, TPV) — sigue usando `ticket_pagos` sin PSP; medición de uso (metered billing) — precio fijo por plan.
 
 ---
 
@@ -1979,7 +2222,7 @@ IDs fijos para que tus tests sean reproducibles:
 -- pedro@prueba.com    → rol almacen
 ```
 
-Ver DDL + seed de Fase B en `backend/sql/migration_fase_b.sql` y generación de hashes en `backend/scripts/generate_test_hashes.py` (el nombre histórico `seed_restauranteprueba.sql` del PRD quedó unificado en ese archivo).
+Ver DDL + seed de Fase B en `backend/sql/migrations/0002_fase_b_superadmin_tenants.sql` y generación de hashes en `backend/scripts/generate_test_hashes.py` (el nombre histórico `seed_restauranteprueba.sql` del PRD quedó unificado en ese archivo).
 
 ---
 
@@ -2049,7 +2292,7 @@ Este anexo sustituye al documento histórico **`PRD_SUPERADMIN_TENANTS_PRUEBAS.m
 - Rol **superadmin** (plataforma), separado del **admin** del restaurante (tenant).
 - **Auditoría** mínima: `platform_logs`, `tenant_audit_log`; **permisos** opcionales por usuario en `usuario_permisos`.
 - **API + UI** para operaciones de plataforma y para que el **admin del tenant** gestione usuarios (`/admin/usuarios`) sin ser superadmin.
-- **Tenant de prueba** reproducible vía `backend/sql/migration_fase_b.sql` + `backend/scripts/generate_test_hashes.py`.
+- **Tenant de prueba** reproducible vía `backend/sql/migrations/0002_fase_b_superadmin_tenants.sql` + `backend/scripts/generate_test_hashes.py`.
 
 **Estado:** implementado en repo (véase [BITACORA_HORECASO.md](BITACORA_HORECASO.md) §1 y §8).
 
@@ -2057,7 +2300,7 @@ Este anexo sustituye al documento histórico **`PRD_SUPERADMIN_TENANTS_PRUEBAS.m
 
 | Entregable | Ubicación |
 |------------|-----------|
-| DDL + CHECK `rol` (`superadmin`, …) + seed | [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) |
+| DDL + CHECK `rol` (`superadmin`, …) + seed | [backend/sql/migrations/0002_fase_b_superadmin_tenants.sql](backend/sql/migrations/0002_fase_b_superadmin_tenants.sql) |
 | Hashes bcrypt para el SQL | [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py) |
 | Columnas y tablas documentadas | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) |
 

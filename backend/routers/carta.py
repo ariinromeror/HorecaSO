@@ -13,7 +13,7 @@ from database import get_db
 logger = logging.getLogger(__name__)
 
 router_tpv = APIRouter(
-    prefix="/api/tpv",
+    prefix="/tpv",
     tags=["Carta"],
     responses={
         401: {"description": "No autorizado"},
@@ -22,7 +22,7 @@ router_tpv = APIRouter(
 )
 
 router_publica = APIRouter(
-    prefix="/api/carta",
+    prefix="/carta",
     tags=["Carta"],
 )
 

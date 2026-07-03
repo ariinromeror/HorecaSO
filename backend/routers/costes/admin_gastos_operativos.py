@@ -20,7 +20,7 @@ from routers.recetas.admin_recetas_shared import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/admin",
+    prefix="/admin",
     tags=["Admin Costes"],
     responses={401: {"description": "No autorizado"}, 403: {"description": "Prohibido"}},
 )
@@ -69,7 +69,7 @@ async def list_gastos_operativos(
                 status_code=503,
                 detail=(
                     "Tabla gastos_operativos no instalada. Ejecuta en Supabase: "
-                    "backend/sql/migration_gastos_operativos.sql"
+                    "backend/sql/migrations/0003_gastos_operativos.sql"
                 ),
             )
         logger.error("list_gastos_operativos: %s", e)
@@ -114,7 +114,7 @@ async def create_gasto_operativo(
                 status_code=503,
                 detail=(
                     "Tabla gastos_operativos no instalada. Ejecuta "
-                    "backend/sql/migration_gastos_operativos.sql"
+                    "backend/sql/migrations/0003_gastos_operativos.sql"
                 ),
             )
         logger.error("create_gasto_operativo: %s", e)

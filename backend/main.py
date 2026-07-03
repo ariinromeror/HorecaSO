@@ -12,17 +12,20 @@ bcrypt.__about__ = bcrypt
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 
+from auth.dependencies import require_active_subscription
 from config import settings
-from database import close_connection_pool, init_connection_pool, get_db
+from database import close_connection_pool, init_connection_pool, get_db, pool_status
+from observability import RequestIdMiddleware, configure_logging, init_sentry
+from rate_limit import limiter
+from routers.billing import router as billing_router
 from routers.admin_carta.admin_carta import router as admin_carta_router
 from routers.admin_carta.admin_carta import router_alergenos as alergenos_router
 from routers.admin_carta.admin_productos import router as admin_productos_router
@@ -69,14 +72,17 @@ from routers.reportes.reportes import router as reportes_router
 from routers.admin_usuarios import router as admin_usuarios_router
 from routers.superadmin import router as superadmin_router
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+configure_logging(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-limiter = Limiter(key_func=get_remote_address)
+_sentry_activo = init_sentry(
+    dsn=settings.SENTRY_DSN,
+    environment=settings.ENVIRONMENT,
+    release=settings.APP_VERSION,
+)
+if _sentry_activo:
+    logger.info("Sentry inicializado (environment=%s)", settings.ENVIRONMENT)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -134,6 +140,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestIdMiddleware)
 
     # Global exception handler — 500 sin stack trace (HTTPException se re-lanza)
     @app.exception_handler(Exception)
@@ -154,59 +161,106 @@ def create_app() -> FastAPI:
             "version": settings.APP_VERSION,
         }
 
-    app.include_router(auth_router)
-    app.include_router(mesas_router)
-    app.include_router(tpv_router)
-    app.include_router(tpv_cobro_router)
-    app.include_router(verifactu_router)
-    app.include_router(carta_tpv_router)
-    app.include_router(carta_publica_router)
-    app.include_router(admin_carta_router)
-    app.include_router(admin_productos_router)
-    app.include_router(admin_usuarios_router)
-    app.include_router(alergenos_router)
-    app.include_router(admin_recetas_router)
-    app.include_router(admin_recetas_ingredientes_router)
-    app.include_router(admin_gastos_operativos_router)
-    app.include_router(inventario_router, prefix="/api")
-    app.include_router(inventario_movimientos_router, prefix="/api")
-    app.include_router(kds_router, prefix="/api")
-    app.include_router(kds_estados_router, prefix="/api")
-    app.include_router(dashboard_router)
-    app.include_router(analytics_mesas_router, prefix="/api")
-    app.include_router(analytics_menu_router, prefix="/api")
-    app.include_router(analytics_personal_router, prefix="/api")
-    app.include_router(analytics_predicciones_router, prefix="/api")
-    app.include_router(proveedores_router, prefix="/api")
-    app.include_router(facturas_proveedor_router, prefix="/api")
-    app.include_router(empleados_router, prefix="/api")
-    app.include_router(fichajes_router, prefix="/api")
-    app.include_router(cuadrantes_router, prefix="/api")
-    app.include_router(ausencias_router, prefix="/api")
-    app.include_router(nominas_router, prefix="/api")
-    app.include_router(reservas_router, prefix="/api")
-    app.include_router(lista_espera_router, prefix="/api")
-    app.include_router(clientes_router, prefix="/api")
-    app.include_router(clientes_historial_router, prefix="/api")
-    app.include_router(appcc_router, prefix="/api")
-    app.include_router(fifo_router, prefix="/api")
-    app.include_router(fifo_consumo_router, prefix="/api")
-    app.include_router(reportes_router, prefix="/api")
-    app.include_router(superadmin_router)
+    # Convención única (Fase 10 PRD): todos los routers definen su prefijo
+    # de dominio SIN "/api" (p.ej. "/auth", "/mesas", "/admin"); el prefijo
+    # "/api" se añade aquí, de forma uniforme, para los 37 routers. Las URLs
+    # externas no cambian respecto a versiones anteriores — solo se
+    # normaliza dónde vive el prefijo a nivel de código.
+    #
+    # Fase 11 (Stripe Billing): `require_active_subscription` se añade como
+    # dependencia de *router* (se ejecuta antes que cualquier endpoint del
+    # router, incluida su propia comprobación de rol) a todos los routers
+    # operativos del tenant. Se EXCLUYE explícitamente de:
+    #   - auth_router: login debe funcionar siempre; perfil/verify deben
+    #     seguir respondiendo aunque el tenant esté bloqueado, para que el
+    #     frontend pueda enrutar a la pantalla de facturación.
+    #   - carta_publica_router: único router sin JWT (QR de carta pública) —
+    #     `require_active_subscription` exige usuario autenticado y rompería
+    #     ese flujo público.
+    #   - billing_router: el webhook no lleva JWT (se verifica por firma), y
+    #     checkout-session/portal-session son precisamente los endpoints que
+    #     un tenant bloqueado necesita para poder regularizar el pago.
+    #   - superadmin_router: plano de plataforma, sin tenant propio.
+    _CON_SUSCRIPCION_ACTIVA = [Depends(require_active_subscription)]
+
+    app.include_router(auth_router, prefix="/api")
+    app.include_router(billing_router, prefix="/api")
+    app.include_router(mesas_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(tpv_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(tpv_cobro_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(verifactu_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(carta_tpv_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(carta_publica_router, prefix="/api")
+    app.include_router(admin_carta_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(admin_productos_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(admin_usuarios_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(alergenos_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(admin_recetas_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(admin_recetas_ingredientes_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(admin_gastos_operativos_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(inventario_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(inventario_movimientos_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(kds_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(kds_estados_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(dashboard_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(analytics_mesas_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(analytics_menu_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(analytics_personal_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(analytics_predicciones_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(proveedores_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(facturas_proveedor_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(empleados_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(fichajes_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(cuadrantes_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(ausencias_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(nominas_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(reservas_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(lista_espera_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(clientes_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(clientes_historial_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(appcc_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(fifo_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(fifo_consumo_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(reportes_router, prefix="/api", dependencies=_CON_SUSCRIPCION_ACTIVA)
+    app.include_router(superadmin_router, prefix="/api")
 
     @app.get("/api/health")
     async def health_check():
-        """Health check — verifica conexión a DB con SELECT 1."""
+        """
+        Health check — verifica conexión a DB con SELECT 1.
+        Usado como `healthCheckPath` por Render (render.yaml): el código de
+        estado (200/503) no cambia respecto a antes de la Fase 7, solo se
+        amplía el cuerpo con versión de la app y estado del pool.
+        """
         try:
             async with get_db() as conn:
                 await conn.fetchval("SELECT 1")
-            return {"status": "ok"}
+            return {
+                "status": "ok",
+                "version": settings.APP_VERSION,
+                "pool": pool_status(),
+            }
         except Exception as e:
             logger.error("Health check fallido: %s", e)
             return JSONResponse(
                 status_code=503,
-                content={"status": "error", "detail": "DB no disponible"},
+                content={
+                    "status": "error",
+                    "detail": "DB no disponible",
+                    "version": settings.APP_VERSION,
+                    "pool": pool_status(),
+                },
             )
+
+    @app.get("/api/health/ready")
+    async def readiness_check():
+        """
+        Readiness — misma verificación que `/api/health` (¿puede el servicio
+        atender tráfico ahora mismo?). Endpoint separado por convención
+        liveness/readiness para poder apuntar aquí un futuro orquestador
+        (k8s, etc.) sin depender del path que usa Render.
+        """
+        return await health_check()
 
     return app
 

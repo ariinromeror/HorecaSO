@@ -12,20 +12,22 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 
-from auth.dependencies import get_current_user
+from auth.dependencies import require_roles
 from database import get_db
 from services.verifactu_engine import generar_huella
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/verifactu",
+    prefix="/verifactu",
     tags=["Verifactu"],
     responses={
         401: {"description": "No autorizado"},
         403: {"description": "Prohibido"},
     },
 )
+
+ROLES_VERIFACTU = ["admin", "director"]
 
 
 async def _get_user_tenant(conn, user_id: str) -> str | None:
@@ -60,7 +62,7 @@ def _registro_to_dict(row) -> dict:
 
 
 @router.get("/registros")
-async def list_registros(current_user: dict = Depends(get_current_user)):
+async def list_registros(current_user: dict = Depends(require_roles(ROLES_VERIFACTU))):
     """Lista todos los registros Verifactu del tenant del usuario."""
     async with get_db() as conn:
         tenant_id = await _get_user_tenant(conn, current_user["sub"])
@@ -85,7 +87,7 @@ async def list_registros(current_user: dict = Depends(get_current_user)):
 @router.get("/registros/{registro_id}")
 async def get_registro(
     registro_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_VERIFACTU)),
 ):
     """Devuelve detalle completo de un registro. 404 si no existe o no pertenece al tenant."""
     async with get_db() as conn:
@@ -112,7 +114,7 @@ async def get_registro(
 
 
 @router.get("/verificar-cadena")
-async def verificar_cadena(current_user: dict = Depends(get_current_user)):
+async def verificar_cadena(current_user: dict = Depends(require_roles(ROLES_VERIFACTU))):
     """
     Verifica la integridad del hash chaining del tenant.
     Recalcula la huella de cada registro y compara con la almacenada.
@@ -192,7 +194,7 @@ async def verificar_cadena(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/exportar")
-async def exportar_registros(current_user: dict = Depends(get_current_user)):
+async def exportar_registros(current_user: dict = Depends(require_roles(ROLES_VERIFACTU))):
     """Exporta todos los registros del tenant en formato CSV."""
     async with get_db() as conn:
         tenant_id = await _get_user_tenant(conn, current_user["sub"])

@@ -9,19 +9,21 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from auth.dependencies import get_current_user
+from auth.dependencies import require_roles
 from database import get_db
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
-    prefix="/api/dashboard",
+    prefix="/dashboard",
     tags=["Dashboard"],
     responses={
         401: {"description": "No autorizado"},
         403: {"description": "Prohibido"},
     },
 )
+
+ROLES_DASHBOARD = ["admin", "director"]
 
 
 async def _get_user_tenant(conn, user_id: str) -> str | None:
@@ -36,7 +38,7 @@ async def _get_user_tenant(conn, user_id: str) -> str | None:
 
 
 @router.get("/director")
-async def get_dashboard_director(current_user: dict = Depends(get_current_user)):
+async def get_dashboard_director(current_user: dict = Depends(require_roles(ROLES_DASHBOARD))):
     """Dashboard director: ventas, mesas, top productos, alertas stock."""
     async with get_db() as conn:
         tenant_id = await _get_user_tenant(conn, current_user["sub"])
@@ -139,7 +141,7 @@ async def get_dashboard_director(current_user: dict = Depends(get_current_user))
 
 @router.get("/cierre-dia")
 async def get_cierre_dia(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_DASHBOARD)),
     fecha: date | None = Query(default=None, description="Fecha (default: hoy)"),
 ):
     """Cierre de día: totales por método de pago."""

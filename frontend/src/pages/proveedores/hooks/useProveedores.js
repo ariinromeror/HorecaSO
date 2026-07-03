@@ -1,14 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   deleteProveedor,
   getProveedorDetalle,
   getProveedores,
 } from '../../../services/api'
 
+/**
+ * Hook de referencia para la migración a React Query (Fase 8 del PRD de
+ * hardening) de listados "estáticos" (sin polling, se recargan por acción
+ * del usuario: búsqueda, filtro o tras guardar/borrar). Ver
+ * `frontend/README.md` para el patrón completo.
+ */
 export function useProveedores() {
-  const [proveedores, setProveedores] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const queryClient = useQueryClient()
+
   const [buscarInput, setBuscarInput] = useState('')
   const [buscarDebounced, setBuscarDebounced] = useState('')
   const [soloActivos, setSoloActivos] = useState(true)
@@ -28,26 +34,28 @@ export function useProveedores() {
     return () => clearTimeout(id)
   }, [feedback])
 
-  const cargar = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
+  const queryKey = ['proveedores', { buscar: buscarDebounced, soloActivos }]
+
+  const {
+    data: proveedores = [],
+    isLoading: loading,
+    error: queryError,
+  } = useQuery({
+    queryKey,
+    queryFn: async () => {
       const params = {}
       if (buscarDebounced) params.buscar = buscarDebounced
       if (soloActivos) params.activo = true
       const r = await getProveedores(params)
-      setProveedores(Array.isArray(r.data) ? r.data : [])
-    } catch (e) {
-      setError(e.response?.data?.detail || 'Error al cargar proveedores')
-      setProveedores([])
-    } finally {
-      setLoading(false)
-    }
-  }, [buscarDebounced, soloActivos])
+      return Array.isArray(r.data) ? r.data : []
+    },
+  })
 
-  useEffect(() => {
-    cargar()
-  }, [cargar])
+  const error = queryError
+    ? queryError.response?.data?.detail || 'Error al cargar proveedores'
+    : null
+
+  const cargar = () => queryClient.invalidateQueries({ queryKey: ['proveedores'] })
 
   const abrirDetalle = async (p) => {
     setModalDetalle({ ...p, facturas_recientes: [] })
