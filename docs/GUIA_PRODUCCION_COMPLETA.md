@@ -419,6 +419,75 @@ app.include_router(mi_dominio_router, prefix="/api")  # /api se añade SIEMPRE a
 
 ---
 
+## 1.9 Facturación SaaS: Stripe Billing (Fase 11)
+
+Desde la Fase 11, HorecaSO cobra a los **tenants** (los restaurantes clientes de la plataforma) por su plan de suscripción (Básico/Profesional/Premium/Enterprise) vía [Stripe Billing](https://stripe.com/billing), en vez de gestionar `tenants.plan` a mano desde el panel de superadmin. Stripe gestiona todo el ciclo de vida del cobro (checkout, cobro recurrente, impago, cancelación); el backend (`backend/routers/billing.py`) solo:
+
+1. Crea `checkout.Session` / `billing_portal.Session` de Stripe (redirect a páginas alojadas por Stripe — **nunca** se procesa un número de tarjeta en este backend).
+2. Escucha el webhook de Stripe (`POST /api/billing/webhook`) y sincroniza `tenants.subscription_status`, `stripe_subscription_id`, `current_period_end` y `plan_price_id`.
+
+### Esquema de datos (migración `0006_stripe_billing.sql`)
+
+- `tenants`: nuevas columnas `stripe_customer_id`, `stripe_subscription_id`, `subscription_status` (`trialing|active|past_due|canceled|unpaid|incomplete`, `CHECK` en BD), `current_period_end`, `plan_price_id`.
+- `billing_events`: tabla de auditoría/idempotencia — cada `stripe_event_id` se inserta una única vez (`UNIQUE` + `ON CONFLICT DO NOTHING`); reenviar el mismo evento de Stripe no duplica efectos de negocio.
+- **Tenants existentes con `subscription_status IS NULL`** ("grandfathered" — el tenant demo, datos de prueba, o cualquier tenant creado antes de esta fase) **no se bloquean**: se tratan como acceso permitido hasta que completen un checkout real. Esto evita romper el tenant demo (`00000000-0000-0000-0000-000000000001`) y cualquier entorno de desarrollo/test al desplegar esta fase.
+
+### Enforcement de acceso — `require_active_subscription`
+
+`backend/auth/dependencies.py` define `require_active_subscription`, aplicada como dependencia de **router** (no por endpoint) en `backend/main.py` sobre todos los routers operativos del tenant. **Excluida explícitamente** de: `auth` (login no puede depender de una suscripción activa), `billing` (el propio flujo de pago no puede bloquearse a sí mismo), `carta_publica` (menú público, sin JWT) y `superadmin` (no gestiona su propia suscripción). Reglas de bloqueo:
+
+| `subscription_status` | Acceso |
+|---|---|
+| `NULL` (grandfathered) | ✅ Permitido |
+| `active` / `trialing` | ✅ Permitido |
+| `past_due` | ✅ Permitido durante `SUBSCRIPTION_GRACE_PERIOD_DAYS` (7 días) desde `current_period_end`; bloqueado (`402 Payment Required`) pasado ese margen |
+| `canceled` / `unpaid` / `incomplete` | ❌ Bloqueado (`402 Payment Required`) |
+| Rol `superadmin` | ✅ Siempre permitido (no gestiona suscripción propia) |
+
+### Variables de entorno
+
+```bash
+FRONTEND_URL=https://tu-dominio-vercel.app       # success_url / cancel_url / return_url de Stripe
+STRIPE_SECRET_KEY=sk_test_...                    # sk_live_... en producción
+STRIPE_WEBHOOK_SECRET=whsec_...                  # distinto en local (Stripe CLI) y en producción (Dashboard)
+STRIPE_PUBLISHABLE_KEY=pk_test_...               # reservada; no usada aún en el frontend
+STRIPE_PRICE_BASICO=price_...
+STRIPE_PRICE_PROFESIONAL=price_...
+STRIPE_PRICE_PREMIUM=price_...
+STRIPE_PRICE_ENTERPRISE=price_...
+```
+
+### Probar webhooks en local con Stripe CLI
+
+```bash
+stripe login
+stripe listen --forward-to localhost:8000/api/billing/webhook
+# copiar el whsec_... que imprime a backend/.env → STRIPE_WEBHOOK_SECRET
+
+# en otra terminal:
+stripe trigger checkout.session.completed
+stripe trigger invoice.payment_failed
+stripe trigger customer.subscription.deleted
+```
+
+Con `stripe listen` corriendo, el botón "Elegir plan" de la página **Mi plan / Facturación** (`/facturacion`, roles `admin`/`director`) abre un Checkout real en modo test (tarjeta `4242 4242 4242 4242`, cualquier caducidad/CVC futura); al completarlo, Stripe redirige a `/facturacion?checkout=success` y el CLI reenvía el webhook correspondiente a tu backend local.
+
+### Producción (Render)
+
+En el Dashboard de Stripe (modo live), crear un endpoint de webhook apuntando a `https://<tu-dominio-render>/api/billing/webhook`, escuchando como mínimo: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`. Copiar el *signing secret* de ese endpoint a Render como `STRIPE_WEBHOOK_SECRET` (variable de entorno secreta, **nunca** en un `.env` commiteado), junto con `STRIPE_SECRET_KEY` y los cuatro `STRIPE_PRICE_*`.
+
+### Alta de tenants nuevos — decisión tomada en esta fase
+
+A fecha de la Fase 11, el panel de superadmin (`backend/routers/superadmin/superadmin_router.py`) **no tiene un endpoint de alta de tenant** (los tenants se provisionan manualmente vía SQL/soporte; el panel solo lista, consulta el detalle y activa/desactiva tenants existentes). Por tanto no existía ningún flujo de "creación de tenant" que actualizar para arrancar en `trialing` o forzar un checkout inicial. Queda documentado como comportamiento esperado: un tenant recién provisionado por SQL nace con `subscription_status = NULL` (grandfathered, acceso permitido) hasta que un `admin`/`director` de ese tenant complete un checkout desde `/facturacion` — momento en el que el webhook `checkout.session.completed` fija su `subscription_status` real. **Si en el futuro se construye un flujo de alta de tenant self-service** (fuera del alcance de esta fase), debe dejar `subscription_status` en `NULL` al crear el tenant (no asumir `trialing` sin que exista una `Subscription` real en Stripe) y redirigir inmediatamente al nuevo tenant a `checkout-session`.
+
+### Pruebas
+
+`backend/tests/test_billing.py` mockea el SDK de Stripe (`stripe.Customer.create`, `stripe.checkout.Session.create`, `stripe.billing_portal.Session.create`, `stripe.Webhook.construct_event`) — la suite completa corre **sin credenciales reales de Stripe**. Cobertura: creación de checkout/portal session (cliente nuevo y existente, price_id no configurado, autorización por rol), webhook (firma ausente/inválida, cada tipo de evento soportado, idempotencia con `stripe_event_id` duplicado) y `require_active_subscription` (bloqueo por `canceled`, `past_due` dentro/fuera del margen de gracia, `active`, `NULL` grandfathered, exención de `superadmin`, accesibilidad de `auth`/`billing` sin importar el estado de suscripción).
+
+**Fuera de alcance de esta fase:** verificación end-to-end contra una cuenta Stripe real (requiere credenciales que no viven en este entorno de agente — seguir la sección "Probar webhooks en local" con tu propia cuenta de Stripe en modo test antes de ir a producción); cobro a los clientes finales de cada restaurante (reservas, TPV) — sigue usando `ticket_pagos` sin PSP; medición de uso (metered billing) — precio fijo por plan.
+
+---
+
 # 2. CÓMO HACKEAR TU PROPIO SISTEMA
 
 ## 2.1 Herramientas que necesitas (todas gratuitas)
