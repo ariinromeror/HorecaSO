@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     APP_NAME: str = "HorecaSO"
     APP_VERSION: str = "1.0.0"
+    SENTRY_DSN: str = ""
 
     @model_validator(mode="after")
     def _groq_key_desde_os(self):
