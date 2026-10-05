@@ -16,6 +16,16 @@ El [STEP_HORECASO.md](STEP_HORECASO.md) mantiene un resumen histórico en *Probl
 
 ---
 
+## 2026-10 — Login móvil / Render cold start (05/10/2026)
+
+| ID | Fecha | Módulo | Síntoma | Causa | Solución | Estado |
+|----|-------|--------|---------|-------|----------|--------|
+| BUG-014 | 05/10/2026 | Auth / Login (móvil) | Al iniciar sesión en móvil aparece error genérico / parece que “falla” | (1) Backend Render free dormido → **502/503** en `/api/health` y `/api/auth/login`. (2) Interceptor axios redirigía a `/login` en **cualquier** 401, incluido fallo de credenciales en `POST /auth/login`, borrando el mensaje de error con `window.location` | Mensajes claros en `LoginPage` para red/502/503; aviso cold start; interceptor **no** redirige en `/auth/login`. **Ops 05/10 tarde:** health **200** OK tras Supabase Healthy + wake Render Free | ✅ FE; ✅ health OK (Free cold start sigue) |
+| — | 05/10/2026 | Deploy / Render | `GET …/api/health` 502/503 | Free waking / DB | Reinicio + DB Healthy; verificado **200** `{"status":"ok"}` | ✅ (cold start esperado en Free) |
+| MEJ-009 | 05/10/2026 | Piloto | KDS lento / sin feedback envío / sin print Epson / tenants sin fiscal / IVA fijo 10% | Gaps plan piloto cafetería | Paso 3–7: poll 5s, toast, print térmico, tenants+modulos, IVA por línea, fiscal-trimestre, QR cobro | ✅ código; deploy FE/BE pendiente push |
+
+---
+
 ## 2026-03 — Sesión 18/03 (tabla resumida)
 
 | ID | Fecha | Módulo | Síntoma | Causa | Solución | Estado |

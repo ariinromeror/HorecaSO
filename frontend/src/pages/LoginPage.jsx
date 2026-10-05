@@ -9,6 +9,7 @@ import {
   Moon,
   ShieldCheck,
   Sun,
+  Zap,
 } from 'lucide-react'
 import ProjectInfoModal from '../components/ProjectInfoModal'
 import { useAuth } from '../context/AuthContext'
@@ -58,6 +59,13 @@ export default function LoginPage() {
   }, [isAuthenticated, isLoading, navigate])
 
   const extractError = (e) => {
+    const status = e.response?.status
+    if (!e.response) {
+      return 'No hay respuesta del servidor. Puede estar arrancando (Render free: 30–60 s). Reintenta en un momento.'
+    }
+    if (status === 502 || status === 503 || status === 504) {
+      return 'El servidor está arrancando o no disponible (Render). Espera ~1 minuto y vuelve a intentarlo.'
+    }
     const detail = e.response?.data?.detail
     return typeof detail === 'string'
       ? detail
@@ -264,6 +272,21 @@ export default function LoginPage() {
         >
           Ver más sobre este proyecto
         </button>
+
+        <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#111827] p-3 text-[#e8eaf0] dark:bg-[#0f1117]">
+          <Zap
+            size={16}
+            strokeWidth={1.5}
+            className="mt-0.5 shrink-0 text-amber-500"
+          />
+          <div>
+            <p className="text-xs font-semibold">Primera vez que accedes</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed opacity-90">
+              El API está en Render (plan free). El primer inicio puede tardar
+              30–60 s. Si falla el login, espera un momento y reintenta.
+            </p>
+          </div>
+        </div>
       </div>
 
       <ProjectInfoModal

@@ -22,6 +22,8 @@ export function useTpvTicketHandlers({
   setBorradorPartesPagos,
   setLiberarMesaLoading,
   setTpvReloadKey,
+  setFeedback,
+  setActiveTab,
   importePago,
   metodoPagoDivision,
   setLoadingPago,
@@ -63,16 +65,25 @@ export function useTpvTicketHandlers({
       if (!ticket?.id) return
       setActionLoading((p) => ({ ...p, [productoId]: true }))
       try {
-        await apiAddLinea(ticket.id, productoId, 1)
+        const res = await apiAddLinea(ticket.id, productoId, 1)
         const t = await getTicket(ticket.id)
         setTicket(t.data)
+        const dest = res?.data?.destino_kds
+        if (dest === 'cocina') {
+          setFeedback('Enviado a cocina')
+        } else if (dest === 'barra') {
+          setFeedback('Enviado a barra')
+        } else {
+          setFeedback('Añadido al ticket')
+        }
+        setActiveTab('ticket')
       } catch (e) {
         setError(e.response?.data?.detail || 'Error al añadir línea')
       } finally {
         setActionLoading((p) => ({ ...p, [productoId]: false }))
       }
     },
-    [ticket?.id, setActionLoading, setError, setTicket]
+    [ticket?.id, setActionLoading, setError, setTicket, setFeedback, setActiveTab]
   )
 
   const handleRestarUnidadGrupo = useCallback(

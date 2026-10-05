@@ -66,6 +66,7 @@ export const NAV_ITEMS = [
     label: 'Analytics',
     Icon: BarChart3,
     roles: ['admin', 'director'],
+    modulo: 'predicciones',
   },
   {
     path: '/reportes',
@@ -114,6 +115,7 @@ export const NAV_ITEMS = [
     label: 'Stock FIFO',
     Icon: Layers,
     roles: ['admin', 'director', 'almacen'],
+    modulo: 'fifo',
   },
   {
     path: '/proveedores',
@@ -126,6 +128,7 @@ export const NAV_ITEMS = [
     label: 'Facturas compra',
     Icon: FileText,
     roles: ['admin', 'director', 'almacen', 'cocina'],
+    modulo: 'ia_facturas',
   },
   {
     path: '/admin/recetas',
@@ -169,6 +172,7 @@ export const NAV_ITEMS = [
     label: 'Nóminas',
     Icon: Receipt,
     roles: ['admin', 'director'],
+    modulo: 'nominas',
   },
   {
     path: '/reservas',

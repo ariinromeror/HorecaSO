@@ -1,6 +1,7 @@
-import { DollarSign, SplitSquareHorizontal } from 'lucide-react'
+import { DollarSign, Printer, SplitSquareHorizontal } from 'lucide-react'
 import CobroDivisionForm from './CobroDivisionForm'
 import { METODOS_DIVISION, formatEuro } from '../constants'
+import { printViaAgentOrBrowser } from './TicketPrintView'
 
 export default function CobroModal({
   ticket,
@@ -32,7 +33,47 @@ export default function CobroModal({
   handleEliminarPagoDivision,
   handleCompletarDivision,
   totalPagado,
+  productoNombrePorId,
+  mesaLabel,
+  onPrintComanda,
+  onPrintTicket,
 }) {
+  const handlePrintComanda = async () => {
+    if (onPrintComanda) {
+      onPrintComanda()
+      return
+    }
+    await printViaAgentOrBrowser({
+      tipo: 'comanda',
+      mesa: mesaLabel,
+      lineas: (lineas || []).map((ln) => ({
+        cantidad: ln.cantidad,
+        nombre:
+          productoNombrePorId?.get?.(String(ln.producto_id)) || 'Producto',
+        nota: ln.nota,
+      })),
+    })
+  }
+
+  const handlePrintTicket = async () => {
+    if (onPrintTicket) {
+      onPrintTicket()
+      return
+    }
+    await printViaAgentOrBrowser({
+      tipo: 'ticket',
+      mesa: mesaLabel,
+      total: Number(ticket?.total) || 0,
+      lineas: (lineas || []).map((ln) => ({
+        cantidad: ln.cantidad,
+        nombre:
+          productoNombrePorId?.get?.(String(ln.producto_id)) || 'Producto',
+        subtotal: Number(ln.subtotal) || 0,
+        nota: ln.nota,
+      })),
+    })
+  }
+
   return (
     <>
       <div className="mb-3 flex items-baseline justify-between">
@@ -71,7 +112,7 @@ export default function CobroModal({
               type="button"
               disabled={!lineas.length || cobrarLoading}
               onClick={handleCobrar}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 text-sm font-bold text-black transition-colors hover:bg-amber-600 disabled:opacity-40"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 text-sm font-bold text-black transition-colors active:bg-amber-600 hover:bg-amber-600 disabled:opacity-40"
             >
               <DollarSign size={18} strokeWidth={1.5} />
               Cobro simple
@@ -80,10 +121,28 @@ export default function CobroModal({
               type="button"
               disabled={!lineas.length || cobrarLoading}
               onClick={iniciarDivision}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] text-sm font-semibold text-[#111827] transition-colors hover:bg-[#e8eaef] dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0] dark:hover:bg-[#2e3347] disabled:opacity-40"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] text-sm font-semibold text-[#111827] transition-colors active:bg-[#e8eaef] hover:bg-[#e8eaef] dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0] dark:hover:bg-[#2e3347] disabled:opacity-40"
             >
               <SplitSquareHorizontal size={18} strokeWidth={1.5} />
               Dividir cuenta
+            </button>
+            <button
+              type="button"
+              disabled={!lineas.length}
+              onClick={handlePrintComanda}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] bg-white text-sm font-semibold text-[#111827] dark:border-[#2e3347] dark:bg-[#1a1d27] dark:text-[#e8eaf0] disabled:opacity-40"
+            >
+              <Printer size={18} strokeWidth={1.5} />
+              Imprimir comanda
+            </button>
+            <button
+              type="button"
+              disabled={!lineas.length}
+              onClick={handlePrintTicket}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm font-semibold text-amber-700 dark:text-amber-400 disabled:opacity-40"
+            >
+              <Printer size={18} strokeWidth={1.5} />
+              Imprimir ticket
             </button>
           </div>
         </>

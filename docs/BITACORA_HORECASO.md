@@ -1,6 +1,22 @@
 # BITÁCORA HORECASO — Estado real del proyecto
-**Última actualización:** 27 de marzo de 2026 (inventario calibración + docs bugs)  
+**Última actualización:** 5 de octubre de 2026 (piloto casa: KDS/print/tenants/flags/fiscal)  
 **Generada por:** Cursor leyendo el repo real
+
+---
+
+## 0. SESIÓN PILOTO 05/10/2026
+
+### 05/10/2026 — Plan piloto casa (Build completo Pasos 3–7 + docs)
+
+- **Smoke:** `GET /api/health` en Render Free → **200** `{"status":"ok"}` (tras despertar Supabase/servicio). Login PC+móvil confirmado por usuario.
+- **Paso 3 KDS/táctil:** poll KDS **5 s** (`useKdsComandas.js`); toast “Enviado a cocina/barra” + pestaña ticket; `_linea_to_dict` expone `destino_kds`/`enviado_*`/`estado_*`; badges en `LineasTicket.jsx`; targets **h-12** Sala/TPV/cobro.
+- **Paso 4 Epson:** `TicketPrintView` + CSS `@media print` 58/80 mm; botones Imprimir comanda/ticket; agente opcional `tools/print_agent/print_agent.py` (`127.0.0.1:9173`).
+- **Paso 5 tenants:** migración Supabase `piloto_tenants_modulos` (`razon_social`, CP, ciudad, provincia, `serie_facturacion`, `modulos` JSONB); `POST/PATCH /api/superadmin/tenants`; login bloquea tenant `activo=false`; UI edición fiscal en `TenantDetailPage`.
+- **Paso 6 flags:** `require_modulo` en `auth/dependencies.py`; FIFO gated; nav filtra `modulo` (fifo/nominas/ia_facturas/predicciones); `/auth/perfil` devuelve `modulos`.
+- **Paso 7 fiscal:** Verifactu IVA por línea 10/21; cobro devuelve `verifactu_qr_url`; `GET /api/reportes/fiscal-trimestre`; UI pestaña Fiscal 303.
+- **Starter:** documentado — subir Render Free→Starter al llevar al local (ops manual).
+- **SQL repo:** `backend/sql/migration_piloto_tenants_modulos.sql` (ya aplicada vía MCP).
+- **Docs:** [PLAN_PILOTO_HORECASO.md](PLAN_PILOTO_HORECASO.md); BUG-014 ops Render health → actualizar a OK salud.
 
 ---
 
@@ -192,6 +208,14 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 ---
 
 ## 8. REGISTRO BREVE (docs)
+
+### 05/10/2026 — **Auditoría login móvil + BUG-014**
+
+- **Síntoma reportado:** error al iniciar sesión en móvil (producción).
+- **Hallazgo producción:** `https://horecaso.onrender.com/api/health` y `/api/auth/login` responden **502/503** (servicio free dormido o instancia no healthy). Frontend Vercel (`horeca-so.vercel.app/login`) sí carga.
+- **BUG-014 (FE):** interceptor axios hacía `window.location=/login` en todo 401 (incluido login fallido) → se perdía el mensaje; `extractError` no distinguía red/502/503.
+- **Fix FE:** `api.js` excluye `/auth/login` del redirect 401; `LoginPage` mensajes cold-start + aviso Render (estilo InfoCampus).
+- **Pendiente ops:** revisar logs Render / env (`DATABASE_URL`, `ALLOWED_ORIGINS`, Python 3.12) hasta que health = 200.
 
 ### 20/06/2026 — **Login: ProjectInfoModal (clon InfoCampus)**
 

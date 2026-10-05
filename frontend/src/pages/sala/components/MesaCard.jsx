@@ -108,7 +108,7 @@ export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando })
             e.stopPropagation()
             onMarcarLibre(mesa)
           }}
-          className="mt-1.5 w-full rounded-lg border border-[#e2e5ed] bg-white py-1.5 text-[11px] font-medium text-[#374151] hover:bg-[#f9fafb] disabled:opacity-50 dark:border-[#2e3347] dark:bg-[#1a1d27] dark:text-[#e8eaf0] dark:hover:bg-[#222536]"
+          className="mt-1.5 flex h-12 w-full items-center justify-center rounded-lg border border-[#e2e5ed] bg-white text-[15px] font-medium text-[#374151] active:bg-[#f9fafb] hover:bg-[#f9fafb] disabled:opacity-50 dark:border-[#2e3347] dark:bg-[#1a1d27] dark:text-[#e8eaf0] dark:active:bg-[#222536] dark:hover:bg-[#222536]"
         >
           {liberando ? '…' : 'Marcar libre'}
         </button>
