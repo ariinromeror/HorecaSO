@@ -123,10 +123,46 @@ async def crear_registro_verifactu(
         fecha_str = str(fecha_ref)[:10]
         fecha_expedicion = datetime.strptime(fecha_str, "%Y-%m-%d").date()
 
-    # Cálculos monetarios con Decimal
+    # Cálculos IVA por línea (10% / 21% según productos.iva_porcentaje)
+    lineas = await conn.fetch(
+        """
+        SELECT tl.subtotal,
+               COALESCE(p.iva_porcentaje, 10) AS iva_porcentaje
+        FROM ticket_lineas tl
+        LEFT JOIN productos p ON p.id = tl.producto_id
+        WHERE tl.ticket_id = $1
+        """,
+        UUID(ticket_id),
+    )
+
+    base_imponible = Decimal("0.00")
+    cuota_iva = Decimal("0.00")
+    if lineas:
+        for ln in lineas:
+            subtotal = Decimal(str(ln["subtotal"] or 0))
+            iva_pct = Decimal(str(ln["iva_porcentaje"] or 10))
+            factor = Decimal("1") + (iva_pct / Decimal("100"))
+            if factor <= 0:
+                factor = Decimal("1.10")
+            base_ln = (subtotal / factor).quantize(Decimal("0.01"), ROUND_HALF_UP)
+            cuota_ln = (subtotal - base_ln).quantize(Decimal("0.01"), ROUND_HALF_UP)
+            base_imponible += base_ln
+            cuota_iva += cuota_ln
+        total = Decimal(str(ticket_row["total"]))
+        # Ajuste céntimos: base+cuota ≈ total
+        diff = (total - (base_imponible + cuota_iva)).quantize(
+            Decimal("0.01"), ROUND_HALF_UP
+        )
+        if diff != 0:
+            cuota_iva = (cuota_iva + diff).quantize(Decimal("0.01"), ROUND_HALF_UP)
+    else:
+        total = Decimal(str(ticket_row["total"]))
+        base_imponible = (total / Decimal("1.10")).quantize(
+            Decimal("0.01"), ROUND_HALF_UP
+        )
+        cuota_iva = (total - base_imponible).quantize(Decimal("0.01"), ROUND_HALF_UP)
+
     total = Decimal(str(ticket_row["total"]))
-    base_imponible = (total / Decimal("1.10")).quantize(Decimal("0.01"), ROUND_HALF_UP)
-    cuota_iva = (total - base_imponible).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
     fecha_hora_generacion = datetime.now(timezone.utc)
 
@@ -169,4 +205,11 @@ async def crear_registro_verifactu(
 
     logger.info("Registro Verifactu creado: %s para ticket %s", numero_serie, ticket_id)
 
-    return dict(row)
+    result = dict(row)
+    result["qr_url"] = generar_qr_url(
+        tenant_row["nif"],
+        numero_serie,
+        fecha_expedicion.strftime("%d-%m-%Y"),
+        f"{total:.2f}",
+    )
+    return result

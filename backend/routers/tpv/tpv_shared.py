@@ -56,7 +56,22 @@ def _ticket_to_dict(row) -> dict:
 
 
 def _linea_to_dict(row) -> dict:
-    """Convierte fila línea a dict."""
+    """Convierte fila línea a dict (incluye destinos KDS para badges TPV)."""
+    keys = set(row.keys())
+    enviado_cocina = bool(row["enviado_cocina"]) if "enviado_cocina" in keys else False
+    enviado_barra = bool(row["enviado_barra"]) if "enviado_barra" in keys else False
+    if enviado_cocina:
+        destino_kds = "cocina"
+    elif enviado_barra:
+        destino_kds = "barra"
+    else:
+        destino_kds = "ninguno"
+    estado_cocina = (
+        row["estado_cocina"] if "estado_cocina" in keys and row["estado_cocina"] else "pendiente"
+    )
+    estado_barra = (
+        row["estado_barra"] if "estado_barra" in keys and row["estado_barra"] else "pendiente"
+    )
     return {
         "id": str(row["id"]),
         "ticket_id": str(row["ticket_id"]) if row["ticket_id"] else None,
@@ -65,6 +80,11 @@ def _linea_to_dict(row) -> dict:
         "precio_unitario": float(row["precio_unitario"]) if row["precio_unitario"] else 0,
         "subtotal": float(row["subtotal"]) if row["subtotal"] else 0,
         "nota": row["nota"],
+        "destino_kds": destino_kds,
+        "enviado_cocina": enviado_cocina,
+        "enviado_barra": enviado_barra,
+        "estado_cocina": estado_cocina,
+        "estado_barra": estado_barra,
     }
 
 

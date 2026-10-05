@@ -13,7 +13,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from auth.dependencies import require_roles
+from auth.dependencies import require_modulo, require_roles
 from database import get_db
 
 from .fifo_shared import (
@@ -43,6 +43,7 @@ async def list_lotes_fifo(
     articulo_id: Optional[UUID] = Query(None),
     solo_activos: Optional[bool] = Query(None),
     current_user: dict = Depends(require_roles(ROLES_ALMACEN)),
+    _: dict = Depends(require_modulo("fifo")),
 ):
     user_uuid = _uid(current_user)
     try:
@@ -108,6 +109,7 @@ class CreateLoteFifoBody(BaseModel):
 async def create_lote_fifo(
     body: CreateLoteFifoBody,
     current_user: dict = Depends(require_roles(ROLES_ALMACEN)),
+    _: dict = Depends(require_modulo("fifo")),
 ):
     user_uuid = _uid(current_user)
     cant = _q4(body.cantidad)

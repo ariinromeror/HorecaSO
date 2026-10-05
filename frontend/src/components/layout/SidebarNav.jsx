@@ -15,7 +15,14 @@ export default function SidebarNav({ onClose }) {
   const visibleItems =
     rol === 'superadmin'
       ? SUPERADMIN_NAV_ITEMS
-      : NAV_ITEMS.filter((item) => rol && item.roles.includes(rol))
+      : NAV_ITEMS.filter((item) => {
+          if (!rol || !item.roles.includes(rol)) return false
+          if (!item.modulo) return true
+          const mods = user?.modulos
+          if (!mods || typeof mods !== 'object') return true
+          if (Object.keys(mods).length === 0) return true
+          return mods[item.modulo] !== false
+        })
 
   return (
     <nav

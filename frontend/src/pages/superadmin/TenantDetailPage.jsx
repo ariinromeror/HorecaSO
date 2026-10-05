@@ -11,6 +11,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
   getSuperadminTenantDetail,
   patchTenantActivo,
+  patchSuperadminTenant,
 } from '../../services/api'
 
 function formatDate(iso) {
@@ -33,6 +34,9 @@ export default function TenantDetailPage() {
   const [modal, setModal] = useState(null)
   const [patching, setPatching] = useState(false)
   const [patchError, setPatchError] = useState(null)
+  const [editForm, setEditForm] = useState(null)
+  const [editMsg, setEditMsg] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -41,6 +45,18 @@ export default function TenantDetailPage() {
     try {
       const res = await getSuperadminTenantDetail(id)
       setPayload(res.data)
+      const t = res.data?.tenant
+      if (t) {
+        setEditForm({
+          razon_social: t.razon_social || t.nombre || '',
+          codigo_postal: t.codigo_postal || '',
+          ciudad: t.ciudad || '',
+          provincia: t.provincia || '',
+          serie_facturacion: t.serie_facturacion || 'A',
+          direccion: t.direccion || '',
+          plan: t.plan || 'basico',
+        })
+      }
     } catch (e) {
       if (e.response?.status === 404) {
         setError('Tenant no encontrado')
@@ -196,6 +212,65 @@ export default function TenantDetailPage() {
           </p>
         </div>
       </div>
+
+      {editForm ? (
+        <div className="rounded-xl border border-[#e2e5ed] bg-white p-4 dark:border-[#2e3347] dark:bg-[#1a1d27]">
+          <h3 className="mb-3 text-[15px] font-semibold text-[#111827] dark:text-[#e8eaf0]">
+            Datos fiscales / plan
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ['razon_social', 'Razón social'],
+              ['codigo_postal', 'Código postal'],
+              ['ciudad', 'Ciudad'],
+              ['provincia', 'Provincia'],
+              ['serie_facturacion', 'Serie facturación'],
+              ['direccion', 'Dirección'],
+              ['plan', 'Plan'],
+            ].map(([key, label]) => (
+              <label
+                key={key}
+                className="flex flex-col gap-1 text-sm text-[#6b7280] dark:text-[#8b90a7]"
+              >
+                {label}
+                <input
+                  value={editForm[key] || ''}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, [key]: e.target.value }))
+                  }
+                  className="h-12 rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-3 text-[15px] text-[#111827] dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]"
+                />
+              </label>
+            ))}
+          </div>
+          <button
+            type="button"
+            disabled={editSaving}
+            onClick={async () => {
+              setEditSaving(true)
+              setEditMsg('')
+              try {
+                await patchSuperadminTenant(id, editForm)
+                setEditMsg('Guardado')
+                await load()
+                setTimeout(() => setEditMsg(''), 3000)
+              } catch (e) {
+                setEditMsg(e.response?.data?.detail || 'Error al guardar')
+              } finally {
+                setEditSaving(false)
+              }
+            }}
+            className="mt-4 h-12 rounded-lg bg-amber-500 px-6 font-semibold text-black disabled:opacity-40"
+          >
+            {editSaving ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+          {editMsg ? (
+            <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+              {editMsg}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {(tenant.direccion ||
         tenant.telefono ||

@@ -88,7 +88,7 @@ export default function CobroDivisionForm({
           type="button"
           disabled={loadingPago || !lineas.length}
           onClick={handleAnadirPagoDivision}
-          className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 text-sm font-bold text-black transition-colors hover:bg-amber-600 disabled:opacity-40"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 text-sm font-bold text-black transition-colors active:bg-amber-600 hover:bg-amber-600 disabled:opacity-40"
         >
           <Plus size={18} strokeWidth={1.5} />
           Añadir pago

@@ -950,6 +950,13 @@ Incluidas en este volcado: `platform_logs`, `tenant_audit_log`, `usuario_permiso
 
 ### tenants
 
+Columnas piloto (05/10/2026 — migración `piloto_tenants_modulos` / `migration_piloto_tenants_modulos.sql`):
+
+- `razon_social`, `codigo_postal`, `ciudad`, `provincia`, `serie_facturacion` (default `A`)
+- `modulos` JSONB — feature flags por tenant (`fifo`, `nominas`, `ia_facturas`, `predicciones`, …)
+
+### tenants (detalle MCP)
+
 **Filas (snapshot MCP):** 2 · **RLS:** no
 
 | Columna | Tipo (formato) | Opciones / default |

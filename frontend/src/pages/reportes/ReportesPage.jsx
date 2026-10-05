@@ -4,10 +4,12 @@ import ReportesOperativos from './components/ReportesOperativos'
 import ReportesVentas from './components/ReportesVentas'
 import ReportesRRHH from './components/ReportesRRHH'
 import ReportesProveedores from './components/ReportesProveedores'
+import ReportesFiscal from './components/ReportesFiscal'
 
 const TABS = [
   { id: 'op', label: 'Operativos' },
   { id: 'ventas', label: 'Ventas' },
+  { id: 'fiscal', label: 'Fiscal 303' },
   { id: 'rrhh', label: 'RRHH' },
   { id: 'prov', label: 'Proveedores & APPCC' },
 ]
@@ -48,6 +50,7 @@ export default function ReportesPage() {
 
       {tab === 'op' && <ReportesOperativos />}
       {tab === 'ventas' && <ReportesVentas />}
+      {tab === 'fiscal' && <ReportesFiscal />}
       {tab === 'rrhh' && <ReportesRRHH />}
       {tab === 'prov' && <ReportesProveedores />}
     </div>

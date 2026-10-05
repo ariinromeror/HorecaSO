@@ -4,7 +4,7 @@ PDFs de informes (nómina, inventario, cierre de caja).
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -174,6 +174,108 @@ async def reporte_cierre_caja(
         raise
     except Exception as e:
         logger.error("reporte_cierre_caja: %s", e)
+        raise HTTPException(status_code=500, detail="Error interno")
+
+
+@router.get("/fiscal-trimestre")
+async def fiscal_trimestre(
+    anio: int = Query(..., ge=2020, le=2100),
+    trimestre: int = Query(..., ge=1, le=4),
+    current_user: dict = Depends(require_roles(["admin", "director"])),
+):
+    """
+    Resumen gestoría (Modelo 303 light): bases/cuotas por IVA de ventas
+    (verifactu_registros + desglose por iva en líneas) y compras si hay facturas.
+    """
+    from decimal import Decimal, ROUND_HALF_UP
+
+    tenant_id = _tenant_id(current_user)
+    mes_ini = (trimestre - 1) * 3 + 1
+    mes_fin = mes_ini + 2
+    fecha_desde = date(anio, mes_ini, 1)
+    if mes_fin == 12:
+        fecha_hasta = date(anio, 12, 31)
+    else:
+        fecha_hasta = date(anio, mes_fin + 1, 1) - timedelta(days=1)
+
+    try:
+        async with get_db() as conn:
+            ventas = await conn.fetch(
+                """
+                SELECT
+                    COALESCE(p.iva_porcentaje, 10) AS iva_porcentaje,
+                    COALESCE(SUM(tl.subtotal), 0) AS importe_con_iva
+                FROM verifactu_registros vr
+                JOIN ticket_lineas tl ON tl.ticket_id = vr.ticket_id
+                LEFT JOIN productos p ON p.id = tl.producto_id
+                WHERE vr.tenant_id = $1
+                  AND vr.fecha_expedicion >= $2
+                  AND vr.fecha_expedicion <= $3
+                GROUP BY COALESCE(p.iva_porcentaje, 10)
+                ORDER BY 1
+                """,
+                tenant_id,
+                fecha_desde,
+                fecha_hasta,
+            )
+            compras = await conn.fetch(
+                """
+                SELECT
+                    COALESCE(SUM(f.total), 0) AS total_facturas,
+                    COUNT(*)::int AS num_facturas
+                FROM facturas_proveedor f
+                WHERE f.tenant_id = $1
+                  AND f.fecha >= $2
+                  AND f.fecha <= $3
+                """,
+                tenant_id,
+                fecha_desde,
+                fecha_hasta,
+            )
+
+        desglose = []
+        total_base = Decimal("0")
+        total_cuota = Decimal("0")
+        for v in ventas:
+            iva = Decimal(str(v["iva_porcentaje"]))
+            importe = Decimal(str(v["importe_con_iva"]))
+            factor = Decimal("1") + iva / Decimal("100")
+            base = (importe / factor).quantize(Decimal("0.01"), ROUND_HALF_UP)
+            cuota = (importe - base).quantize(Decimal("0.01"), ROUND_HALF_UP)
+            total_base += base
+            total_cuota += cuota
+            desglose.append(
+                {
+                    "iva_porcentaje": float(iva),
+                    "base_imponible": float(base),
+                    "cuota_iva": float(cuota),
+                    "importe_total": float(importe),
+                }
+            )
+
+        compra_row = compras[0] if compras else None
+        return {
+            "anio": anio,
+            "trimestre": trimestre,
+            "periodo": {
+                "desde": fecha_desde.isoformat(),
+                "hasta": fecha_hasta.isoformat(),
+            },
+            "ventas": {
+                "desglose_iva": desglose,
+                "base_imponible_total": float(total_base),
+                "cuota_iva_total": float(total_cuota),
+            },
+            "compras": {
+                "total_facturas": float(compra_row["total_facturas"]) if compra_row else 0,
+                "num_facturas": int(compra_row["num_facturas"]) if compra_row else 0,
+                "nota": "IVA soportado aproximado vía total facturas; desglose fino pendiente",
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("fiscal_trimestre: %s", e)
         raise HTTPException(status_code=500, detail="Error interno")
 
 

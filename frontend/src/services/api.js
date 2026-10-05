@@ -40,8 +40,16 @@ api.interceptors.response.use(
         error.message
       )
     }
-    if (error.response?.status === 401) {
+    // No redirigir en fallos de login: LoginPage debe mostrar el detalle.
+    // Un 401 en POST /auth/login = credenciales incorrectas, no sesión caducada.
+    const reqUrl = String(error.config?.url || '')
+    const method = String(error.config?.method || '').toLowerCase()
+    const isLoginRequest =
+      reqUrl.includes('/auth/login') ||
+      (method === 'post' && reqUrl.endsWith('/login'))
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('horecaso_token')
+      localStorage.removeItem('horecaso_user')
       window.location.href = '/login'
     }
     return Promise.reject(error)
@@ -382,6 +390,20 @@ export function getSuperadminTenantDetail(tenantId) {
 
 export function patchTenantActivo(tenantId, activo) {
   return api.patch(`/superadmin/tenants/${tenantId}/activo`, { activo })
+}
+
+export function createSuperadminTenant(body) {
+  return api.post('/superadmin/tenants', body)
+}
+
+export function patchSuperadminTenant(tenantId, body) {
+  return api.patch(`/superadmin/tenants/${tenantId}`, body)
+}
+
+export function getFiscalTrimestre(anio, trimestre) {
+  return api.get('/reportes/fiscal-trimestre', {
+    params: { anio, trimestre },
+  })
 }
 
 /**

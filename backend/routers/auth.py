@@ -35,9 +35,12 @@ async def login(login_data: LoginRequest):
     async with get_db() as conn:
         row = await conn.fetchrow(
             """
-            SELECT id, tenant_id, outlet_id, nombre, email, password_hash, rol
-            FROM usuarios
-            WHERE email = $1 AND activo = true
+            SELECT u.id, u.tenant_id, u.outlet_id, u.nombre, u.email,
+                   u.password_hash, u.rol,
+                   t.activo AS tenant_activo
+            FROM usuarios u
+            LEFT JOIN tenants t ON t.id = u.tenant_id
+            WHERE u.email = $1 AND u.activo = true
             """,
             login_data.email,
         )
@@ -57,6 +60,15 @@ async def login(login_data: LoginRequest):
         )
 
     rol = row["rol"]
+    if rol != "superadmin":
+        tenant_activo = row["tenant_activo"]
+        if tenant_activo is False:
+            logger.warning("Login bloqueado: tenant suspendido %s", row["tenant_id"])
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cuenta del local suspendida. Contacte con soporte.",
+            )
+
     if rol == "superadmin":
         token_data = {
             "sub": str(row["id"]),
@@ -98,11 +110,13 @@ async def get_perfil(current_user: dict = Depends(get_current_user)):
         row = await conn.fetchrow(
             """
             SELECT u.id, u.nombre, u.email, u.rol, u.tenant_id, u.outlet_id, u.activo,
+                   t.modulos AS tenant_modulos,
                    (SELECT e.id FROM empleados e
                     WHERE e.usuario_id = u.id AND COALESCE(e.activo, true)
                     ORDER BY e.id
                     LIMIT 1) AS empleado_id
             FROM usuarios u
+            LEFT JOIN tenants t ON t.id = u.tenant_id
             WHERE u.id = $1
             """,
             current_user["sub"],
@@ -114,6 +128,12 @@ async def get_perfil(current_user: dict = Depends(get_current_user)):
             detail="Usuario no encontrado",
         )
 
+    modulos = row["tenant_modulos"]
+    if modulos is not None and hasattr(modulos, "keys"):
+        modulos = dict(modulos)
+    elif not isinstance(modulos, dict):
+        modulos = {}
+
     return {
         "id": str(row["id"]),
         "nombre": row["nombre"],
@@ -123,6 +143,7 @@ async def get_perfil(current_user: dict = Depends(get_current_user)):
         "outlet_id": str(row["outlet_id"]) if row["outlet_id"] else None,
         "activo": row["activo"],
         "empleado_id": str(row["empleado_id"]) if row.get("empleado_id") else None,
+        "modulos": modulos,
     }
 
 

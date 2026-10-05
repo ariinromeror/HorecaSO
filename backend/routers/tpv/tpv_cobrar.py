@@ -3,13 +3,14 @@ TPV: cobro simple de ticket.
 """
 
 import logging
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from auth.dependencies import get_current_user
 from database import get_db
-from services.verifactu_engine import crear_registro_verifactu
+from services.verifactu_engine import crear_registro_verifactu, generar_qr_url
 
 from .tpv_cobro_schemas import CobrarRequest
 from .tpv_shared import (
@@ -40,6 +41,8 @@ async def cobrar_ticket(
             detail=f"Método de pago inválido. Válidos: {', '.join(METODOS_PAGO)}",
         )
 
+    verifactu_reg = None
+    tenant_nif = None
     async with get_db() as conn:
         ticket_row = await conn.fetchrow(
             "SELECT * FROM tickets WHERE id = $1",
@@ -78,7 +81,13 @@ async def cobrar_ticket(
                 detail="Usuario sin tenant asignado",
             )
         try:
-            await crear_registro_verifactu(str(ticket_id), str(tenant_id), conn)
+            verifactu_reg = await crear_registro_verifactu(
+                str(ticket_id), str(tenant_id), conn
+            )
+            tenant_nif = await conn.fetchval(
+                "SELECT nif FROM tenants WHERE id = $1",
+                UUID(str(tenant_id)),
+            )
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -90,5 +99,21 @@ async def cobrar_ticket(
             ticket_id,
         )
 
+    result = _ticket_to_dict(ticket_row)
+    if verifactu_reg:
+        result["verifactu_numero_serie"] = verifactu_reg["numero_serie"]
+        result["verifactu_qr_url"] = verifactu_reg.get("qr_url")
+        if not result["verifactu_qr_url"] and tenant_nif:
+            fe = verifactu_reg.get("fecha_expedicion")
+            if hasattr(fe, "strftime"):
+                fecha_str = fe.strftime("%d-%m-%Y")
+            else:
+                fecha_str = str(fe)[:10]
+            result["verifactu_qr_url"] = generar_qr_url(
+                tenant_nif,
+                verifactu_reg["numero_serie"],
+                fecha_str,
+                f"{Decimal(str(verifactu_reg['importe_total'])):.2f}",
+            )
     logger.info("Ticket %s cobrado con %s", ticket_id, body.metodo_pago)
-    return _ticket_to_dict(ticket_row)
+    return result

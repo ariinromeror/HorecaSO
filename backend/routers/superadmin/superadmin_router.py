@@ -3,18 +3,21 @@ API superadmin — tenants y platform_logs.
 Requiere migración Fase B: tenants.activo, tabla platform_logs.
 """
 
+import json
 import logging
 from datetime import date, datetime, time, timezone
-from typing import Any
-from uuid import UUID
+from typing import Any, Optional
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr, Field
 
 from auth.dependencies import require_superadmin
 from database import get_db
 
 logger = logging.getLogger(__name__)
+pwd_context = CryptContext(schemes=["bcrypt"])
 
 router = APIRouter(
     prefix="/api/superadmin",
@@ -25,19 +28,96 @@ router = APIRouter(
     },
 )
 
+DEFAULT_MODULOS = {
+    "sala": True,
+    "tpv": True,
+    "kds": True,
+    "carta": True,
+    "inventario": True,
+    "reservas": True,
+    "reportes": True,
+    "fifo": False,
+    "nominas": False,
+    "ia_facturas": False,
+    "predicciones": False,
+    "empleados": True,
+    "proveedores": True,
+    "clientes": True,
+    "appcc": True,
+}
+
 
 class TenantActivoBody(BaseModel):
     activo: bool = Field(..., description="Nuevo estado activo del tenant")
 
 
+class TenantCreateBody(BaseModel):
+    nombre: str = Field(..., min_length=1, max_length=200)
+    nif: str = Field(..., min_length=5, max_length=20)
+    razon_social: Optional[str] = None
+    direccion: Optional[str] = None
+    codigo_postal: Optional[str] = None
+    ciudad: Optional[str] = None
+    provincia: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    plan: str = "basico"
+    serie_facturacion: str = "A"
+    outlet_nombre: str = "Sala Principal"
+    admin_nombre: str = Field(..., min_length=1)
+    admin_email: EmailStr
+    admin_password: str = Field(..., min_length=8)
+    modulos: Optional[dict[str, bool]] = None
+
+
+class TenantPatchBody(BaseModel):
+    nombre: Optional[str] = None
+    nif: Optional[str] = None
+    razon_social: Optional[str] = None
+    direccion: Optional[str] = None
+    codigo_postal: Optional[str] = None
+    ciudad: Optional[str] = None
+    provincia: Optional[str] = None
+    telefono: Optional[str] = None
+    email: Optional[str] = None
+    logo_url: Optional[str] = None
+    plan: Optional[str] = None
+    serie_facturacion: Optional[str] = None
+    modulos: Optional[dict[str, bool]] = None
+    activo: Optional[bool] = None
+
+
+def _safe_col(r, key, default=None):
+    try:
+        if key in r.keys():
+            return r[key]
+    except Exception:
+        pass
+    return default
+
+
 def _tenant_row_public(r) -> dict[str, Any]:
+    modulos = _safe_col(r, "modulos")
+    if modulos is not None and hasattr(modulos, "keys"):
+        modulos = dict(modulos)
+    created = _safe_col(r, "created_at")
     return {
         "id": str(r["id"]),
         "nombre": r["nombre"],
         "nif": r["nif"],
         "plan": r["plan"],
-        "activo": r["activo"] if r.get("activo") is not None else True,
-        "created_at": r["created_at"].isoformat() if r.get("created_at") else None,
+        "activo": True if _safe_col(r, "activo") is None else bool(_safe_col(r, "activo")),
+        "created_at": created.isoformat() if created else None,
+        "razon_social": _safe_col(r, "razon_social"),
+        "codigo_postal": _safe_col(r, "codigo_postal"),
+        "ciudad": _safe_col(r, "ciudad"),
+        "provincia": _safe_col(r, "provincia"),
+        "serie_facturacion": _safe_col(r, "serie_facturacion"),
+        "direccion": _safe_col(r, "direccion"),
+        "telefono": _safe_col(r, "telefono"),
+        "email": _safe_col(r, "email"),
+        "logo_url": _safe_col(r, "logo_url"),
+        "modulos": modulos,
     }
 
 
@@ -75,7 +155,9 @@ async def list_tenants(
             total = await conn.fetchval("SELECT COUNT(*)::int FROM tenants")
             rows = await conn.fetch(
                 """
-                SELECT id, nombre, nif, plan, activo, created_at
+                SELECT id, nombre, nif, plan, activo, created_at,
+                       razon_social, codigo_postal, ciudad, provincia,
+                       serie_facturacion, modulos
                 FROM tenants
                 ORDER BY created_at DESC NULLS LAST, nombre ASC
                 LIMIT $1 OFFSET $2
@@ -110,7 +192,9 @@ async def get_tenant_detail(
             t = await conn.fetchrow(
                 """
                 SELECT id, nombre, nif, plan, activo, created_at,
-                       direccion, telefono, email, logo_url
+                       direccion, telefono, email, logo_url,
+                       razon_social, codigo_postal, ciudad, provincia,
+                       serie_facturacion, modulos
                 FROM tenants
                 WHERE id = $1
                 """,
@@ -150,14 +234,6 @@ async def get_tenant_detail(
         ) from e
 
     tenant_data = _tenant_row_public(t)
-    tenant_data.update(
-        {
-            "direccion": t.get("direccion"),
-            "telefono": t.get("telefono"),
-            "email": t.get("email"),
-            "logo_url": t.get("logo_url"),
-        }
-    )
 
     return {
         "tenant": tenant_data,
@@ -172,6 +248,177 @@ async def get_tenant_detail(
         ],
         "usuarios_activos_count": int(usuarios_activos or 0),
     }
+
+
+@router.post("/tenants", status_code=status.HTTP_201_CREATED)
+async def create_tenant(
+    body: TenantCreateBody,
+    current_user: dict = Depends(require_superadmin),
+):
+    """Crea tenant + outlet por defecto + usuario admin inicial."""
+    actor_id = current_user.get("sub") or current_user.get("user_id")
+    tenant_id = uuid4()
+    outlet_id = uuid4()
+    user_id = uuid4()
+    modulos = {**DEFAULT_MODULOS, **(body.modulos or {})}
+    password_hash = pwd_context.hash(body.admin_password)
+    razon = body.razon_social or body.nombre
+
+    try:
+        async with get_db() as conn:
+            async with conn.transaction():
+                exists = await conn.fetchval(
+                    "SELECT 1 FROM usuarios WHERE email = $1",
+                    str(body.admin_email).lower(),
+                )
+                if exists:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Email de admin ya registrado",
+                    )
+                await conn.execute(
+                    """
+                    INSERT INTO tenants (
+                        id, nombre, nif, direccion, telefono, email, plan, activo,
+                        razon_social, codigo_postal, ciudad, provincia,
+                        serie_facturacion, modulos
+                    )
+                    VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, true,
+                        $8, $9, $10, $11, $12, $13::jsonb
+                    )
+                    """,
+                    tenant_id,
+                    body.nombre,
+                    body.nif,
+                    body.direccion,
+                    body.telefono,
+                    body.email,
+                    body.plan,
+                    razon,
+                    body.codigo_postal,
+                    body.ciudad,
+                    body.provincia,
+                    body.serie_facturacion,
+                    json.dumps(modulos),
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO outlets (id, tenant_id, nombre, num_mesas)
+                    VALUES ($1, $2, $3, 10)
+                    """,
+                    outlet_id,
+                    tenant_id,
+                    body.outlet_nombre,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO usuarios (
+                        id, tenant_id, outlet_id, nombre, email,
+                        password_hash, rol, activo
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, 'admin', true)
+                    """,
+                    user_id,
+                    tenant_id,
+                    outlet_id,
+                    body.admin_nombre,
+                    str(body.admin_email).lower(),
+                    password_hash,
+                )
+                if actor_id:
+                    await conn.execute(
+                        """
+                        INSERT INTO platform_logs (
+                            nivel, tenant_id, usuario_id, modulo, accion, detalle
+                        )
+                        VALUES (
+                            'info', $1::uuid, $2::uuid, 'superadmin',
+                            'create_tenant', $3::jsonb
+                        )
+                        """,
+                        tenant_id,
+                        UUID(str(actor_id)),
+                        json.dumps({"tenant_id": str(tenant_id), "admin_email": str(body.admin_email)}),
+                    )
+                row = await conn.fetchrow(
+                    """
+                    SELECT id, nombre, nif, plan, activo, created_at,
+                           razon_social, codigo_postal, ciudad, provincia,
+                           serie_facturacion, modulos, direccion, telefono, email
+                    FROM tenants WHERE id = $1
+                    """,
+                    tenant_id,
+                )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("create_tenant: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al crear tenant",
+        ) from e
+
+    return {
+        "tenant": _tenant_row_public(row),
+        "outlet_id": str(outlet_id),
+        "admin_user_id": str(user_id),
+        "admin_email": str(body.admin_email).lower(),
+    }
+
+
+@router.patch("/tenants/{tenant_id}")
+async def patch_tenant(
+    tenant_id: UUID,
+    body: TenantPatchBody,
+    current_user: dict = Depends(require_superadmin),
+):
+    """Actualiza datos fiscales, plan y módulos del tenant."""
+    _ = current_user
+    fields = body.model_dump(exclude_unset=True)
+    if not fields:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sin campos para actualizar",
+        )
+    try:
+        async with get_db() as conn:
+            exists = await conn.fetchval(
+                "SELECT 1 FROM tenants WHERE id = $1", tenant_id
+            )
+            if not exists:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Tenant no encontrado",
+                )
+            sets = []
+            args: list[Any] = []
+            for key, val in fields.items():
+                args.append(json.dumps(val) if key == "modulos" else val)
+                placeholder = f"${len(args)}"
+                if key == "modulos":
+                    sets.append(f"modulos = {placeholder}::jsonb")
+                else:
+                    sets.append(f"{key} = {placeholder}")
+            args.append(tenant_id)
+            sql = (
+                "UPDATE tenants SET "
+                + ", ".join(sets)
+                + f" WHERE id = ${len(args)} RETURNING id, nombre, nif, plan, activo, created_at, "
+                "razon_social, codigo_postal, ciudad, provincia, serie_facturacion, "
+                "modulos, direccion, telefono, email, logo_url"
+            )
+            row = await conn.fetchrow(sql, *args)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("patch_tenant: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al actualizar tenant",
+        ) from e
+
+    return {"tenant": _tenant_row_public(row)}
 
 
 @router.patch("/tenants/{tenant_id}/activo")

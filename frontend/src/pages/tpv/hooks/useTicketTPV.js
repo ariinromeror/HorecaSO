@@ -28,6 +28,13 @@ export function useTicketTPV() {
   const [borradorPartesPagos, setBorradorPartesPagos] = useState(null)
   const [tpvReloadKey, setTpvReloadKey] = useState(0)
   const [liberarMesaLoading, setLiberarMesaLoading] = useState(false)
+  const [feedback, setFeedback] = useState('')
+
+  useEffect(() => {
+    if (!feedback) return
+    const t = setTimeout(() => setFeedback(''), 3000)
+    return () => clearTimeout(t)
+  }, [feedback])
 
   const productoNombrePorId = useMemo(() => {
     const map = new Map()
@@ -152,6 +159,8 @@ export function useTicketTPV() {
     setBorradorPartesPagos,
     setLiberarMesaLoading,
     setTpvReloadKey,
+    setFeedback,
+    setActiveTab,
     importePago,
     metodoPagoDivision,
     setLoadingPago,
@@ -178,6 +187,6 @@ export function useTicketTPV() {
     totalUnidadesComanda, handleRestarUnidadGrupo, handleCobrar,
     iniciarDivision, handleAnadirPagoDivision, handleEliminarPagoDivision,
     handleCompletarDivision, rellenarPendiente, handleDividirRestanteEnPartes,
-    handleConfirmarPartesPagos, lineas, handleLiberarMesa,
+    handleConfirmarPartesPagos, lineas, handleLiberarMesa, feedback,
   }
 }
