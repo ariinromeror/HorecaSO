@@ -9,7 +9,7 @@ prepara los datos y serializa la respuesta.
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 from uuid import UUID
@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from auth.dependencies import require_roles
 from database import get_db
+from services.fechas import hoy_madrid
 from services.ml_predicciones import forecast_serie_diaria
 
 from .analytics_shared import _d, _outlet_id_usuario, _tenant_id_usuario, _uid
@@ -54,7 +55,8 @@ async def get_prediccion_mermas(
     artículo (verificando que pertenece al tenant).
     """
     user_uuid = _uid(current_user)
-    desde = date.today() - timedelta(days=dias_historial)
+    hoy = hoy_madrid()
+    desde = hoy - timedelta(days=dias_historial)
     try:
         async with get_db() as conn:
             tenant_id = await _tenant_id_usuario(conn, user_uuid)
@@ -64,7 +66,7 @@ async def get_prediccion_mermas(
                 "ms.tipo = 'merma'",
                 "ms.outlet_id = $1",
                 "a.tenant_id = $2",
-                "ms.created_at >= $3",
+                "(ms.created_at AT TIME ZONE 'Europe/Madrid')::date >= $3",
             ]
             params: list = [outlet_id, tenant_id, desde]
             if articulo_id is not None:
@@ -86,14 +88,14 @@ async def get_prediccion_mermas(
             rows = await conn.fetch(
                 """
                 SELECT
-                    ms.created_at::date AS fecha,
+                    (ms.created_at AT TIME ZONE 'Europe/Madrid')::date AS fecha,
                     COALESCE(SUM(ms.cantidad * COALESCE(ms.coste_unitario, a.coste_unitario, 0)), 0) AS coste_dia
                 FROM movimientos_stock ms
                 JOIN articulos a ON a.id = ms.articulo_id
                 WHERE """
                 + where_sql
                 + """
-                GROUP BY ms.created_at::date
+                GROUP BY 1
                 ORDER BY fecha
                 """,
                 *params,
@@ -112,7 +114,7 @@ async def get_prediccion_mermas(
                     WHERE ms.tipo = 'merma'
                       AND ms.outlet_id = $1
                       AND a.tenant_id = $2
-                      AND ms.created_at >= $3
+                      AND (ms.created_at AT TIME ZONE 'Europe/Madrid')::date >= $3
                     GROUP BY a.id, a.nombre
                     ORDER BY coste_total DESC
                     LIMIT 5
@@ -128,7 +130,7 @@ async def get_prediccion_mermas(
         coste_por_fecha = {f: v for f, v in historial}
         historico_reciente = []
         for offset in range(13, -1, -1):
-            dia = date.today() - timedelta(days=offset)
+            dia = hoy - timedelta(days=offset)
             historico_reciente.append(
                 {
                     "fecha": dia.isoformat(),

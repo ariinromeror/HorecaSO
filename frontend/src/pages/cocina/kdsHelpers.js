@@ -89,18 +89,21 @@ export function emptyKdsCopy(rol) {
   if (r === 'barra') {
     return {
       title: 'Sin comandas en barra',
-      subtitle: 'No hay líneas pendientes para barra',
+      subtitle:
+        'Cuando en el TPV se pidan bebidas/barra, aparecerán aquí. No es un fallo: la pantalla está lista.',
     }
   }
   if (r === 'cocina') {
     return {
       title: 'Sin comandas en cocina',
-      subtitle: 'No hay líneas pendientes para cocina',
+      subtitle:
+        'Cuando en el TPV se envíen platos a cocina, aparecerán aquí. Pantalla a pantalla completa a propósito.',
     }
   }
   return {
     title: 'Sin comandas activas',
-    subtitle: 'Cocina y barra al día en este ticket',
+    subtitle:
+      'El KDS es pantalla completa (sin menú lateral). Vuelve al ERP con el botón superior. Las comandas llegan al añadir productos en el TPV.',
   }
 }
 

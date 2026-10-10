@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChefHat, Layers, Plus } from 'lucide-react'
+import { Layers, Plus } from 'lucide-react'
 import RecetaModal from './components/RecetaModal'
 import RecetasTable from './components/RecetasTable'
 import { formatEuro } from './recetasUtils'
@@ -30,22 +30,11 @@ export default function RecetasPage() {
   return (
     <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[#111827] dark:text-[#e8eaf0]">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-center gap-3">
-          <ChefHat
-            size={32}
-            strokeWidth={1.5}
-            className="text-amber-500"
-            aria-hidden
-          />
-          <div>
-            <h1 className="text-2xl font-bold">Recetas de carta</h1>
-            <p className="mt-1 text-sm text-[#6b7280] dark:text-[#8b90a7]">
-              Solo aparecen platos marcados en carta con &quot;tiene receta&quot;
-              (cocina / coste). Bebidas embotelladas u otros sin ese marcador no
-              se listan aquí. Las elaboraciones tienen su propio panel.
-            </p>
-          </div>
-        </div>
+        <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
+          Solo aparecen platos marcados en carta con &quot;tiene receta&quot;
+          (cocina / coste). Bebidas embotelladas u otros sin ese marcador no
+          se listan aquí. Las elaboraciones tienen su propio panel.
+        </p>
         <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
           <Link
             to="/admin/costes"
@@ -77,6 +66,7 @@ export default function RecetasPage() {
               ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
               : 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
           }`}
+          role={r.feedback.type === 'error' ? 'alert' : 'status'}
         >
           {r.feedback.msg}
         </div>
@@ -109,21 +99,34 @@ export default function RecetasPage() {
               </tr>
             </thead>
             <tbody>
-              {r.articulosOrdenados.map((a) => (
-                <tr
-                  key={a.id}
-                  className="border-t border-[#e2e5ed] dark:border-[#2e3347]"
-                >
-                  <td className="px-3 py-2">{a.nombre || '—'}</td>
-                  <td className="px-3 py-2 text-[#6b7280] dark:text-[#8b90a7]">
-                    {a.sku || '—'}
-                  </td>
-                  <td className="px-3 py-2">{a.unidad_medida || '—'}</td>
-                  <td className="px-3 py-2 font-medium">
-                    {formatEuro(a.coste_unitario_efectivo ?? a.coste_unitario)}
+              {r.articulosOrdenados.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-4 text-center text-sm text-[#6b7280] dark:text-[#8b90a7]"
+                  >
+                    Sin artículos en inventario todavía.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                r.articulosOrdenados.map((a) => (
+                  <tr
+                    key={a.id}
+                    className="border-t border-[#e2e5ed] dark:border-[#2e3347]"
+                  >
+                    <td className="px-3 py-2">{a.nombre || '—'}</td>
+                    <td className="px-3 py-2 text-[#6b7280] dark:text-[#8b90a7]">
+                      {a.sku || '—'}
+                    </td>
+                    <td className="px-3 py-2">{a.unidad_medida || '—'}</td>
+                    <td className="px-3 py-2 font-medium">
+                      {formatEuro(
+                        a.coste_unitario_efectivo ?? a.coste_unitario
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -136,6 +139,9 @@ export default function RecetasPage() {
         setFiltroColor={r.setFiltroColor}
         onCardClick={r.handleCardClick}
         onDeleteReceta={r.handleDeleteReceta}
+        apiError={
+          r.feedback?.type === 'error' ? r.feedback.msg : null
+        }
       />
 
       <RecetaModal

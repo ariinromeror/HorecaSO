@@ -1,6 +1,7 @@
 """
-Motor Verifactu para HorecaSO.
-Orden HAC/1177/2024 — normativa fiscal española.
+Registro interno de facturación con huella encadenada. Formato
+de huella pendiente de validar contra la especificación oficial de la AEAT.
+No hay envío a la AEAT en esta versión.
 """
 
 import hashlib
@@ -8,14 +9,17 @@ import logging
 from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
 
 def generar_huella(registro: dict, huella_anterior: str) -> str:
     """
-    Genera huella SHA-256 según Orden HAC/1177/2024.
-    Orden exacto de campos, concatenados con &, UTF-8 sin BOM.
+    Registro interno de facturación con huella encadenada. Formato
+    de huella pendiente de validar contra la especificación oficial de la AEAT.
+    No hay envío a la AEAT en esta versión.
+    Concatena campos con &, UTF-8 sin BOM; SHA-256 en mayúsculas.
     """
     campos = [
         registro["nif_emisor"],
@@ -36,7 +40,7 @@ async def generar_numero_serie(tenant_id: str, conn) -> str:
     Genera numero_serie correlativo para el tenant.
     Formato: SERIE-YYYY-NNNNNN (ej: SERIE-2026-000001)
     """
-    year = datetime.now(timezone.utc).strftime("%Y")
+    year = datetime.now(ZoneInfo("Europe/Madrid")).strftime("%Y")
     prefix = f"SERIE-{year}-"
 
     row = await conn.fetchrow(
@@ -78,7 +82,21 @@ async def crear_registro_verifactu(
     """
     Crea registro Verifactu para un ticket cobrado.
     IVA 10% hostelería. Devuelve el registro creado.
+    Debe llamarse dentro de una transacción: el advisory lock serializa
+    numeración y encadenamiento por tenant hasta el COMMIT.
     """
+    await conn.execute(
+        "SELECT pg_advisory_xact_lock(hashtext($1))",
+        "verifactu:" + str(tenant_id),
+    )
+
+    existente = await conn.fetchval(
+        "SELECT numero_serie FROM verifactu_registros WHERE ticket_id = $1",
+        UUID(ticket_id),
+    )
+    if existente:
+        raise ValueError(f"El ticket ya tiene registro Verifactu ({existente})")
+
     # Obtener datos del ticket y tenant
     ticket_row = await conn.fetchrow(
         """
@@ -102,13 +120,14 @@ async def crear_registro_verifactu(
     if not tenant_row:
         raise ValueError("Tenant no encontrado")
 
-    # Huella anterior
+    # Huella anterior. created_at es el inicio de la transacción (no refleja el
+    # orden real de inserción); fecha_hora_generacion se fija bajo el lock.
     huella_anterior_row = await conn.fetchrow(
         """
         SELECT huella_actual
         FROM verifactu_registros
         WHERE tenant_id = $1
-        ORDER BY created_at DESC
+        ORDER BY fecha_hora_generacion DESC NULLS LAST, created_at DESC
         LIMIT 1
         """,
         UUID(tenant_id),

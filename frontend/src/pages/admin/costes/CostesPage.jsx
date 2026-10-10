@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Layers, Plus, Trash2, ChefHat, Receipt, Wallet } from 'lucide-react'
+import { Layers, Plus, Trash2, ChefHat, Receipt } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import {
   getGastosOperativos,
@@ -109,22 +109,11 @@ export default function CostesPage() {
   return (
     <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[#111827] dark:text-[#e8eaf0]">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Wallet
-            size={32}
-            strokeWidth={1.5}
-            className="text-amber-500"
-            aria-hidden
-          />
-          <div>
-            <h1 className="text-2xl font-bold">Gastos operativos</h1>
-            <p className="text-sm text-[#6b7280] dark:text-[#8b90a7]">
-              Gastos fijos y operativos del negocio (alquiler, suministros,
-              etc.). El coste de ingredientes y recetas de carta se gestiona en{' '}
-              <strong>Recetas</strong>.
-            </p>
-          </div>
-        </div>
+        <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
+          Gastos fijos y operativos del negocio (alquiler, suministros,
+          etc.). El coste de ingredientes y recetas de carta se gestiona en{' '}
+          <strong>Recetas</strong>.
+        </p>
         <div className="flex flex-wrap gap-2 self-start">
           <Link
             to="/admin/recetas"

@@ -28,7 +28,7 @@
 |------|---------------|
 | **Sala y cobro** | Mapa de mesas, TPV con divisiÃ³n de cuenta, mÃºltiples mÃ©todos de pago |
 | **Cocina** | KDS (Kitchen Display System) con filtrado cocina/barra y polling en tiempo casi real |
-| **Fiscal** | Registros Verifactu encadenados (SHA-256), generados al completar el cobro |
+| **Fiscal** | Registros internos Verifactu-oriented encadenados (SHA-256), generados al completar el cobro; envío a la AEAT pendiente |
 | **Carta y costes** | CRUD de productos, recetas, escandallos, semÃ¡foro de margen, gastos operativos |
 | **Inventario** | ArtÃ­culos, movimientos, mermas, FIFO por lotes, APPCC |
 | **Compras** | Proveedores, facturas de compra, escaneo IA con Groq |

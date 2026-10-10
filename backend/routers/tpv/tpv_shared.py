@@ -42,7 +42,8 @@ async def _get_user_tenant_outlet(conn, user_id: str) -> tuple[str | None, str |
 
 def _ticket_to_dict(row) -> dict:
     """Convierte fila ticket a dict."""
-    return {
+    keys = set(row.keys()) if hasattr(row, "keys") else set()
+    out = {
         "id": str(row["id"]),
         "outlet_id": str(row["outlet_id"]) if row["outlet_id"] else None,
         "mesa_id": str(row["mesa_id"]) if row["mesa_id"] else None,
@@ -53,6 +54,9 @@ def _ticket_to_dict(row) -> dict:
         "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         "cobrado_at": row["cobrado_at"].isoformat() if row["cobrado_at"] else None,
     }
+    if "mesa_numero" in keys and row["mesa_numero"] is not None:
+        out["mesa_numero"] = row["mesa_numero"]
+    return out
 
 
 def _linea_to_dict(row) -> dict:
@@ -97,10 +101,17 @@ def _decimal_respuesta_dinero(value) -> float:
     )
 
 
-async def _require_ticket_tpv_access(conn, ticket_id: UUID, user_id: str):
+ROLES_TPV_SALA = ("admin", "director", "jefe_sala", "camarero")
+
+
+async def _require_ticket_tpv_access(
+    conn, ticket_id: UUID, user_id: str, for_update: bool = False
+):
     """
     Ticket existe; outlet del ticket coincide con tenant del usuario;
     si el usuario tiene outlet_id, debe ser el mismo que el del ticket.
+    for_update=True bloquea la fila del ticket hasta el fin de la transacción
+    (obligatorio en cualquier operación que modifique ticket, líneas o pagos).
     """
     tenant_id, user_outlet_id = await _get_user_tenant_outlet(conn, user_id)
     if not tenant_id:
@@ -108,15 +119,15 @@ async def _require_ticket_tpv_access(conn, ticket_id: UUID, user_id: str):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuario sin tenant asignado",
         )
-    ticket_row = await conn.fetchrow(
-        """
+    sql = """
         SELECT t.*, o.tenant_id AS outlet_tenant_id
         FROM tickets t
         JOIN outlets o ON t.outlet_id = o.id
         WHERE t.id = $1
-        """,
-        ticket_id,
-    )
+        """
+    if for_update:
+        sql += " FOR UPDATE OF t"
+    ticket_row = await conn.fetchrow(sql, ticket_id)
     if not ticket_row:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -198,4 +209,15 @@ async def _completar_cobro_mixto_verifactu(
             "UPDATE mesas SET estado = 'libre' WHERE id = $1",
             mesa_id,
         )
-    await crear_registro_verifactu(str(ticket_id), str(tenant_id), conn)
+    reg = await crear_registro_verifactu(str(ticket_id), str(tenant_id), conn)
+    await _fijar_total_iva(conn, ticket_id, reg)
+    return reg
+
+
+async def _fijar_total_iva(conn, ticket_id: UUID, registro_verifactu: dict) -> None:
+    """tickets.total_iva = cuota del registro Verifactu (misma transacción del cobro)."""
+    await conn.execute(
+        "UPDATE tickets SET total_iva = $1 WHERE id = $2",
+        Decimal(str(registro_verifactu["cuota_iva"])),
+        ticket_id,
+    )

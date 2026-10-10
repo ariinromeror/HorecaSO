@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { Receipt } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
 import DesglosePanel from './components/DesglosePanel'
 import NominaCalcularModal from './components/NominaCalcularModal'
@@ -55,18 +54,11 @@ export default function NominasPage() {
   }
 
   if (user && !ROLES_NOMINAS.includes(user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
     <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[15px] text-[#111827] dark:text-[#e8eaf0]">
-      <header className="mb-6 flex items-center gap-3">
-        <Receipt className="text-amber-500" size={28} strokeWidth={1.5} />
-        <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-          Nóminas
-        </h1>
-      </header>
-
       {errorEmp ? (
         <p className="mb-4 text-red-600 dark:text-red-400">{errorEmp}</p>
       ) : null}

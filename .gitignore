@@ -26,3 +26,5 @@ Thumbs.db
 
 # Tests
 TEST_CREDENTIALS.md
+backend/.pgtest/
+.pytest_cache/

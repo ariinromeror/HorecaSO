@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Building2, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { getSuperadminTenants } from '../../services/api'
+import CreateTenantModal from './CreateTenantModal'
 
 const PAGE_SIZE = 20
 
@@ -23,6 +24,8 @@ export default function TenantsListPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [data, setData] = useState({ items: [], total: 0, page_size: PAGE_SIZE })
+  const [showCreate, setShowCreate] = useState(false)
+  const [feedback, setFeedback] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -53,7 +56,7 @@ export default function TenantsListPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Building2
             className="text-amber-500"
@@ -69,7 +72,24 @@ export default function TenantsListPage() {
             </p>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setFeedback(null)
+            setShowCreate(true)
+          }}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-amber-500 px-5 text-sm font-semibold text-black hover:bg-amber-600"
+        >
+          <Plus size={18} strokeWidth={1.5} />
+          Crear local
+        </button>
       </div>
+
+      {feedback ? (
+        <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+          {feedback}
+        </div>
+      ) : null}
 
       {error ? (
         <div
@@ -83,11 +103,14 @@ export default function TenantsListPage() {
 
       <div className="overflow-hidden rounded-xl border border-[#e2e5ed] bg-white dark:border-[#2e3347] dark:bg-[#1a1d27]">
         <div className="overflow-x-auto">
-          <table className="horeca-body-text w-full min-w-[640px] text-left text-sm">
+          <table className="horeca-body-text w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="border-b border-[#e2e5ed] bg-[#f9fafb] dark:border-[#2e3347] dark:bg-[#14161f]">
                 <th className="px-4 py-3 font-semibold text-[#374151] dark:text-[#c4c9d4]">
                   Nombre
+                </th>
+                <th className="px-4 py-3 font-semibold text-[#374151] dark:text-[#c4c9d4]">
+                  Slug
                 </th>
                 <th className="px-4 py-3 font-semibold text-[#374151] dark:text-[#c4c9d4]">
                   NIF
@@ -107,7 +130,7 @@ export default function TenantsListPage() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-8 text-center text-[#6b7280] dark:text-[#8b90a7]"
                   >
                     Cargando…
@@ -116,7 +139,7 @@ export default function TenantsListPage() {
               ) : data.items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-8 text-center text-[#6b7280] dark:text-[#8b90a7]"
                   >
                     No hay tenants
@@ -139,6 +162,9 @@ export default function TenantsListPage() {
                   >
                     <td className="px-4 py-3 font-medium text-[#111827] dark:text-[#e8eaf0]">
                       {row.nombre}
+                    </td>
+                    <td className="px-4 py-3 text-[#6b7280] dark:text-[#8b90a7]">
+                      {row.email_slug ? `@${row.email_slug}.com` : '—'}
                     </td>
                     <td className="px-4 py-3 text-[#6b7280] dark:text-[#8b90a7]">
                       {row.nif || '—'}
@@ -195,6 +221,23 @@ export default function TenantsListPage() {
           </div>
         ) : null}
       </div>
+
+      {showCreate ? (
+        <CreateTenantModal
+          onClose={() => setShowCreate(false)}
+          onCreated={(data) => {
+            const email = data?.admin_email || ''
+            setFeedback(
+              email
+                ? `Local creado. Admin: ${email}`
+                : 'Local creado correctamente'
+            )
+            setPage(1)
+            load()
+            setTimeout(() => setFeedback(null), 4000)
+          }}
+        />
+      ) : null}
     </div>
   )
 }

@@ -73,12 +73,27 @@ def pdf_cierre_caja(cierre: dict, tenant: dict) -> bytes:
         Spacer(1, 0.4 * cm),
     ]
     tot = tv if tv > 0 else sum((_q2(x) for _, _, x in md), Decimal("0"))
-    bx = (
-        f"<font color='#e8eaf0' size='11'><b>TOTAL CAJA</b></font><br/>"
-        f"<font size='22' color='#f59e0b'><b>{_m(tot)} €</b></font>"
+    lbl = Paragraph(
+        "<para align='center'><font color='#e8eaf0' size='11'><b>TOTAL CAJA</b></font></para>",
+        st["Normal"],
     )
-    tb = Table([[Paragraph(bx, st["Normal"])]], [A4[0] - 144], [1.35 * cm])
-    tb.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), FONDO_HEADER), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("ALIGN", (0, 0), (-1, -1), "CENTER"), ("BOX", (0, 0), (-1, -1), 0.5, BORDE)]))
+    amt = Paragraph(
+        f"<para align='center'><font size='22' color='#f59e0b'><b>{_m(tot)} €</b></font></para>",
+        st["Normal"],
+    )
+    tb = Table([[lbl], [amt]], [A4[0] - 144], [0.55 * cm, 1.15 * cm])
+    tb.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), FONDO_HEADER),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("BOX", (0, 0), (-1, -1), 0.5, BORDE),
+            ]
+        )
+    )
     story += [tb, Spacer(1, 0.45 * cm)]
     pie_documento(story, st)
     doc.build(story)

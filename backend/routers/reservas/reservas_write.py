@@ -24,6 +24,7 @@ from .reservas_shared import (
     _outlet_id_usuario,
     _parse_hora_time,
     _serialize_reserva,
+    _sync_estado_mesa_reserva,
     _uid,
 )
 
@@ -83,6 +84,7 @@ async def create_reserva(
                 body.origen,
                 cliente_uuid,
             )
+            await _sync_estado_mesa_reserva(conn, mesa_uuid, body.fecha)
             r2 = await conn.fetchrow(
                 """
                 SELECT
@@ -126,7 +128,7 @@ async def patch_reserva_estado(
                 """
                 UPDATE reservas SET estado = $1
                 WHERE id = $2 AND outlet_id = $3
-                RETURNING id
+                RETURNING id, mesa_id, fecha
                 """,
                 body.estado,
                 reserva_id,
@@ -137,6 +139,9 @@ async def patch_reserva_estado(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="No encontrado",
                 )
+            await _sync_estado_mesa_reserva(
+                conn, row["mesa_id"], row["fecha"]
+            )
             r2 = await conn.fetchrow(
                 """
                 SELECT
@@ -192,8 +197,12 @@ async def update_reserva(
     try:
         async with get_db() as conn:
             outlet_id = await _outlet_id_usuario(conn, user_uuid)
-            exists = await conn.fetchval(
-                "SELECT 1 FROM reservas WHERE id = $1 AND outlet_id = $2",
+            exists = await conn.fetchrow(
+                """
+                SELECT mesa_id, fecha
+                FROM reservas
+                WHERE id = $1 AND outlet_id = $2
+                """,
                 reserva_id,
                 outlet_id,
             )
@@ -202,6 +211,8 @@ async def update_reserva(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="No encontrado",
                 )
+            old_mesa_id = exists["mesa_id"]
+            old_fecha = exists["fecha"]
             if data.get("mesa_id"):
                 ok_m = await conn.fetchval(
                     "SELECT 1 FROM mesas WHERE id = $1 AND outlet_id = $2",
@@ -235,9 +246,14 @@ async def update_reserva(
             sql = (
                 "UPDATE reservas SET "
                 + ", ".join(sets)
-                + f" WHERE id = ${i} AND outlet_id = ${i + 1} RETURNING id"
+                + f" WHERE id = ${i} AND outlet_id = ${i + 1} RETURNING id, mesa_id, fecha"
             )
-            await conn.fetchrow(sql, *vals)
+            updated = await conn.fetchrow(sql, *vals)
+            new_mesa_id = updated["mesa_id"] if updated else None
+            new_fecha = updated["fecha"] if updated else old_fecha
+            await _sync_estado_mesa_reserva(conn, old_mesa_id, old_fecha)
+            if new_mesa_id != old_mesa_id or new_fecha != old_fecha:
+                await _sync_estado_mesa_reserva(conn, new_mesa_id, new_fecha)
             r2 = await conn.fetchrow(
                 """
                 SELECT

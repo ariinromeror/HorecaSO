@@ -2,6 +2,22 @@
  * Vista imprimible térmica 58/80 mm (Epson vía driver Windows + window.print).
  * type: 'comanda' | 'ticket'
  */
+function locLine(tp) {
+  if (!tp) return null
+  const bits = []
+  if (tp.codigo_postal) bits.push(String(tp.codigo_postal).trim())
+  if (tp.ciudad) bits.push(String(tp.ciudad).trim())
+  if (tp.provincia) bits.push(`(${String(tp.provincia).trim()})`)
+  const s = bits.join(' ').trim()
+  return s || null
+}
+
+function displayName(tp, fallback) {
+  const rs = tp?.razon_social && String(tp.razon_social).trim()
+  const nom = tp?.nombre && String(tp.nombre).trim()
+  return rs || nom || fallback || 'HorecaSO'
+}
+
 export default function TicketPrintView({
   type = 'ticket',
   mesaLabel,
@@ -10,6 +26,7 @@ export default function TicketPrintView({
   total,
   qrUrl,
   tenantNombre,
+  tenantPrint,
   numeroSerie,
   anchoMm = 80,
 }) {
@@ -21,6 +38,14 @@ export default function TicketPrintView({
     hour: '2-digit',
     minute: '2-digit',
   })
+  const isTicket = type === 'ticket'
+  const titulo = displayName(tenantPrint, tenantNombre)
+  const nif = tenantPrint?.nif && String(tenantPrint.nif).trim()
+  const direccion =
+    tenantPrint?.direccion && String(tenantPrint.direccion).trim()
+  const localidad = locLine(tenantPrint)
+  const telefono =
+    tenantPrint?.telefono && String(tenantPrint.telefono).trim()
 
   return (
     <div
@@ -30,9 +55,26 @@ export default function TicketPrintView({
       aria-hidden="true"
     >
       <div className="ticket-print-inner">
-        <p className="ticket-print-brand">{tenantNombre || 'HorecaSO'}</p>
+        {isTicket ? (
+          <div className="ticket-print-header-fiscal">
+            <p className="ticket-print-brand">{titulo}</p>
+            {nif ? <p className="ticket-print-fiscal">NIF {nif}</p> : null}
+            {direccion ? (
+              <p className="ticket-print-fiscal">{direccion}</p>
+            ) : null}
+            {localidad ? (
+              <p className="ticket-print-fiscal">{localidad}</p>
+            ) : null}
+            {telefono ? (
+              <p className="ticket-print-fiscal">Tel. {telefono}</p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="ticket-print-brand">{titulo}</p>
+        )}
+
         <p className="ticket-print-meta">
-          {type === 'comanda' ? 'COMANDA' : 'TICKET'} · {hora}
+          {isTicket ? 'TICKET' : 'COMANDA'} · {hora}
         </p>
         {mesaLabel ? (
           <p className="ticket-print-mesa">Mesa {mesaLabel}</p>
@@ -51,17 +93,15 @@ export default function TicketPrintView({
                 <span>
                   {qty}× {nombre}
                 </span>
-                {type === 'ticket' ? (
-                  <span>{sub.toFixed(2)} €</span>
-                ) : null}
-                {ln.nota ? (
+                {isTicket ? <span>{sub.toFixed(2)} €</span> : null}
+                {!isTicket && ln.nota ? (
                   <span className="ticket-print-nota">Nota: {ln.nota}</span>
                 ) : null}
               </li>
             )
           })}
         </ul>
-        {type === 'ticket' ? (
+        {isTicket ? (
           <>
             <hr className="ticket-print-hr" />
             <p className="ticket-print-total">
@@ -70,16 +110,17 @@ export default function TicketPrintView({
             {numeroSerie ? (
               <p className="ticket-print-meta">Serie {numeroSerie}</p>
             ) : null}
-            {qrUrl ? (
-              <p className="ticket-print-qr">
-                QR Verifactu:
-                <br />
-                {qrUrl}
-              </p>
-            ) : null}
+            <hr className="ticket-print-hr" />
+            <p className="ticket-print-thanks">¡Gracias por su compra!</p>
+            <p className="ticket-print-soft">Le esperamos pronto</p>
+            <p className="ticket-print-powered">Powered by HorecaSO</p>
           </>
-        ) : null}
-        <p className="ticket-print-foot">Gracias</p>
+        ) : (
+          <>
+            <hr className="ticket-print-hr" />
+            <p className="ticket-print-powered">HorecaSO</p>
+          </>
+        )}
       </div>
     </div>
   )

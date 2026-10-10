@@ -1,19 +1,22 @@
 """
 API superadmin — tenants y platform_logs.
 Requiere migración Fase B: tenants.activo, tabla platform_logs.
+email_slug: dominio de login {user}@{slug}.com (migration_tenants_email_slug).
 """
 
 import json
 import logging
+import re
+import unicodedata
 from datetime import date, datetime, time, timezone
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
-from auth.dependencies import require_superadmin
+from auth.dependencies import invalidate_tenant_sessions, require_superadmin
 from database import get_db
 
 logger = logging.getLogger(__name__)
@@ -46,6 +49,56 @@ DEFAULT_MODULOS = {
     "appcc": True,
 }
 
+_TENANT_SELECT_COLS = (
+    "id, nombre, nif, plan, activo, created_at, "
+    "razon_social, codigo_postal, ciudad, provincia, "
+    "serie_facturacion, modulos, direccion, telefono, email, "
+    "logo_url, email_slug"
+)
+
+
+def normalize_email_slug(raw: str) -> str:
+    """Normaliza slug: minúsculas, sin acentos, solo a-z0-9 y guiones."""
+    if not raw or not str(raw).strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email_slug obligatorio",
+        )
+    text = unicodedata.normalize("NFKD", str(raw).strip())
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    text = re.sub(r"-+", "-", text).strip("-")
+    if len(text) < 2 or len(text) > 63:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email_slug inválido (2–63 caracteres a-z0-9-)",
+        )
+    return text
+
+
+def normalize_email_localpart(raw: str) -> str:
+    """Parte izquierda del email de login (empleado → empleado)."""
+    if not raw or not str(raw).strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Parte local del email obligatoria",
+        )
+    part = str(raw).strip().lower()
+    if "@" in part:
+        part = part.split("@", 1)[0]
+    part = re.sub(r"[^a-z0-9._+-]+", "", part)
+    if not part or len(part) > 64:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Parte local del email inválida",
+        )
+    return part
+
+
+def build_tenant_login_email(localpart: str, email_slug: str) -> str:
+    return f"{normalize_email_localpart(localpart)}@{normalize_email_slug(email_slug)}.com"
+
 
 class TenantActivoBody(BaseModel):
     activo: bool = Field(..., description="Nuevo estado activo del tenant")
@@ -54,6 +107,7 @@ class TenantActivoBody(BaseModel):
 class TenantCreateBody(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=200)
     nif: str = Field(..., min_length=5, max_length=20)
+    email_slug: str = Field(..., min_length=2, max_length=63)
     razon_social: Optional[str] = None
     direccion: Optional[str] = None
     codigo_postal: Optional[str] = None
@@ -65,7 +119,7 @@ class TenantCreateBody(BaseModel):
     serie_facturacion: str = "A"
     outlet_nombre: str = "Sala Principal"
     admin_nombre: str = Field(..., min_length=1)
-    admin_email: EmailStr
+    admin_localpart: str = Field(..., min_length=1, max_length=64)
     admin_password: str = Field(..., min_length=8)
     modulos: Optional[dict[str, bool]] = None
 
@@ -73,6 +127,7 @@ class TenantCreateBody(BaseModel):
 class TenantPatchBody(BaseModel):
     nombre: Optional[str] = None
     nif: Optional[str] = None
+    email_slug: Optional[str] = None
     razon_social: Optional[str] = None
     direccion: Optional[str] = None
     codigo_postal: Optional[str] = None
@@ -98,8 +153,15 @@ def _safe_col(r, key, default=None):
 
 def _tenant_row_public(r) -> dict[str, Any]:
     modulos = _safe_col(r, "modulos")
+    if isinstance(modulos, str):
+        try:
+            modulos = json.loads(modulos)
+        except Exception:
+            modulos = {}
     if modulos is not None and hasattr(modulos, "keys"):
         modulos = dict(modulos)
+    elif not isinstance(modulos, dict):
+        modulos = {}
     created = _safe_col(r, "created_at")
     return {
         "id": str(r["id"]),
@@ -117,6 +179,7 @@ def _tenant_row_public(r) -> dict[str, Any]:
         "telefono": _safe_col(r, "telefono"),
         "email": _safe_col(r, "email"),
         "logo_url": _safe_col(r, "logo_url"),
+        "email_slug": _safe_col(r, "email_slug"),
         "modulos": modulos,
     }
 
@@ -154,10 +217,8 @@ async def list_tenants(
         async with get_db() as conn:
             total = await conn.fetchval("SELECT COUNT(*)::int FROM tenants")
             rows = await conn.fetch(
-                """
-                SELECT id, nombre, nif, plan, activo, created_at,
-                       razon_social, codigo_postal, ciudad, provincia,
-                       serie_facturacion, modulos
+                f"""
+                SELECT {_TENANT_SELECT_COLS}
                 FROM tenants
                 ORDER BY created_at DESC NULLS LAST, nombre ASC
                 LIMIT $1 OFFSET $2
@@ -190,11 +251,8 @@ async def get_tenant_detail(
     try:
         async with get_db() as conn:
             t = await conn.fetchrow(
-                """
-                SELECT id, nombre, nif, plan, activo, created_at,
-                       direccion, telefono, email, logo_url,
-                       razon_social, codigo_postal, ciudad, provincia,
-                       serie_facturacion, modulos
+                f"""
+                SELECT {_TENANT_SELECT_COLS}
                 FROM tenants
                 WHERE id = $1
                 """,
@@ -260,96 +318,111 @@ async def create_tenant(
     tenant_id = uuid4()
     outlet_id = uuid4()
     user_id = uuid4()
+    email_slug = normalize_email_slug(body.email_slug)
+    admin_email = build_tenant_login_email(body.admin_localpart, email_slug)
     modulos = {**DEFAULT_MODULOS, **(body.modulos or {})}
     password_hash = pwd_context.hash(body.admin_password)
     razon = body.razon_social or body.nombre
 
     try:
         async with get_db() as conn:
-            async with conn.transaction():
-                exists = await conn.fetchval(
-                    "SELECT 1 FROM usuarios WHERE email = $1",
-                    str(body.admin_email).lower(),
+            slug_taken = await conn.fetchval(
+                "SELECT 1 FROM tenants WHERE email_slug = $1",
+                email_slug,
+            )
+            if slug_taken:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ya existe un local con ese email_slug",
                 )
-                if exists:
-                    raise HTTPException(
-                        status_code=status.HTTP_409_CONFLICT,
-                        detail="Email de admin ya registrado",
-                    )
+            exists = await conn.fetchval(
+                "SELECT 1 FROM usuarios WHERE email = $1",
+                admin_email,
+            )
+            if exists:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Email de admin ya registrado",
+                )
+            await conn.execute(
+                """
+                INSERT INTO tenants (
+                    id, nombre, nif, direccion, telefono, email, plan, activo,
+                    razon_social, codigo_postal, ciudad, provincia,
+                    serie_facturacion, modulos, email_slug
+                )
+                VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, true,
+                    $8, $9, $10, $11, $12, $13::jsonb, $14
+                )
+                """,
+                tenant_id,
+                body.nombre,
+                body.nif,
+                body.direccion,
+                body.telefono,
+                body.email,
+                body.plan,
+                razon,
+                body.codigo_postal,
+                body.ciudad,
+                body.provincia,
+                body.serie_facturacion,
+                json.dumps(modulos),
+                email_slug,
+            )
+            await conn.execute(
+                """
+                INSERT INTO outlets (id, tenant_id, nombre, num_mesas)
+                VALUES ($1, $2, $3, 10)
+                """,
+                outlet_id,
+                tenant_id,
+                body.outlet_nombre,
+            )
+            await conn.execute(
+                """
+                INSERT INTO usuarios (
+                    id, tenant_id, outlet_id, nombre, email,
+                    password_hash, rol, activo
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, 'admin', true)
+                """,
+                user_id,
+                tenant_id,
+                outlet_id,
+                body.admin_nombre,
+                admin_email,
+                password_hash,
+            )
+            if actor_id:
                 await conn.execute(
                     """
-                    INSERT INTO tenants (
-                        id, nombre, nif, direccion, telefono, email, plan, activo,
-                        razon_social, codigo_postal, ciudad, provincia,
-                        serie_facturacion, modulos
+                    INSERT INTO platform_logs (
+                        nivel, tenant_id, usuario_id, modulo, accion, detalle
                     )
                     VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, true,
-                        $8, $9, $10, $11, $12, $13::jsonb
+                        'info', $1::uuid, $2::uuid, 'superadmin',
+                        'create_tenant', $3::jsonb
                     )
                     """,
                     tenant_id,
-                    body.nombre,
-                    body.nif,
-                    body.direccion,
-                    body.telefono,
-                    body.email,
-                    body.plan,
-                    razon,
-                    body.codigo_postal,
-                    body.ciudad,
-                    body.provincia,
-                    body.serie_facturacion,
-                    json.dumps(modulos),
+                    UUID(str(actor_id)),
+                    json.dumps(
+                        {
+                            "tenant_id": str(tenant_id),
+                            "admin_email": admin_email,
+                            "email_slug": email_slug,
+                        }
+                    ),
                 )
-                await conn.execute(
-                    """
-                    INSERT INTO outlets (id, tenant_id, nombre, num_mesas)
-                    VALUES ($1, $2, $3, 10)
-                    """,
-                    outlet_id,
-                    tenant_id,
-                    body.outlet_nombre,
-                )
-                await conn.execute(
-                    """
-                    INSERT INTO usuarios (
-                        id, tenant_id, outlet_id, nombre, email,
-                        password_hash, rol, activo
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, 'admin', true)
-                    """,
-                    user_id,
-                    tenant_id,
-                    outlet_id,
-                    body.admin_nombre,
-                    str(body.admin_email).lower(),
-                    password_hash,
-                )
-                if actor_id:
-                    await conn.execute(
-                        """
-                        INSERT INTO platform_logs (
-                            nivel, tenant_id, usuario_id, modulo, accion, detalle
-                        )
-                        VALUES (
-                            'info', $1::uuid, $2::uuid, 'superadmin',
-                            'create_tenant', $3::jsonb
-                        )
-                        """,
-                        tenant_id,
-                        UUID(str(actor_id)),
-                        json.dumps({"tenant_id": str(tenant_id), "admin_email": str(body.admin_email)}),
-                    )
-                row = await conn.fetchrow(
-                    """
-                    SELECT id, nombre, nif, plan, activo, created_at,
-                           razon_social, codigo_postal, ciudad, provincia,
-                           serie_facturacion, modulos, direccion, telefono, email
-                    FROM tenants WHERE id = $1
-                    """,
-                    tenant_id,
-                )
+            row = await conn.fetchrow(
+                f"""
+                SELECT {_TENANT_SELECT_COLS}
+                FROM tenants WHERE id = $1
+                """,
+                tenant_id,
+            )
     except HTTPException:
         raise
     except Exception as e:
@@ -363,7 +436,7 @@ async def create_tenant(
         "tenant": _tenant_row_public(row),
         "outlet_id": str(outlet_id),
         "admin_user_id": str(user_id),
-        "admin_email": str(body.admin_email).lower(),
+        "admin_email": admin_email,
     }
 
 
@@ -381,6 +454,8 @@ async def patch_tenant(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Sin campos para actualizar",
         )
+    if "email_slug" in fields and fields["email_slug"] is not None:
+        fields["email_slug"] = normalize_email_slug(fields["email_slug"])
     try:
         async with get_db() as conn:
             exists = await conn.fetchval(
@@ -391,6 +466,20 @@ async def patch_tenant(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Tenant no encontrado",
                 )
+            if "email_slug" in fields:
+                slug_taken = await conn.fetchval(
+                    """
+                    SELECT 1 FROM tenants
+                    WHERE email_slug = $1 AND id <> $2
+                    """,
+                    fields["email_slug"],
+                    tenant_id,
+                )
+                if slug_taken:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Ya existe un local con ese email_slug",
+                    )
             sets = []
             args: list[Any] = []
             for key, val in fields.items():
@@ -404,9 +493,7 @@ async def patch_tenant(
             sql = (
                 "UPDATE tenants SET "
                 + ", ".join(sets)
-                + f" WHERE id = ${len(args)} RETURNING id, nombre, nif, plan, activo, created_at, "
-                "razon_social, codigo_postal, ciudad, provincia, serie_facturacion, "
-                "modulos, direccion, telefono, email, logo_url"
+                + f" WHERE id = ${len(args)} RETURNING {_TENANT_SELECT_COLS}"
             )
             row = await conn.fetchrow(sql, *args)
     except HTTPException:
@@ -418,6 +505,7 @@ async def patch_tenant(
             detail="Error al actualizar tenant",
         ) from e
 
+    invalidate_tenant_sessions(tenant_id)
     return {"tenant": _tenant_row_public(row)}
 
 
@@ -473,7 +561,7 @@ async def patch_tenant_activo(
                 UUID(actor_id),
                 "superadmin",
                 "set_tenant_activo",
-                detalle,
+                json.dumps(detalle),
             )
 
             updated = await conn.fetchrow(
@@ -493,6 +581,7 @@ async def patch_tenant_activo(
             detail="Error al actualizar tenant",
         ) from e
 
+    invalidate_tenant_sessions(tenant_id)
     return {
         "tenant": _tenant_row_public(updated),
         "accion": "set_tenant_activo",

@@ -20,6 +20,7 @@ function resolveApiBaseUrl() {
 
 const api = axios.create({
   baseURL: resolveApiBaseUrl(),
+  timeout: 45000,
 })
 
 api.interceptors.request.use((config) => {
@@ -50,7 +51,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('horecaso_token')
       localStorage.removeItem('horecaso_user')
-      window.location.href = '/login'
+      const onLogin =
+        typeof window !== 'undefined' &&
+        (window.location.pathname === '/login' ||
+          window.location.pathname.startsWith('/login/'))
+      if (!onLogin) {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
@@ -139,10 +146,15 @@ export function getTicket(ticket_id) {
   return api.get(`/tpv/tickets/${ticket_id}`)
 }
 
-export function addLinea(ticket_id, producto_id, cantidad) {
-  return api.post(`/tpv/tickets/${ticket_id}/lineas`, {
-    producto_id,
-    cantidad,
+export function addLinea(ticket_id, producto_id, cantidad, nota = null) {
+  const body = { producto_id, cantidad }
+  if (nota) body.nota = nota
+  return api.post(`/tpv/tickets/${ticket_id}/lineas`, body)
+}
+
+export function patchLineaNota(ticket_id, linea_id, nota) {
+  return api.patch(`/tpv/tickets/${ticket_id}/lineas/${linea_id}`, {
+    nota: nota || null,
   })
 }
 
@@ -164,6 +176,17 @@ export function getTicketPagos(ticketId) {
 
 export function deleteTicketPago(ticketId, pagoId) {
   return api.delete(`/tpv/tickets/${ticketId}/pagos/${pagoId}`)
+}
+
+/** GET /tpv/cierre-caja/preview — resumen del día (Europe/Madrid). */
+export function getCierreCajaPreview(fecha) {
+  const params = fecha ? { fecha } : {}
+  return api.get('/tpv/cierre-caja/preview', { params })
+}
+
+/** POST /tpv/cierre-caja — registra cierre del día. */
+export function postCierreCaja(body = {}) {
+  return api.post('/tpv/cierre-caja', body)
 }
 
 // --- Admin carta (admin | director) ---
@@ -248,6 +271,18 @@ export function getRecetaCoste(id) {
 
 export function addIngredienteReceta(recetaId, body) {
   return api.post(`/admin/recetas/${recetaId}/ingredientes`, body)
+}
+
+/** Varias líneas en una transacción: { lineas: [{ articulo_id, cantidad_neta, porcentaje_merma?, unidad }] } */
+export function addIngredientesRecetaBulk(recetaId, lineas) {
+  return api.post(`/admin/recetas/${recetaId}/ingredientes/bulk`, { lineas })
+}
+
+export function updateIngredienteReceta(recetaId, ingredienteId, body) {
+  return api.put(
+    `/admin/recetas/${recetaId}/ingredientes/${ingredienteId}`,
+    body
+  )
 }
 
 export function deleteIngredienteReceta(recetaId, ingredienteId) {
@@ -369,7 +404,7 @@ export function patchKDSLineaEstado(id, estado) {
   return api.patch(`/kds/lineas/${id}/estado`, { estado })
 }
 
-// --- Predicciones IA (admin | director | almacen) ---
+// --- Previsión mermas (admin | director | almacen) ---
 
 /** GET /dashboard/prediccion-mermas — params: articulo_id, dias_historial, dias_horizonte */
 export function getPrediccionMermas(params = {}) {
@@ -406,6 +441,43 @@ export function getFiscalTrimestre(anio, trimestre) {
   })
 }
 
+/** Vistas JSON de informes (hermanos de los PDF en /reportes/.../datos). */
+export function getReporteVentasDatos(desde, hasta) {
+  return api.get('/reportes/ventas/datos', { params: { desde, hasta } })
+}
+
+export function getReporteInventarioDatos(fecha) {
+  return api.get('/reportes/inventario/datos', { params: { fecha } })
+}
+
+export function getReporteCierreCajaDatos(fecha) {
+  return api.get(`/reportes/cierre-caja/${encodeURIComponent(fecha)}/datos`)
+}
+
+export function getReporteNominaDatos(nominaId) {
+  return api.get(`/reportes/nomina/${nominaId}/datos`)
+}
+
+export function getReporteCuadranteDatos(semanaLunes) {
+  return api.get(
+    `/reportes/cuadrante/${encodeURIComponent(semanaLunes)}/datos`
+  )
+}
+
+export function getReporteRentabilidadPlatosDatos() {
+  return api.get('/reportes/rentabilidad-platos/datos')
+}
+
+export function getReporteComparativaProveedoresDatos(articuloId) {
+  return api.get(
+    `/reportes/comparativa-proveedores/${encodeURIComponent(articuloId)}/datos`
+  )
+}
+
+export function getReporteAppccDatos(desde, hasta) {
+  return api.get('/reportes/appcc/datos', { params: { desde, hasta } })
+}
+
 /**
  * @param {Record<string, unknown>} filtros — page, page_size, fecha_desde, fecha_hasta (YYYY-MM-DD)
  */
@@ -413,10 +485,45 @@ export function getSuperadminPlatformLogs(filtros = {}) {
   return api.get('/superadmin/platform-logs', { params: filtros })
 }
 
+export function getAcuerdoProveedorDefaults() {
+  return api.get('/superadmin/acuerdo-proveedor-defaults')
+}
+
+export function putAcuerdoProveedorDefaults(body) {
+  return api.put('/superadmin/acuerdo-proveedor-defaults', body)
+}
+
+export function getAcuerdosPiloto() {
+  return api.get('/superadmin/acuerdos-piloto')
+}
+
+export function getAcuerdoPiloto(id) {
+  return api.get(`/superadmin/acuerdos-piloto/${id}`)
+}
+
+export function createAcuerdoPiloto(body) {
+  return api.post('/superadmin/acuerdos-piloto', body)
+}
+
+export function patchAcuerdoPiloto(id, body) {
+  return api.patch(`/superadmin/acuerdos-piloto/${id}`, body)
+}
+
+/** Descarga / abre PDF del acuerdo (blob). */
+export function downloadAcuerdoPilotoPdf(id) {
+  return api.post(`/superadmin/acuerdos-piloto/${id}/pdf`, null, {
+    responseType: 'blob',
+  })
+}
+
 // --- Admin tenant — usuarios ---
 
 export function getAdminUsuarios() {
   return api.get('/admin/usuarios')
+}
+
+export function getAdminOutlets() {
+  return api.get('/admin/outlets')
 }
 
 export function createAdminUsuario(data) {

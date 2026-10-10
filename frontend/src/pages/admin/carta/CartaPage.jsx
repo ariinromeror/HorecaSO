@@ -11,11 +11,7 @@ export default function CartaPage() {
 
   return (
     <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[#111827] dark:text-[#e8eaf0]">
-      <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-          Carta del restaurante
-        </h1>
-        <div className="flex flex-wrap gap-2">
+      <div className="mb-6 flex min-w-0 flex-wrap gap-2">
           <button
             type="button"
             onClick={() => c.setTab('categorias')}
@@ -40,7 +36,6 @@ export default function CartaPage() {
             <BookOpen size={20} strokeWidth={1.5} />
             Productos
           </button>
-        </div>
       </div>
 
       {c.feedback ? (

@@ -138,6 +138,7 @@ export function useTicketTPV() {
   const {
     handleLiberarMesa,
     handleAddLinea,
+    handlePatchNotaLinea,
     handleRestarUnidadGrupo,
     handleCobrar,
     iniciarDivision,
@@ -183,7 +184,8 @@ export function useTicketTPV() {
     loadingPago, divisionError, setDivisionError, numPartesInput, setNumPartesInput,
     borradorPartesPagos, setBorradorPartesPagos, liberarMesaLoading,
     productoNombrePorId, categorias, productosActivos,
-    totalPagado, pendienteDivision, handleAddLinea, lineasAgrupadas,
+    totalPagado, pendienteDivision, handleAddLinea, handlePatchNotaLinea,
+    lineasAgrupadas,
     totalUnidadesComanda, handleRestarUnidadGrupo, handleCobrar,
     iniciarDivision, handleAnadirPagoDivision, handleEliminarPagoDivision,
     handleCompletarDivision, rellenarPendiente, handleDividirRestanteEnPartes,

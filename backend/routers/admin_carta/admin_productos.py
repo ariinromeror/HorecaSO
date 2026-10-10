@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from auth.dependencies import require_roles
 from database import get_db
+from services.audit_log import audit_config_change
 
 from .admin_carta_shared import (
     ROLES_ADMIN_CARTA,
@@ -173,6 +174,21 @@ async def create_producto(
                 body.tiempo_preparacion,
                 destino,
             )
+            await audit_config_change(
+                conn,
+                tenant_id=tenant_id,
+                usuario_id=current_user.get("sub"),
+                modulo="carta",
+                accion="create_producto",
+                tabla="productos",
+                operacion="INSERT",
+                registro_id=row["id"],
+                detalle={
+                    "id": str(row["id"]),
+                    "nombre": row["nombre"],
+                    "precio": str(row.get("precio")),
+                },
+            )
 
         return _producto_row_to_dict(row)
     except HTTPException:
@@ -247,6 +263,24 @@ async def update_producto(
             )
             row = await conn.fetchrow(sql, *args)
 
+            if row:
+                await audit_config_change(
+                    conn,
+                    tenant_id=tenant_id,
+                    usuario_id=current_user.get("sub"),
+                    modulo="carta",
+                    accion="update_producto",
+                    tabla="productos",
+                    operacion="UPDATE",
+                    registro_id=id,
+                    detalle={
+                        "id": str(id),
+                        "nombre": row.get("nombre"),
+                        "activo": row.get("activo"),
+                        "precio": str(row.get("precio")),
+                    },
+                )
+
         if not row:
             raise HTTPException(status_code=404, detail="Producto no encontrado")
         return _producto_row_to_dict(row)
@@ -276,6 +310,22 @@ async def delete_producto(
                 id,
                 UUID(tenant_id),
             )
+            if row:
+                await audit_config_change(
+                    conn,
+                    tenant_id=tenant_id,
+                    usuario_id=current_user.get("sub"),
+                    modulo="carta",
+                    accion="delete_producto",
+                    tabla="productos",
+                    operacion="UPDATE",
+                    registro_id=id,
+                    detalle={
+                        "id": str(id),
+                        "nombre": row.get("nombre"),
+                        "activo": False,
+                    },
+                )
 
         if not row:
             raise HTTPException(status_code=404, detail="Producto no encontrado")

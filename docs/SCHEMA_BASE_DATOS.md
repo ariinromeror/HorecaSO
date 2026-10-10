@@ -57,7 +57,7 @@ Documento de referencia alineado con **PostgreSQL / Supabase** (esquema `public`
 | [turnos](#turnos) | Fichajes y turnos de empleados |
 | [usuario_permisos](#usuario_permisos) | Permisos granulares por usuario y tenant |
 | [usuarios](#usuarios) | Usuarios del sistema con rol y acceso |
-| [verifactu_registros](#verifactu_registros) | Registros fiscales Verifactu (AEAT) |
+| [verifactu_registros](#verifactu_registros) | Registros internos de facturación (pendiente de envío a la AEAT) |
 
 ---
 

@@ -85,8 +85,8 @@ async def get_ingenieria_menu(
                 JOIN productos p ON tl.producto_id = p.id
                 WHERE t.outlet_id = $1
                   AND t.estado = 'cobrado'
-                  AND DATE(t.cobrado_at) >= $2
-                  AND DATE(t.cobrado_at) <= $3
+                  AND (t.cobrado_at AT TIME ZONE 'Europe/Madrid')::date >= $2
+                  AND (t.cobrado_at AT TIME ZONE 'Europe/Madrid')::date <= $3
                   AND p.tenant_id = $4
                 GROUP BY p.id, p.nombre, p.precio, COALESCE(p.precio_coste, 0)
                 """,

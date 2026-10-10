@@ -9,16 +9,63 @@ FAMILIA_MASA = "masa"
 FAMILIA_VOLUMEN = "volumen"
 FAMILIA_UNIDAD = "unidad"
 
+_VOLUMEN_ALIAS = frozenset(
+    {
+        "l",
+        "lt",
+        "litro",
+        "litros",
+        "litro(s)",
+        "ml",
+        "mililitro",
+        "mililitros",
+    }
+)
+_MASA_ALIAS = frozenset(
+    {
+        "kg",
+        "kilo",
+        "kilos",
+        "kilogramo",
+        "kilogramos",
+        "g",
+        "gr",
+        "gramo",
+        "gramos",
+        "gramo(s)",
+    }
+)
+_UNIDAD_ALIAS = frozenset({"ud", "unidad", "unidades", "u", "uds"})
+
+
+def normalizar_unidad(u: str | None) -> str:
+    """Canoniza sinónimos de inventario a kg|g|l|ml|ud."""
+    if not u:
+        return ""
+    x = str(u).strip().lower()
+    if x in ("ml", "mililitro", "mililitros"):
+        return "ml"
+    if x in ("l", "lt", "litro", "litros", "litro(s)"):
+        return "l"
+    if x in ("g", "gr", "gramo", "gramos", "gramo(s)"):
+        return "g"
+    if x in ("kg", "kilo", "kilos", "kilogramo", "kilogramos"):
+        return "kg"
+    if x in _UNIDAD_ALIAS:
+        return "ud"
+    return x
+
 
 def familia_unidad(u: str | None) -> str:
     if not u:
         return "desconocido"
-    x = str(u).strip().lower()
-    if x in ("kg", "g"):
+    x = normalizar_unidad(u)
+    raw = str(u).strip().lower()
+    if x in ("kg", "g") or raw in _MASA_ALIAS:
         return FAMILIA_MASA
-    if x in ("l", "ml"):
+    if x in ("l", "ml") or raw in _VOLUMEN_ALIAS:
         return FAMILIA_VOLUMEN
-    if x in ("ud", "unidad", "u"):
+    if x == "ud" or raw in _UNIDAD_ALIAS:
         return FAMILIA_UNIDAD
     return "desconocido"
 
@@ -36,7 +83,7 @@ def unidades_permitidas_para_articulo(unidad_medida_articulo: str | None) -> lis
 
 
 def _a_kg(cantidad: Decimal, u: str) -> Decimal:
-    x = u.strip().lower()
+    x = normalizar_unidad(u)
     if x == "kg":
         return cantidad
     if x == "g":
@@ -45,7 +92,7 @@ def _a_kg(cantidad: Decimal, u: str) -> Decimal:
 
 
 def _desde_kg(cantidad_kg: Decimal, unidad_art: str) -> Decimal:
-    x = unidad_art.strip().lower()
+    x = normalizar_unidad(unidad_art)
     if x == "kg":
         return cantidad_kg
     if x == "g":
@@ -54,7 +101,7 @@ def _desde_kg(cantidad_kg: Decimal, unidad_art: str) -> Decimal:
 
 
 def _a_litros(cantidad: Decimal, u: str) -> Decimal:
-    x = u.strip().lower()
+    x = normalizar_unidad(u)
     if x == "l":
         return cantidad
     if x == "ml":
@@ -63,7 +110,7 @@ def _a_litros(cantidad: Decimal, u: str) -> Decimal:
 
 
 def _desde_litros(cantidad_l: Decimal, unidad_art: str) -> Decimal:
-    x = unidad_art.strip().lower()
+    x = normalizar_unidad(unidad_art)
     if x == "l":
         return cantidad_l
     if x == "ml":
@@ -86,8 +133,6 @@ def cantidad_en_unidad_articulo(
             f"Unidad de receta '{unidad_linea}' incompatible con unidad de inventario '{unidad_articulo}'"
         )
     if fam_l == FAMILIA_UNIDAD:
-        if unidad_linea.strip().lower() != unidad_articulo.strip().lower():
-            raise ValueError("Unidad 'ud' no coincide con el artículo")
         return cantidad
     if fam_l == FAMILIA_MASA:
         kg = _a_kg(cantidad, unidad_linea)

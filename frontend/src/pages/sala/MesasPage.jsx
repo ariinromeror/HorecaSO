@@ -23,11 +23,9 @@ export default function MesasPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-        Sala — Mesas
-      </h1>
-      <p className="mt-1 text-sm text-[#6b7280] dark:text-[#8b90a7]">
-        Pulsa una mesa libre u ocupada para abrir el TPV.
+      <p className="mb-4 text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
+        Pulsa una mesa libre u ocupada para abrir el TPV. Si está reservada,
+        verás la hora de la reserva.
       </p>
 
       <MesasLeyenda />
@@ -45,6 +43,7 @@ export default function MesasPage() {
                   key={mesa.id}
                   mesa={mesa}
                   onNavigate={m.goTpv}
+                  onReservada={m.handleMesaReservada}
                   onMarcarLibre={m.handleMarcarMesaLibre}
                   liberando={m.liberandoMesaId === mesa.id}
                 />

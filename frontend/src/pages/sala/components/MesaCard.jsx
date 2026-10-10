@@ -11,6 +11,13 @@ function mesaEstadoKey(estado) {
   return 'bloqueada'
 }
 
+function formatHoraReserva(hora) {
+  if (!hora) return null
+  const s = String(hora)
+  if (s.length >= 5 && s[2] === ':') return s.slice(0, 5)
+  return s
+}
+
 const chairPositions = [
   { top: '-6px', left: '50%', transform: 'translateX(-50%)' },
   { bottom: '-6px', left: '50%', transform: 'translateX(-50%)' },
@@ -18,24 +25,41 @@ const chairPositions = [
   { right: '-6px', top: '50%', transform: 'translateY(-50%)' },
 ]
 
-export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando }) {
+export default function MesaCard({
+  mesa,
+  onNavigate,
+  onReservada,
+  onMarcarLibre,
+  liberando,
+}) {
   const estado = mesaEstadoKey(mesa.estado)
   const t = tokens.shared.mesa[estado]
-  const clickable = estado === 'libre' || estado === 'ocupada'
+  const clickable =
+    estado === 'libre' || estado === 'ocupada' || estado === 'reservada'
 
-  const handleClick = () => {
-    if (clickable) {
+  const handleActivate = () => {
+    if (estado === 'reservada') {
+      onReservada?.(mesa)
+      return
+    }
+    if (estado === 'libre' || estado === 'ocupada') {
       onNavigate(mesa.id)
     }
+  }
+
+  const handleClick = () => {
+    if (clickable) handleActivate()
   }
 
   const handleKeyDown = (e) => {
     if (!clickable) return
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      onNavigate(mesa.id)
+      handleActivate()
     }
   }
+
+  const horaTxt = formatHoraReserva(mesa.reserva_hora)
 
   return (
     <div className="relative max-w-[148px] w-full min-w-0">
@@ -70,7 +94,6 @@ export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando })
             />
           ))}
 
-          {/* Estado arriba (flujo normal) — evita solapamiento con el número en móvil */}
           <span
             className="z-10 mx-auto max-w-full shrink-0 truncate rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide sm:text-[10px]"
             style={{
@@ -79,7 +102,7 @@ export default function MesaCard({ mesa, onNavigate, onMarcarLibre, liberando })
               border: `1px solid ${t.border}`,
             }}
           >
-            {t.label}
+            {horaTxt && estado === 'reservada' ? horaTxt : t.label}
           </span>
 
           <span

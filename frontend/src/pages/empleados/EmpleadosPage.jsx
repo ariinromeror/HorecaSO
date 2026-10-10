@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { Users } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
 import { ROLES_EMPLEADOS, EMPLEADOS_BTN_PRIMARY } from './constants'
 import EmpleadoModal from './components/EmpleadoModal'
@@ -14,18 +13,12 @@ export default function EmpleadosPage() {
   }
 
   if (e.user && !ROLES_EMPLEADOS.includes(e.user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
     <div className="min-h-full text-[15px] text-[#111827] dark:text-[#e8eaf0]">
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="text-amber-500" size={28} strokeWidth={1.5} />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-            Empleados
-          </h1>
-        </div>
+      <header className="mb-6 flex justify-end">
         <button
           type="button"
           onClick={e.abrirNuevo}

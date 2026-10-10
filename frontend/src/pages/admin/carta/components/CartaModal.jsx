@@ -4,7 +4,7 @@ import { CARD } from '../constants'
 export default function CartaModal({ title, children, onClose }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -16,7 +16,7 @@ export default function CartaModal({ title, children, onClose }) {
         onClick={onClose}
       />
       <div
-        className={`relative z-10 w-full max-w-lg ${CARD} p-6 shadow-xl`}
+        className={`relative z-10 my-auto max-h-[min(90vh,calc(100dvh-2rem))] w-full max-w-lg overflow-y-auto ${CARD} p-6 shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">

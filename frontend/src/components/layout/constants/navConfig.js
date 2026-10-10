@@ -23,7 +23,9 @@ import {
   ScrollText,
   UserCog,
   Wallet,
+  Banknote,
 } from 'lucide-react'
+import { isModuloActivo } from '../../../utils/tenantModulos'
 
 /** Panel plataforma — solo `superadmin`. */
 export const SUPERADMIN_NAV_ITEMS = [
@@ -39,6 +41,12 @@ export const SUPERADMIN_NAV_ITEMS = [
     Icon: ScrollText,
     roles: ['superadmin'],
   },
+  {
+    path: '/superadmin/acuerdo-comercial',
+    label: 'Acuerdo comercial',
+    Icon: FileText,
+    roles: ['superadmin'],
+  },
 ]
 
 /** Lista plana: todas las rutas de navegación (sin grupo colapsable). */
@@ -48,18 +56,21 @@ export const NAV_ITEMS = [
     label: 'Sala',
     Icon: LayoutGrid,
     roles: ['admin', 'director', 'jefe_sala', 'camarero'],
+    modulo: 'sala',
   },
   {
     path: '/admin/sala',
     label: 'Gestión Sala',
     Icon: Settings,
     roles: ['admin', 'director', 'jefe_sala'],
+    modulo: 'sala',
   },
   {
     path: '/dashboard',
     label: 'Dashboard',
     Icon: BarChart2,
     roles: ['admin', 'director'],
+    modulo: 'reportes',
   },
   {
     path: '/analytics',
@@ -73,42 +84,56 @@ export const NAV_ITEMS = [
     label: 'Reportes',
     Icon: Download,
     roles: ['admin', 'director', 'jefe_sala', 'almacen'],
+    modulo: 'reportes',
   },
   {
     path: '/admin/carta',
     label: 'Carta',
     Icon: ClipboardList,
     roles: ['admin', 'director'],
+    modulo: 'carta',
   },
   {
     path: '/admin/usuarios',
     label: 'Usuarios',
     Icon: UserCog,
     roles: ['admin'],
+    modulo: 'sala',
   },
   {
     path: '/venta-live',
     label: 'Venta Live',
     Icon: Activity,
     roles: ['admin', 'director', 'jefe_sala'],
+    modulo: 'tpv',
+  },
+  {
+    path: '/cierre-caja',
+    label: 'Cierre de caja',
+    Icon: Banknote,
+    roles: ['admin', 'director', 'jefe_sala'],
+    modulo: 'tpv',
   },
   {
     path: '/inventario',
     label: 'Inventario',
     Icon: Package,
     roles: ['admin', 'director', 'almacen', 'cocina'],
+    modulo: 'inventario',
   },
   {
     path: '/inventario/mermas',
     label: 'Mermas',
     Icon: Trash2,
     roles: ['admin', 'director', 'almacen', 'cocina'],
+    modulo: 'inventario',
   },
   {
     path: '/appcc',
     label: 'APPCC',
     Icon: ShieldCheck,
     roles: ['admin', 'director', 'almacen', 'cocina'],
+    modulo: 'appcc',
   },
   {
     path: '/fifo',
@@ -122,6 +147,7 @@ export const NAV_ITEMS = [
     label: 'Proveedores',
     Icon: Truck,
     roles: ['admin', 'director', 'almacen', 'cocina'],
+    modulo: 'proveedores',
   },
   {
     path: '/proveedores/facturas',
@@ -135,18 +161,21 @@ export const NAV_ITEMS = [
     label: 'Recetas',
     Icon: ChefHat,
     roles: ['admin', 'director', 'cocina'],
+    modulo: 'carta',
   },
   {
     path: '/admin/costes',
     label: 'Gastos operativos',
     Icon: Wallet,
     roles: ['admin', 'director', 'cocina'],
+    modulo: 'reportes',
   },
   {
     path: '/empleados',
     label: 'Empleados',
     Icon: Users,
     roles: ['admin', 'director'],
+    modulo: 'empleados',
   },
   {
     path: '/fichajes',
@@ -160,12 +189,14 @@ export const NAV_ITEMS = [
       'cocina',
       'almacen',
     ],
+    modulo: 'empleados',
   },
   {
     path: '/cuadrante',
     label: 'Cuadrante',
     Icon: CalendarDays,
     roles: ['admin', 'director', 'jefe_sala'],
+    modulo: 'empleados',
   },
   {
     path: '/nominas',
@@ -179,12 +210,14 @@ export const NAV_ITEMS = [
     label: 'Reservas',
     Icon: Calendar,
     roles: ['admin', 'director', 'jefe_sala'],
+    modulo: 'reservas',
   },
   {
     path: '/clientes',
     label: 'Clientes',
     Icon: Users,
     roles: ['admin', 'director', 'jefe_sala'],
+    modulo: 'clientes',
   },
   {
     path: '/kds',
@@ -198,6 +231,7 @@ export const NAV_ITEMS = [
       'cocina',
       'barra',
     ],
+    modulo: 'kds',
   },
 ]
 
@@ -252,6 +286,26 @@ export function isNavActive(pathname, item) {
     )
   }
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`)
+}
+
+/** Ítems visibles según rol + módulos del tenant. */
+export function getVisibleNavItems(user) {
+  const rol = user?.rol
+  if (rol === 'superadmin') {
+    return SUPERADMIN_NAV_ITEMS
+  }
+  return NAV_ITEMS.filter((item) => {
+    if (!rol || !item.roles.includes(rol)) return false
+    return isModuloActivo(user?.modulos, item.modulo)
+  })
+}
+
+/** Título de headbar según ruta. */
+export function getNavLabelForPath(pathname) {
+  if (pathname === '/menu') return 'Menú'
+  const all = [...NAV_ITEMS, ...SUPERADMIN_NAV_ITEMS]
+  const match = all.find((item) => isNavActive(pathname, item))
+  return match?.label || 'HorecaSO'
 }
 
 export const navScrollStyle = {

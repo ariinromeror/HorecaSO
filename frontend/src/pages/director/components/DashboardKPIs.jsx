@@ -42,10 +42,7 @@ export default function DashboardKPIs({ data, cierre }) {
   })
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9] p-4 dark:bg-[#0f1117] md:p-7">
-      <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-        Dashboard
-      </h1>
+    <div>
       <p className="mb-6 text-sm capitalize text-[#6b7280] dark:text-[#8b90a7]">
         {fechaStr}
       </p>

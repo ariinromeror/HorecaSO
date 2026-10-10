@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
   Check,
-  FileText,
   Plus,
   ScanLine,
 } from 'lucide-react'
@@ -20,18 +19,11 @@ export default function FacturasPage() {
   const f = useFacturas()
 
   return (
-    <div className="min-h-screen min-w-0 overflow-x-hidden bg-[#f4f6f9] px-4 py-6 dark:bg-[#0f1117] md:px-6">
-      <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <FileText className="text-amber-500" size={28} strokeWidth={1.5} />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-            Facturas de proveedores
-          </h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <div className="min-w-0 overflow-x-hidden">
+      <header className="mb-6 flex flex-wrap justify-end gap-2">
           <Link
             to="/proveedores"
-            className="inline-flex h-10 items-center rounded-lg border border-[#e2e5ed] px-4 text-sm font-medium text-[#111827] dark:border-[#2e3347] dark:text-[#e8eaf0]"
+            className="inline-flex h-12 items-center rounded-lg border border-[#e2e5ed] px-4 text-sm font-medium text-[#111827] dark:border-[#2e3347] dark:text-[#e8eaf0]"
           >
             Proveedores
           </Link>
@@ -51,14 +43,13 @@ export default function FacturasPage() {
                   f.setResultadoIA(null)
                   f.setModalIA(true)
                 }}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 text-sm font-semibold text-amber-800 dark:text-amber-400"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 text-sm font-semibold text-amber-800 dark:text-amber-400"
               >
                 <ScanLine size={18} strokeWidth={1.5} />
                 Escanear con IA
               </button>
             </>
           ) : null}
-        </div>
       </header>
 
       {f.feedback?.msg ? (

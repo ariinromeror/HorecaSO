@@ -15,14 +15,6 @@ export const ZONAS = [
   { value: 'interior', label: 'Interior' },
   { value: 'terraza', label: 'Terraza' },
   { value: 'barra', label: 'Barra' },
-  { value: 'privado', label: 'Privado' },
-  { value: 'jardín', label: 'Jardín' },
-]
-
-export const FORMAS = [
-  { value: 'cuadrada', label: 'Cuadrada' },
-  { value: 'redonda', label: 'Redonda' },
-  { value: 'rectangular', label: 'Rectangular' },
 ]
 
 export function normZona(z) {
@@ -41,10 +33,6 @@ export function zonaBadgeClass(z) {
     return 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400'
   if (zl === 'barra')
     return 'bg-amber-500/10 text-amber-500 dark:text-amber-400'
-  if (zl === 'privado')
-    return 'bg-purple-500/10 text-purple-500 dark:text-purple-400'
-  if (zl === 'jardin' || zl === 'jardín')
-    return 'bg-green-500/10 text-green-500 dark:text-green-400'
   return 'bg-gray-500/10 text-gray-500 dark:text-gray-400'
 }
 
@@ -70,27 +58,14 @@ export function estadoLabel(estado) {
   return estado || '—'
 }
 
-export function formaLabel(forma) {
-  const f = String(forma || '').toLowerCase()
-  const o = FORMAS.find((x) => x.value === f)
-  return o ? o.label : forma || '—'
-}
-
 export function zonaToFormValue(z) {
   const zl = normZona(z)
   const match = ZONAS.find((opt) => normZona(opt.value) === zl)
   return match ? match.value : 'interior'
 }
 
-export function formaToFormValue(forma) {
-  const f = String(forma || '').toLowerCase()
-  const match = FORMAS.find((opt) => opt.value === f)
-  return match ? match.value : 'cuadrada'
-}
-
 export const emptyForm = () => ({
   numero: '',
   capacidad: 4,
   zona: 'interior',
-  forma: 'cuadrada',
 })

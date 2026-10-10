@@ -7,6 +7,7 @@ import {
   ScrollText,
   Sun,
   X,
+  FileText,
 } from 'lucide-react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -15,6 +16,11 @@ import { useTheme } from '../../context/ThemeContext'
 const NAV = [
   { to: '/superadmin/tenants', label: 'Tenants', Icon: Building2 },
   { to: '/superadmin/logs', label: 'Logs plataforma', Icon: ScrollText },
+  {
+    to: '/superadmin/acuerdo-comercial',
+    label: 'Acuerdo comercial',
+    Icon: FileText,
+  },
 ]
 
 function NavItems({ onNavigate }) {

@@ -22,6 +22,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
+from services.fechas import hoy_madrid
+
 _Q4 = Decimal("0.0001")
 _PESOS_MOVIL = [Decimal(str(w)) for w in (1, 1, 2, 2, 3, 4, 5)]  # 7 días, reciente pesa más
 
@@ -110,7 +112,7 @@ def forecast_serie_diaria(
     """
     serie = _rellenar_huecos(historial)
     if not serie:
-        hoy = date.today()
+        hoy = hoy_madrid()
         predicciones_vacias = [
             {
                 "fecha": hoy + timedelta(days=paso),

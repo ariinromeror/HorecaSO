@@ -92,16 +92,20 @@ export function tipoMovBadgeClass(tipo) {
 
 export function cantidadMovDisplay(row) {
   const u = row.unidad_medida || ''
-  const c = Number(row.cantidad)
+  const signed =
+    row.delta != null && row.delta !== ''
+      ? Number(row.delta)
+      : Number(row.cantidad) *
+        (row.tipo === 'entrada' || row.tipo === 'ajuste' ? 1 : -1)
   const abs = new Intl.NumberFormat('es-ES', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 4,
-  }).format(Math.abs(c))
+  }).format(Math.abs(signed))
   const suf = u ? ` ${u}` : ''
-  if (row.tipo === 'entrada' || row.tipo === 'ajuste') {
-    return { text: `+${abs}${suf}`, className: 'text-emerald-500 font-medium' }
+  if (signed < 0) {
+    return { text: `-${abs}${suf}`, className: 'text-red-500 font-medium' }
   }
-  return { text: `-${abs}${suf}`, className: 'text-red-500 font-medium' }
+  return { text: `+${abs}${suf}`, className: 'text-emerald-500 font-medium' }
 }
 
 /** Movimientos list may not include unidad — join from articulosOpciones */

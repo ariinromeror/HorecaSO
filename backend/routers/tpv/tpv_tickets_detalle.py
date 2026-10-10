@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from auth.dependencies import get_current_user, require_roles
+from auth.dependencies import require_roles
 from database import get_db
 
 from .tpv_shared import (
@@ -23,26 +23,85 @@ ROLES_TICKET_DETALLE = ("admin", "director", "jefe_sala", "camarero")
 @router.get("/tickets/{ticket_id}")
 async def get_ticket(
     ticket_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(list(ROLES_TICKET_DETALLE))),
 ):
-    """Devuelve ticket con sus líneas. HTTP 404 si no existe."""
-    async with get_db() as conn:
-        ticket_row = await conn.fetchrow(
-            "SELECT * FROM tickets WHERE id = $1",
-            ticket_id,
-        )
-        if not ticket_row:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Ticket no encontrado",
+    """Devuelve ticket con sus líneas y mesa_numero. HTTP 404 si no existe."""
+    try:
+        async with get_db() as conn:
+            ticket_row = await _require_ticket_tpv_access(
+                conn, ticket_id, current_user["sub"]
             )
 
-        lineas_rows = await conn.fetch(
-            "SELECT * FROM ticket_lineas WHERE ticket_id = $1 ORDER BY id",
-            ticket_id,
-        )
+            mesa_numero = None
+            tenant_print = None
+            if ticket_row.get("mesa_id"):
+                m = await conn.fetchrow(
+                    "SELECT numero, estado FROM mesas WHERE id = $1",
+                    ticket_row["mesa_id"],
+                )
+                if m:
+                    mesa_numero = m["numero"]
+                    # Heal: ticket abierto con mesa libre → marcar ocupada
+                    if (
+                        ticket_row["estado"] == "abierto"
+                        and m["estado"] == "libre"
+                    ):
+                        await conn.execute(
+                            "UPDATE mesas SET estado = 'ocupada' WHERE id = $1",
+                            ticket_row["mesa_id"],
+                        )
+
+            if ticket_row.get("outlet_id"):
+                tn = await conn.fetchrow(
+                    """
+                    SELECT
+                        t.nombre,
+                        t.razon_social,
+                        t.nif,
+                        t.direccion,
+                        t.codigo_postal,
+                        t.ciudad,
+                        t.provincia,
+                        t.telefono
+                    FROM outlets o
+                    JOIN tenants t ON t.id = o.tenant_id
+                    WHERE o.id = $1
+                    """,
+                    ticket_row["outlet_id"],
+                )
+                if tn:
+                    tenant_print = {
+                        "nombre": tn["nombre"],
+                        "razon_social": tn["razon_social"],
+                        "nif": tn["nif"],
+                        "direccion": tn["direccion"],
+                        "codigo_postal": tn["codigo_postal"],
+                        "ciudad": tn["ciudad"],
+                        "provincia": tn["provincia"],
+                        "telefono": tn["telefono"],
+                    }
+
+            lineas_rows = await conn.fetch(
+                "SELECT * FROM ticket_lineas WHERE ticket_id = $1 ORDER BY id",
+                ticket_id,
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en get_ticket: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno",
+        ) from e
 
     result = _ticket_to_dict(ticket_row)
+    result["mesa_numero"] = mesa_numero
+    result["tenant_print"] = tenant_print
+    result["tenant_nombre"] = (
+        (tenant_print.get("razon_social") or tenant_print.get("nombre"))
+        if tenant_print
+        else None
+    )
     result["lineas"] = [_linea_to_dict(l) for l in lineas_rows]
     return result
 

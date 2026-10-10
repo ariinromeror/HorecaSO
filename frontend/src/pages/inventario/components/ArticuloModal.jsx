@@ -1,4 +1,4 @@
-import { Check, X } from 'lucide-react'
+import { Check, RefreshCw, X } from 'lucide-react'
 import {
   BTN_PRIMARY,
   BTN_SECONDARY,
@@ -9,6 +9,7 @@ import {
   TEMP_OPTS,
   UNIDADES,
 } from '../constants'
+import { sugerirSku } from '../skuFromNombre'
 
 export default function ArticuloModal({
   modalArticulo,
@@ -17,8 +18,36 @@ export default function ArticuloModal({
   setFormArticulo,
   submitArticulo,
   savingArticulo,
+  skuManual,
+  setSkuManual,
+  articulos = [],
 }) {
   if (!modalArticulo) return null
+
+  const isNew = modalArticulo === 'new'
+  const skusExistentes = articulos.map((a) => a.sku).filter(Boolean)
+  const excluirSku =
+    !isNew && modalArticulo?.sku ? modalArticulo.sku : null
+
+  const regenerarSku = () => {
+    const next = sugerirSku(
+      formArticulo.nombre,
+      skusExistentes,
+      excluirSku
+    )
+    setFormArticulo((f) => ({ ...f, sku: next }))
+    setSkuManual(false)
+  }
+
+  const onNombreChange = (value) => {
+    setFormArticulo((f) => {
+      const next = { ...f, nombre: value }
+      if (isNew && !skuManual) {
+        next.sku = sugerirSku(value, skusExistentes, null)
+      }
+      return next
+    })
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -32,7 +61,7 @@ export default function ArticuloModal({
             id="modal-articulo-title"
             className="text-lg font-bold text-[#111827] dark:text-[#f5f5f5]"
           >
-            {modalArticulo === 'new' ? 'Nuevo artículo' : 'Editar artículo'}
+            {isNew ? 'Nuevo artículo' : 'Editar artículo'}
           </h2>
           <button
             type="button"
@@ -50,23 +79,39 @@ export default function ArticuloModal({
             </label>
             <input
               value={formArticulo.nombre}
-              onChange={(e) =>
-                setFormArticulo((f) => ({ ...f, nombre: e.target.value }))
-              }
+              onChange={(e) => onNombreChange(e.target.value)}
               className={INPUT}
+              placeholder="Ej. Leche de almendras"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
-              SKU
-            </label>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <label className="block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
+                SKU (auto)
+              </label>
+              <button
+                type="button"
+                onClick={regenerarSku}
+                disabled={!formArticulo.nombre.trim()}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-500/15 disabled:opacity-40 dark:text-amber-400"
+              >
+                <RefreshCw size={14} strokeWidth={1.5} />
+                Generar
+              </button>
+            </div>
             <input
               value={formArticulo.sku}
-              onChange={(e) =>
+              onChange={(e) => {
+                setSkuManual(true)
                 setFormArticulo((f) => ({ ...f, sku: e.target.value }))
-              }
+              }}
               className={INPUT}
+              placeholder="Se genera del nombre"
             />
+            <p className="mt-1 text-xs text-[#6b7280] dark:text-[#8b90a7]">
+              Se crea solo a partir del nombre (ej. Leche → LCH). Puedes
+              cambiarlo; si ya existe, añade -2, -3…
+            </p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">

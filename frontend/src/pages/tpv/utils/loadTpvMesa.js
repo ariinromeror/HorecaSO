@@ -32,7 +32,17 @@ export async function loadTpvMesa({
 
   if (existente) {
     const full = await getTicket(existente.id)
-    if (!isCancelled()) setTicket(full.data)
+    if (!isCancelled()) {
+      const data = full.data || {}
+      if (
+        (data.mesa_numero == null || data.mesa_numero === '') &&
+        existente.mesa_numero != null &&
+        existente.mesa_numero !== ''
+      ) {
+        data.mesa_numero = existente.mesa_numero
+      }
+      setTicket(data)
+    }
   } else {
     try {
       const created = await createTicket(mesaId)

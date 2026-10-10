@@ -3,7 +3,6 @@ import {
   BTN_PRIMARY,
   BTN_SECONDARY,
   CARD_BASE,
-  FORMAS,
   ICON,
   INPUT,
   ZONAS,
@@ -93,24 +92,6 @@ export default function MesaAdminModal({
               {ZONAS.map((z) => (
                 <option key={z.value} value={z.value}>
                   {z.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
-              Forma *
-            </label>
-            <select
-              value={formMesa.forma}
-              onChange={(e) =>
-                setFormMesa((f) => ({ ...f, forma: e.target.value }))
-              }
-              className={INPUT}
-            >
-              {FORMAS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
                 </option>
               ))}
             </select>

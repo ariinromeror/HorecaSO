@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from auth.dependencies import require_roles
 from database import get_db
+from services.fechas import hoy_madrid
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ def _resolve_rango_no_conformes(
     desde: Optional[date],
     hasta: Optional[date],
 ) -> tuple[date, date]:
-    h = hasta or date.today()
+    h = hasta or hoy_madrid()
     d = desde or (h - timedelta(days=29))
     if d > h:
         d, h = h, d
@@ -125,8 +126,8 @@ async def list_registros_no_conformes(
                 LEFT JOIN usuarios u ON r.usuario_id = u.id
                 WHERE r.outlet_id = $1
                   AND r.conforme = FALSE
-                  AND DATE(r.created_at) >= $2
-                  AND DATE(r.created_at) <= $3
+                  AND (r.created_at AT TIME ZONE 'Europe/Madrid')::date >= $2
+                  AND (r.created_at AT TIME ZONE 'Europe/Madrid')::date <= $3
                 ORDER BY r.created_at DESC
                 """,
                 outlet_id,
@@ -160,17 +161,20 @@ async def list_registros_appcc(
             params: list[Any] = [outlet_id]
             n = 2
 
+            dia_sql = "(r.created_at AT TIME ZONE 'Europe/Madrid')::date"
             if desde is not None and hasta is not None:
-                conds.append("DATE(r.created_at) BETWEEN $" + str(n) + " AND $" + str(n + 1))
+                conds.append(dia_sql + " BETWEEN $" + str(n) + " AND $" + str(n + 1))
                 params.append(desde)
                 params.append(hasta)
                 n += 2
             elif desde is not None:
-                conds.append("DATE(r.created_at) >= $" + str(n))
+                conds.append(dia_sql + " >= $" + str(n))
                 params.append(desde)
                 n += 1
             else:
-                conds.append("DATE(r.created_at) = CURRENT_DATE")
+                conds.append(dia_sql + " = $" + str(n))
+                params.append(hoy_madrid())
+                n += 1
 
             if tipo_control is not None and str(tipo_control).strip():
                 conds.append("r.tipo_control = $" + str(n))
@@ -314,6 +318,7 @@ async def get_resumen_dia_appcc(
     current_user: dict = Depends(require_roles(ROLES_APPCC)),
 ):
     user_uuid = _uid(current_user)
+    hoy = hoy_madrid()
     try:
         async with get_db() as conn:
             outlet_id = await _outlet_id_usuario(conn, user_uuid)
@@ -325,19 +330,21 @@ async def get_resumen_dia_appcc(
                     COUNT(*) FILTER (WHERE conforme = FALSE)::bigint AS no_conformes
                 FROM registros_appcc
                 WHERE outlet_id = $1
-                  AND DATE(created_at) = CURRENT_DATE
+                  AND (created_at AT TIME ZONE 'Europe/Madrid')::date = $2
                 """,
                 outlet_id,
+                hoy,
             )
             por_tipo_rows = await conn.fetch(
                 """
                 SELECT tipo_control, COUNT(*)::bigint AS cnt
                 FROM registros_appcc
                 WHERE outlet_id = $1
-                  AND DATE(created_at) = CURRENT_DATE
+                  AND (created_at AT TIME ZONE 'Europe/Madrid')::date = $2
                 GROUP BY tipo_control
                 """,
                 outlet_id,
+                hoy,
             )
 
         total = int(tot["total_registros"] or 0)
@@ -356,8 +363,6 @@ async def get_resumen_dia_appcc(
         por_tipo: dict[str, int] = {}
         for r in por_tipo_rows:
             por_tipo[str(r["tipo_control"])] = int(r["cnt"] or 0)
-
-        hoy = date.today()
 
         return {
             "fecha": hoy.isoformat(),

@@ -33,9 +33,19 @@ class UpdateMesaPutRequest(BaseModel):
     numero: int | None = None
     capacidad: int | None = None
     zona: str | None = None
-    forma: str | None = None
     posicion_x: float | None = None
     posicion_y: float | None = None
+
+
+def _format_hora_reserva(ho) -> str | None:
+    if ho is None:
+        return None
+    if hasattr(ho, "strftime"):
+        return ho.strftime("%H:%M")
+    s = str(ho)
+    if len(s) >= 5 and s[2] == ":":
+        return s[:5]
+    return s
 
 
 def _mesa_to_dict(row) -> dict:
@@ -50,7 +60,9 @@ def _mesa_to_dict(row) -> dict:
         "posicion_x": float(r["posicion_x"]) if r["posicion_x"] is not None else None,
         "posicion_y": float(r["posicion_y"]) if r["posicion_y"] is not None else None,
         "zona": r["zona"],
-        "forma": r.get("forma"),
+        "reserva_hora": _format_hora_reserva(r.get("reserva_hora")),
+        "reserva_nombre": r.get("reserva_nombre"),
+        "reserva_personas": r.get("reserva_personas"),
     }
 
 

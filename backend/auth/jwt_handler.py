@@ -1,24 +1,28 @@
 """
-Manejo de JWT para HorecaSO.
+Manejo de JWT para HorecaSO (PyJWT, HSO-19).
 Usa settings desde config.py.
 """
 
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 
 from config import settings
 
+# Tope de duración aunque ACCESS_TOKEN_EXPIRE_MINUTES del entorno sea mayor.
+MAX_TOKEN_MINUTES = 720
+
 
 def create_access_token(data: dict) -> str:
-    """Crea un JWT con expiración en ACCESS_TOKEN_EXPIRE_MINUTES.
+    """Crea un JWT con expiración en ACCESS_TOKEN_EXPIRE_MINUTES (máx. 12 h).
 
     Valores None en el payload (p. ej. tenant_id / negocio_id para superadmin)
-    se serializan como JSON null; jose los decodifica como None sin error.
+    se serializan como JSON null.
     """
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=min(settings.ACCESS_TOKEN_EXPIRE_MINUTES, MAX_TOKEN_MINUTES)
     )
     to_encode["exp"] = expire
     return jwt.encode(
@@ -40,7 +44,7 @@ def verify_token(token: str) -> dict | None:
             settings.SECRET_KEY_AUTH,
             algorithms=[settings.ALGORITHM],
         )
-    except JWTError:
+    except InvalidTokenError:
         return None
 
     if payload.get("role") == "superadmin":

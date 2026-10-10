@@ -130,19 +130,29 @@ export default function CobroModal({
               type="button"
               disabled={!lineas.length}
               onClick={handlePrintComanda}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] bg-white text-sm font-semibold text-[#111827] dark:border-[#2e3347] dark:bg-[#1a1d27] dark:text-[#e8eaf0] disabled:opacity-40"
+              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-[#e2e5ed] bg-white px-3 py-2 text-[#111827] dark:border-[#2e3347] dark:bg-[#1a1d27] dark:text-[#e8eaf0] disabled:opacity-40"
             >
-              <Printer size={18} strokeWidth={1.5} />
-              Imprimir comanda
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <Printer size={18} strokeWidth={1.5} />
+                Comanda cocina
+              </span>
+              <span className="text-xs font-normal text-[#6b7280] dark:text-[#8b90a7]">
+                Sin precios · cocina/barra
+              </span>
             </button>
             <button
               type="button"
               disabled={!lineas.length}
               onClick={handlePrintTicket}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm font-semibold text-amber-700 dark:text-amber-400 disabled:opacity-40"
+              className="flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-700 dark:text-amber-400 disabled:opacity-40"
             >
-              <Printer size={18} strokeWidth={1.5} />
-              Imprimir ticket
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <Printer size={18} strokeWidth={1.5} />
+                Ticket cliente
+              </span>
+              <span className="text-xs font-normal text-amber-700/80 dark:text-amber-400/80">
+                Con precios y total
+              </span>
             </button>
           </div>
         </>

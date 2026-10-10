@@ -1,9 +1,5 @@
 import { Navigate } from 'react-router-dom'
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import EmptyState from '../../components/shared/EmptyState'
 import Loader from '../../components/shared/Loader'
 import { ROLES_CUADRANTE, CUADRANTE_BTN_PRIMARY, CUADRANTE_SURFACE } from './constants'
@@ -20,21 +16,13 @@ export default function CuadrantePage() {
   }
 
   if (c.user && !ROLES_CUADRANTE.includes(c.user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
     <div className="min-h-full text-[15px] text-[#111827] dark:text-[#e8eaf0]">
       <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
-          <CalendarDays
-            className="text-amber-500"
-            size={28}
-            strokeWidth={1.5}
-          />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-            Cuadrante Semanal
-          </h1>
           {c.pendientesCount > 0 ? (
             <span className="rounded-full bg-amber-500/20 px-3 py-1 text-[13px] font-semibold text-amber-700 dark:text-amber-400">
               Sin publicar ({c.pendientesCount}{' '}

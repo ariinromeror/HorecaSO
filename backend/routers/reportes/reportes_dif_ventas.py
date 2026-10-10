@@ -1,4 +1,4 @@
-"""Reporte PDF ventas periodo."""
+"""Reporte ventas periodo: PDF + JSON datos."""
 from __future__ import annotations
 
 from datetime import date
@@ -18,7 +18,131 @@ from .reportes_dif_shared import (
 from services.pdf_reportes import pdf_ventas_periodo
 
 
+def _serialize_ventas_payload(filas, resumen, desde: str, hasta: str) -> dict:
+    out_filas = []
+    for f in filas:
+        out_filas.append(
+            {
+                "fecha": f["fecha"],
+                "tickets": int(f["tickets"] or 0),
+                "ventas": float(f["ventas"] or 0),
+                "iva": float(f["iva"] or 0),
+            }
+        )
+    return {
+        "desde": desde,
+        "hasta": hasta,
+        "filas": out_filas,
+        "resumen": {
+            "total": float(resumen["total"] or 0),
+            "ticket_medio": float(resumen["ticket_medio"] or 0),
+            "mejor_dia": resumen.get("mejor_dia"),
+            "num_dias": len(out_filas),
+            "total_tickets": sum(x["tickets"] for x in out_filas),
+        },
+    }
+
+
+async def _build_ventas(conn, uid, tenant_id, d0: date, d1: date):
+    oid = await _outlet_id(conn, uid)
+    rows = await conn.fetch(
+        """
+        SELECT (cobrado_at AT TIME ZONE 'Europe/Madrid')::date AS fecha,
+            COUNT(*)::bigint AS tickets,
+            SUM(total) AS ventas,
+            SUM(COALESCE(total_iva, 0)) AS iva
+        FROM tickets
+        WHERE outlet_id = $1
+          AND cobrado_at IS NOT NULL
+          AND (cobrado_at AT TIME ZONE 'Europe/Madrid')::date BETWEEN $2 AND $3
+          AND estado = 'cobrado'
+        GROUP BY 1
+        ORDER BY fecha
+        """,
+        oid,
+        d0,
+        d1,
+    )
+    trow = await conn.fetchrow(
+        "SELECT nombre, nif FROM tenants WHERE id = $1",
+        tenant_id,
+    )
+    total_v = Decimal("0")
+    total_tickets = 0
+    mejor_dia = None
+    mejor_val = Decimal("-1")
+    filas = []
+    for r in rows:
+        v = Decimal(str(r["ventas"] or 0))
+        nt = int(r["tickets"] or 0)
+        total_v += v
+        total_tickets += nt
+        fd = r["fecha"]
+        if v > mejor_val:
+            mejor_val = v
+            mejor_dia = (
+                fd.isoformat() if hasattr(fd, "isoformat") else str(fd)
+            )
+        fs = fd.isoformat() if hasattr(fd, "isoformat") else str(fd)
+        filas.append(
+            {
+                "fecha": fs,
+                "tickets": nt,
+                "ventas": r["ventas"],
+                "iva": r["iva"],
+            }
+        )
+    ticket_medio = (
+        (total_v / Decimal(total_tickets)).quantize(
+            Decimal("0.01"), ROUND_HALF_UP
+        )
+        if total_tickets
+        else Decimal("0")
+    )
+    resumen = {
+        "total": total_v,
+        "ticket_medio": ticket_medio,
+        "mejor_dia": mejor_dia,
+    }
+    tenant = {
+        "nombre": (trow["nombre"] if trow else "") or "—",
+        "nif": (trow["nif"] if trow else "") or "",
+    }
+    return filas, resumen, tenant
+
+
 def register_reportes_dif_ventas(router: APIRouter) -> None:
+    @router.get("/ventas/datos")
+    async def reporte_ventas_datos(
+        desde: str = Query(...),
+        hasta: str = Query(...),
+        current_user: dict = Depends(require_roles(["admin", "director"])),
+    ):
+        uid = _uid(current_user)
+        tenant_id = _tenant_id(current_user)
+        try:
+            d0 = date.fromisoformat(desde)
+            d1 = date.fromisoformat(hasta)
+        except ValueError:
+            raise HTTPException(
+                status_code=400, detail="Fechas inválidas (YYYY-MM-DD)"
+            )
+        if d0 > d1:
+            d0, d1 = d1, d0
+        try:
+            async with get_db() as conn:
+                filas, resumen, _tenant = await _build_ventas(
+                    conn, uid, tenant_id, d0, d1
+                )
+            return _serialize_ventas_payload(
+                filas, resumen, d0.isoformat(), d1.isoformat()
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("reporte_ventas_datos: %s", e)
+            raise HTTPException(status_code=500, detail="Error interno")
+
     @router.get("/ventas")
     async def reporte_ventas(
         desde: str = Query(...),
@@ -38,74 +162,11 @@ def register_reportes_dif_ventas(router: APIRouter) -> None:
             d0, d1 = d1, d0
         try:
             async with get_db() as conn:
-                oid = await _outlet_id(conn, uid)
-                rows = await conn.fetch(
-                    """
-                    SELECT (cobrado_at::date) AS fecha,
-                        COUNT(*)::bigint AS tickets,
-                        SUM(total) AS ventas,
-                        SUM(COALESCE(total_iva, 0)) AS iva
-                    FROM tickets
-                    WHERE outlet_id = $1
-                      AND cobrado_at IS NOT NULL
-                      AND cobrado_at::date BETWEEN $2 AND $3
-                      AND estado = 'cobrado'
-                    GROUP BY (cobrado_at::date)
-                    ORDER BY fecha
-                    """,
-                    oid,
-                    d0,
-                    d1,
+                filas, resumen, tenant = await _build_ventas(
+                    conn, uid, tenant_id, d0, d1
                 )
-                trow = await conn.fetchrow(
-                    "SELECT nombre, nif FROM tenants WHERE id = $1",
-                    tenant_id,
-                )
-            total_v = Decimal("0")
-            total_tickets = 0
-            mejor_dia = None
-            mejor_val = Decimal("-1")
-            filas = []
-            for r in rows:
-                v = Decimal(str(r["ventas"] or 0))
-                nt = int(r["tickets"] or 0)
-                total_v += v
-                total_tickets += nt
-                fd = r["fecha"]
-                if v > mejor_val:
-                    mejor_val = v
-                    mejor_dia = (
-                        fd.isoformat()
-                        if hasattr(fd, "isoformat")
-                        else str(fd)
-                    )
-                fs = fd.isoformat() if hasattr(fd, "isoformat") else str(fd)
-                filas.append(
-                    {
-                        "fecha": fs,
-                        "tickets": nt,
-                        "ventas": r["ventas"],
-                        "iva": r["iva"],
-                    }
-                )
-            ticket_medio = (
-                (total_v / Decimal(total_tickets)).quantize(
-                    Decimal("0.01"), ROUND_HALF_UP
-                )
-                if total_tickets
-                else Decimal("0")
-            )
-            resumen = {
-                "total": total_v,
-                "ticket_medio": ticket_medio,
-                "mejor_dia": mejor_dia,
-            }
-            tenant = {
-                "nombre": (trow["nombre"] if trow else "") or "—",
-                "nif": (trow["nif"] if trow else "") or "",
-            }
             pdf_bytes = pdf_ventas_periodo(
-                filas, resumen, tenant, desde, hasta
+                filas, resumen, tenant, d0.isoformat(), d1.isoformat()
             )
             return _pdf_resp(pdf_bytes, "ventas_periodo")
         except HTTPException:
