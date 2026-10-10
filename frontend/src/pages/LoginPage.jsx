@@ -15,39 +15,46 @@ import ProjectInfoModal from '../components/ProjectInfoModal'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
-/** Cuentas demo solo en desarrollo local (Vite DEV). No se muestran en venta/producción. */
-const DEMO_ACCOUNTS = import.meta.env.DEV
-  ? [
-      {
-        rol: 'superadmin',
-        label: 'Entrar como Superadmin',
-        email: 'superadmin@horecaso.com',
-        password: 'SuperAdmin2024!',
-        Icon: Crown,
-      },
-      {
-        rol: 'admin',
-        label: 'Entrar como Administrador',
-        email: 'admin@prueba.com',
-        password: 'Admin1234!',
-        Icon: ShieldCheck,
-      },
-      {
-        rol: 'camarero',
-        label: 'Entrar como Camarero',
-        email: 'camarero@prueba.com',
-        password: 'Camarero1234!',
-        Icon: HandPlatter,
-      },
-      {
-        rol: 'cocina',
-        label: 'Entrar como Cocinero',
-        email: 'cocina@prueba.com',
-        password: 'Cocina1234!',
-        Icon: ChefHat,
-      },
-    ]
-  : []
+/**
+ * Acceso rápido solo en Vite DEV y solo si hay VITE_DEMO_* en
+ * .env.development.local. Producción: DEV=false → array vacío (no se renderiza).
+ */
+function buildDemoAccounts() {
+  if (!import.meta.env.DEV) return []
+  const specs = [
+    {
+      rol: 'superadmin',
+      label: 'Entrar como Superadmin',
+      email: import.meta.env.VITE_DEMO_SUPERADMIN_EMAIL,
+      password: import.meta.env.VITE_DEMO_SUPERADMIN_PASSWORD,
+      Icon: Crown,
+    },
+    {
+      rol: 'admin',
+      label: 'Entrar como Administrador',
+      email: import.meta.env.VITE_DEMO_ADMIN_EMAIL,
+      password: import.meta.env.VITE_DEMO_ADMIN_PASSWORD,
+      Icon: ShieldCheck,
+    },
+    {
+      rol: 'camarero',
+      label: 'Entrar como Camarero',
+      email: import.meta.env.VITE_DEMO_CAMARERO_EMAIL,
+      password: import.meta.env.VITE_DEMO_CAMARERO_PASSWORD,
+      Icon: HandPlatter,
+    },
+    {
+      rol: 'cocina',
+      label: 'Entrar como Cocinero',
+      email: import.meta.env.VITE_DEMO_COCINA_EMAIL,
+      password: import.meta.env.VITE_DEMO_COCINA_PASSWORD,
+      Icon: ChefHat,
+    },
+  ]
+  return specs.filter((a) => Boolean(a.email && a.password))
+}
+
+const DEMO_ACCOUNTS = buildDemoAccounts()
 
 function homePathForUser(user) {
   return user?.rol === 'superadmin' ? '/superadmin/tenants' : '/menu'
