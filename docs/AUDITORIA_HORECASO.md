@@ -120,6 +120,9 @@ CREATE TRIGGER trg_vf_inmutable BEFORE UPDATE OR DELETE ON verifactu_registros
   - Quitar las contraseñas del script (leerlas de variables de entorno).
   - Si el repo es público, asumir que están comprometidas aunque se borren del historial.
 - **Esfuerzo:** Bajo. **Riesgo:** Nulo.
+- **Nota (10/10/2026):** commit `1dba7c0` — credenciales demo fuera del código (`VITE_DEMO_*`, `check_bundle_secrets.mjs`). Hash superadmin rotado en BD; cuentas demo `@prueba.com` desactivadas en Supabase.
+  - Código (commit `1dba7c0`): verificado por lectura y build.
+  - Credenciales en BD y producción: verificado manualmente por el responsable (ver bitácora); prueba negativa del script pendiente.
 
 ### ALTOS
 
@@ -142,6 +145,7 @@ ticket = await _require_ticket_tpv_access(conn, ticket_id, current_user)  # tena
 ```
   Y quitar la escritura lateral de `get_ticket`: un GET no debe escribir.
 - **Esfuerzo:** Bajo-Medio. **Riesgo:** Medio. Puede bloquear algún flujo legítimo de un rol; revisar contra el `NAV_ITEMS` del sidebar.
+- **Nota (10/10/2026):** commits `8d938c7` (GET ticket solo lectura + 404 cross-tenant), `d69e8e4` (GET coste receta sin escritura); filtro tenant `838fba9` (KDS), `0b3994f` (APPCC), `d9e1547` (reportes), `670aa79` (analytics). **Verificado por test** (cross-tenant KDS/APPCC/reportes ventas/analytics; GET sin escritura). Ampliación a otros reportes/cierre/PDF: verificado por lectura (sin test cross-tenant).
 
 **HSO-05 — Se aceptan cantidades negativas o cero en las líneas de ticket** · Dinero · Alta
 - **Ubicación:**
@@ -188,6 +192,8 @@ payload["role"] = row["rol"]
   - Detrás del proxy de Render, gunicorn ve la IP del proxy. Hay que añadir `--forwarded-allow-ips="*"` en el `CMD` del `Dockerfile`. Si no, todo el restaurante comparte el mismo límite y se bloquea entero.
   - Con 2 workers y almacén en memoria, el límite real es el doble. Es aceptable.
 - **Esfuerzo:** Bajo. **Riesgo:** Bajo-Medio, solo si no se configuran las cabeceras del proxy.
+- **Nota (10/10/2026):** rate limit de login en código (Fase 2; `rate_limit.py` + `test_hso07_rate_limit_login.py`). Suite del cierre de seguridad tenant: **verificado por test** (incluido en 190 passed). Superficie de fuerza bruta reducida además por ops de HSO-03 (commit `1dba7c0` + rotación/desactivación en BD).
+  Pendiente: comprobar en producción la IP registrada en el log de 429 (la suite verifica la lógica, no la cabecera X-Forwarded-For real de Render).
 
 **HSO-08 — Se aceptan sobrepagos y el cierre de caja descuadra** · Dinero · Alta
 - **Ubicación:** `tpv_pagos.add_ticket_pago` L54-77 no compara el `importe` con lo pendiente. `tpv_cierre_caja` suma los pagos por método.
@@ -312,6 +318,7 @@ CREATE INDEX ON turnos(empleado_id, fecha);
   - Todos los endpoints de `verifactu.py` usan `get_current_user`. Filtran por tenant, pero un camarero puede ver las ventas y exportar el CSV fiscal.
 - **Solución:** `require_roles(['admin','director'])`, más `jefe_sala` donde lo prevea el sidebar.
 - **Esfuerzo:** Bajo. **Riesgo:** Bajo.
+- **Nota (10/10/2026):** `require_roles` en dashboard/Verifactu (Fase 1; `test_hso16_roles_dashboard_verifactu.py`). Suite del cierre de seguridad tenant: **verificado por test** (incluido en 190 passed). Sin commit nuevo específico en este cierre.
 
 **HSO-17 — `descuento_porcentaje` y `total_iva` nunca se rellenan** · Reporting · Media
 - **Ubicación:** el TPV no escribe esas columnas, y el informe de ventas hace `SUM(COALESCE(total_iva,0))`.

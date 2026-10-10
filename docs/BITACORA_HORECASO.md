@@ -1,10 +1,20 @@
 # BITÁCORA HORECASO — Estado real del proyecto
-**Última actualización:** 10 de octubre de 2026 (copy Verifactu honesto — 8 pasos)  
+**Última actualización:** 10 de octubre de 2026 (cierre bloque seguridad tenant)  
 **Generada por:** Cursor leyendo el repo real
 
 ---
 
 ## 0. SESIÓN PILOTO 05–06/10/2026
+
+### 10/10/2026 — Cierre bloque seguridad: filtro por tenant y credenciales demo
+
+- **Credenciales:** superadmin con contraseña nueva (hash actualizado en BD, sin registrar la contraseña en el repo). Cuentas `admin@prueba.com`, `camarero@prueba.com` y `cocina@prueba.com` desactivadas en Supabase. Login con contraseña antigua: rechazado. Comprobación manual del responsable del piloto en producción (fecha: 10/10/2026).
+- **Commit `1dba7c0`:** credenciales demo fuera del código fuente (`VITE_DEMO_*` en `.env.development.local`, gitignored). `check_bundle_secrets.mjs`. **PENDIENTE:** prueba negativa del script `check_bundle_secrets.mjs` (no concluida). Hasta hacerla, el commit `1dba7c0` no queda validado como control.
+- **GET sin escritura:** commits `8d938c7` (tickets) y `d69e8e4` (coste de receta). Tests nuevos: `test_prompt3_get_sin_escritura.py`. Un test existente de HSO-04 cambió de 403 a 404 para otro tenant; motivo: no revelar existencia del recurso.
+- **Filtro por tenant:** commits `838fba9` (KDS), `0b3994f` (APPCC), `d9e1547` (reportes), `670aa79` (analytics). Tests cross-tenant verificados con fallo antes y éxito después: KDS, APPCC, reportes ventas, analytics.
+- **Verificado solo por lectura de código, SIN test cross-tenant:** reportes nómina, inventario, fiscal-trimestre, cuadrante, rentabilidad-platos, comparativa-proveedores, cierre-caja y appcc PDF.
+- **Pendiente:** prueba manual en producción con usuario de Kairos (KDS, APPCC, reportes, rentabilidad).
+- **Resultado:** pytest **190 passed**, 0 failed, 0 skipped, 0 errors (1 warning reportlab).
 
 ### 10/10/2026 — Textos Verifactu: registro interno, sin AEAT (8 pasos)
 
