@@ -18,6 +18,7 @@ from .analytics_shared import (
     _d,
     _outlet_id_usuario,
     _resolve_rango_fechas,
+    _tenant_id_usuario,
     _uid,
 )
 
@@ -44,14 +45,26 @@ async def get_rentabilidad_mesas(
     d0, d1 = _resolve_rango_fechas(desde, hasta)
     try:
         async with get_db() as conn:
+            tenant_id = await _tenant_id_usuario(conn, user_uuid)
             outlet_id = await _outlet_id_usuario(conn, user_uuid)
+            ok = await conn.fetchval(
+                "SELECT 1 FROM outlets WHERE id = $1 AND tenant_id = $2",
+                outlet_id,
+                tenant_id,
+            )
+            if not ok:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Outlet no encontrado",
+                )
             conds = [
                 "rm.outlet_id = $1",
                 "rm.fecha >= $2",
                 "rm.fecha <= $3",
+                "o.tenant_id = $4",
             ]
-            params: list[Any] = [outlet_id, d0, d1]
-            n = 4
+            params: list[Any] = [outlet_id, d0, d1, tenant_id]
+            n = 5
             if zona is not None and str(zona).strip():
                 conds.append("m.zona = $" + str(n))
                 params.append(str(zona).strip())
@@ -70,6 +83,7 @@ async def get_rentabilidad_mesas(
                     AVG(rm.ingreso_por_comensal) AS ingreso_medio_comensal,
                     AVG(rm.tiempo_ocupacion_minutos) AS tiempo_medio_ocupacion
                 FROM rentabilidad_mesas rm
+                JOIN outlets o ON o.id = rm.outlet_id
                 JOIN mesas m ON m.id = rm.mesa_id
                 WHERE """
                 + where_sql
@@ -89,6 +103,7 @@ async def get_rentabilidad_mesas(
                     AVG(rm.ingreso_por_comensal) AS ingreso_medio_comensal,
                     AVG(rm.tiempo_ocupacion_minutos) AS tiempo_medio_ocupacion
                 FROM rentabilidad_mesas rm
+                JOIN outlets o ON o.id = rm.outlet_id
                 JOIN mesas m ON m.id = rm.mesa_id
                 WHERE """
                 + where_sql
