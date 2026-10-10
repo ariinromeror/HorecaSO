@@ -1,11 +1,11 @@
-# Checklist Render Starter (al llevar al local)
+# Checklist Render (legado)
 
-Ahora en casa: **Render Free** (cold start OK).
+**Preferido para piloto 24/7:** [CHECKLIST_RAILWAY.md](CHECKLIST_RAILWAY.md) (Hobby ~$5).
 
-Antes del día de servicio en la cafetería:
+Si sigues en Render Free: cold start esperado. Si subes a Starter (~$7):
 
-1. Dashboard Render → servicio `horecaso-api` → **Change plan** → **Starter** (~$7/mes).
-2. Confirmar `DATABASE_URL` pooler y health 200 sin esperas largas.
-3. Anotar en bitácora la fecha del upgrade.
+1. Dashboard Render → `horecaso-api` → Change plan → Starter.
+2. Confirmar `DATABASE_URL` y health 200.
+3. Anotar en bitácora.
 
-No hace falta migrar a Railway.
+Para servicio siempre on sin cuidar VPS, **Railway Hobby** es la opción del roadmap.

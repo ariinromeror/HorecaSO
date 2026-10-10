@@ -44,11 +44,12 @@ export default function InventarioFisicoModal({
           </button>
         </div>
         <p className="mb-4 text-sm text-[#6b7280] dark:text-[#9ca3af]">
-          Se ajustarán{' '}
+          Cada diferencia se registra como ajuste (FIFO si baja, lote nuevo si
+          sube). Se ajustarán{' '}
           <span className="font-semibold text-amber-600 dark:text-amber-400">
             {countInventarioCambios}
           </span>{' '}
-          artículo{countInventarioCambios !== 1 ? 's' : ''}
+          artículo{countInventarioCambios !== 1 ? 's' : ''}.
         </p>
         <div className="max-h-[50vh] overflow-auto rounded-lg border border-[#e2e5ed] dark:border-[#2e3347]">
           <table className="horeca-body-text w-full min-w-[500px] text-left text-sm">

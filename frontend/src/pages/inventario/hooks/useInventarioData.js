@@ -36,12 +36,15 @@ export function useInventarioData() {
   const [savingInventario, setSavingInventario] = useState(false)
 
   const [formArticulo, setFormArticulo] = useState(emptyFormArticulo())
+  const [skuManual, setSkuManual] = useState(false)
   const [formMovimiento, setFormMovimiento] = useState({
     articulo_id: '',
     tipo: 'entrada',
     cantidad: '',
     motivo: '',
     coste_unitario: '',
+    fecha_caducidad: '',
+    numero_lote: '',
   })
   const [savingArticulo, setSavingArticulo] = useState(false)
   const [savingMovimiento, setSavingMovimiento] = useState(false)
@@ -134,6 +137,9 @@ export function useInventarioData() {
     modalArticulo,
     setFormArticulo,
     setModalArticulo,
+    setSkuManual,
+    articulosOpciones,
+    articulos,
     setFeedback,
     setSavingArticulo,
     setSavingMovimiento,
@@ -141,7 +147,6 @@ export function useInventarioData() {
     formMovimiento,
     setFormMovimiento,
     tab,
-    articulosOpciones,
     inventarioFisicoData,
     setInventarioFisicoData,
     setModalInventarioFisico,
@@ -196,6 +201,8 @@ export function useInventarioData() {
     savingInventario,
     formArticulo,
     setFormArticulo,
+    skuManual,
+    setSkuManual,
     formMovimiento,
     setFormMovimiento,
     savingArticulo,

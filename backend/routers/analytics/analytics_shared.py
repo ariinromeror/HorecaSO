@@ -12,6 +12,8 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 
+from services.fechas import hoy_madrid
+
 logger = logging.getLogger(__name__)
 
 ROLES_ANALYTICS = ["admin", "director"]
@@ -76,7 +78,7 @@ def _resolve_rango_fechas(
     desde: Optional[date],
     hasta: Optional[date],
 ) -> tuple[date, date]:
-    h = hasta or date.today()
+    h = hasta or hoy_madrid()
     d = desde or (h - timedelta(days=29))
     if d > h:
         d, h = h, d

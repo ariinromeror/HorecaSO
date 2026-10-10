@@ -21,7 +21,7 @@
 
 > **Personal project · Built from scratch as an autodidact using AI as a development tool.**
 >
-> A complete restaurant operating system: POS, kitchen displays, Spanish tax compliance (Verifactu), inventory with FIFO costing, recipes & food cost, HR with Spanish payroll, CRM, and a SaaS platform admin panel — all in one codebase.
+> A complete restaurant operating system: POS, kitchen displays, internal chained sales records (AEAT submission not available yet), inventory with FIFO costing, recipes & food cost, HR with Spanish payroll, CRM, and a SaaS platform admin panel — all in one codebase.
 
 </div>
 
@@ -47,7 +47,7 @@ The system is **multi-tenant**: one application instance serves multiple restaur
 
 - **Table map & POS (TPV)** — visual floor plan, ticket management, **split billing** with multiple partial payments per ticket, 6 payment methods
 - **Kitchen Display System (KDS)** — kitchen/bar station filtering by role, near-real-time polling, order state tracking per line
-- **Verifactu tax engine** — SHA-256 chained, immutable fiscal records generated atomically with each payment (Spanish anti-fraud regulation)
+- **Internal sales ledger (Verifactu-oriented)** — SHA-256 chained records generated atomically with each payment; AEAT submission not available yet
 - **Recipes & food cost (escandallos)** — ingredient-level costing with waste calibration, profitability traffic light per dish
 - **Inventory** — stock movements, waste tracking, **FIFO lot valuation**, expiry alerts, APPCC food-safety logs
 - **Purchasing** — suppliers, purchase invoices, **AI invoice scanning** with Groq vision
@@ -248,9 +248,9 @@ Every business query filters by `tenant_id` (and `outlet_id` for floor operation
 
 ---
 
-## 🧾 Verifactu — Spanish Tax Compliance Engine
+## 🧾 Internal fiscal records (Verifactu-oriented)
 
-Verifactu is Spain's anti-fraud invoicing regulation: every sale must produce an **immutable, hash-chained fiscal record**. HorecaSO implements it natively:
+HorecaSO keeps an **internal, hash-chained sales record** per completed payment. The hash format is pending validation against the official AEAT specification; **there is no AEAT submission in this version**:
 
 - Each payment generates a record with a **SHA-256 fingerprint chained to the previous record** (`huella_anterior` → `huella_actual`)
 - The fiscal record and the payment are written in the **same database transaction** — a ticket can never be paid without its tax record
@@ -453,7 +453,7 @@ Set `VITE_API_URL` to your Render backend URL. `vercel.json` handles SPA rewrite
 | Criterion | Status |
 |-----------|--------|
 | Core operations — POS, split billing, KDS, table map | ✅ Complete |
-| Verifactu — chained fiscal records, atomic with payment | ✅ Complete |
+| Internal sales records (chained hash) — AEAT submission pending | ⏳ Partial |
 | Inventory — FIFO, waste, calibration, APPCC | ✅ Complete |
 | Recipes & food cost with margin traffic light | ✅ Complete |
 | HR — time clock, schedules, Spanish payroll | ✅ Complete |

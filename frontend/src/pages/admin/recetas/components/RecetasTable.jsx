@@ -1,5 +1,8 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { BookOpen, Layers, Plus } from 'lucide-react'
 import CosteSemaforo from './CosteSemaforo'
+import { BTN_PRIMARY } from '../constants'
 
 export default function RecetasTable({
   loadingSemaforo,
@@ -8,6 +11,7 @@ export default function RecetasTable({
   setFiltroColor,
   onCardClick,
   onDeleteReceta,
+  apiError,
 }) {
   const conteos = useMemo(() => {
     let v = 0
@@ -40,56 +44,115 @@ export default function RecetasTable({
     return base.filter((row) => row.semaforo === filtroColor)
   }, [conReceta, sinReceta, filtroColor])
 
+  const sinDatos = !loadingSemaforo && recetasSemaforo.length === 0
+  const filtroVacio =
+    !loadingSemaforo && recetasSemaforo.length > 0 && cardsFiltradas.length === 0
+
   return (
     <>
-      <div className="mb-6 flex flex-wrap gap-3">
-        <span
-          className="inline-flex items-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-500"
-        >
-          Verde {conteos.verde} platos
-        </span>
-        <span
-          className="inline-flex items-center rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-500"
-        >
-          Amarillo {conteos.amarillo} platos
-        </span>
-        <span
-          className="inline-flex items-center rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-500"
-        >
-          Rojo {conteos.rojo} platos
-        </span>
-      </div>
+      {!sinDatos ? (
+        <>
+          <div className="mb-6 flex flex-wrap gap-3">
+            <span className="inline-flex items-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-500">
+              Verde {conteos.verde} platos
+            </span>
+            <span className="inline-flex items-center rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-500">
+              Amarillo {conteos.amarillo} platos
+            </span>
+            <span className="inline-flex items-center rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-500">
+              Rojo {conteos.rojo} platos
+            </span>
+          </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {[
-          { id: 'todos', label: 'Todos' },
-          { id: 'verde', label: 'Verde' },
-          { id: 'amarillo', label: 'Amarillo' },
-          { id: 'rojo', label: 'Rojo' },
-        ].map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setFiltroColor(f.id)}
-            className={`h-10 rounded-lg px-4 text-[15px] font-medium transition-colors ${
-              filtroColor === f.id
-                ? 'bg-amber-500 text-black'
-                : 'border border-[#e2e5ed] bg-[#f0f2f5] text-[#6b7280] dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#8b90a7]'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {[
+              { id: 'todos', label: 'Todos' },
+              { id: 'verde', label: 'Verde' },
+              { id: 'amarillo', label: 'Amarillo' },
+              { id: 'rojo', label: 'Rojo' },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFiltroColor(f.id)}
+                className={`h-10 rounded-lg px-4 text-[15px] font-medium transition-colors ${
+                  filtroColor === f.id
+                    ? 'bg-amber-500 text-black'
+                    : 'border border-[#e2e5ed] bg-[#f0f2f5] text-[#6b7280] dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#8b90a7]'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {loadingSemaforo ? (
         <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
           Cargando…
         </p>
-      ) : cardsFiltradas.length === 0 ? (
-        <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
-          No hay platos que coincidan con el filtro.
-        </p>
+      ) : sinDatos ? (
+        <div className="rounded-xl border border-[#e2e5ed] bg-white p-8 text-center dark:border-[#2e3347] dark:bg-[#1a1d27]">
+          <BookOpen
+            size={48}
+            strokeWidth={1.5}
+            className="mx-auto text-amber-500"
+            aria-hidden
+          />
+          <h3 className="mt-4 text-lg font-bold text-[#111827] dark:text-[#e8eaf0]">
+            Aún no hay platos con receta
+          </h3>
+          <p className="mx-auto mt-2 max-w-md text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
+            Aquí solo salen productos de Carta marcados con «tiene receta».
+            Puedes activar ese marcador en Carta o crear el plato y sus
+            ingredientes en Elaboraciones.
+          </p>
+          {apiError ? (
+            <p
+              className="mx-auto mt-4 max-w-md rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400"
+              role="alert"
+            >
+              {apiError}
+            </p>
+          ) : null}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/admin/carta"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] px-5 font-medium text-[#111827] dark:border-[#2e3347] dark:text-[#e8eaf0]"
+            >
+              <BookOpen size={20} strokeWidth={1.5} />
+              Ir a Carta
+            </Link>
+            <Link
+              to="/admin/recetas/elaboraciones"
+              className={`inline-flex h-12 items-center justify-center gap-2 ${BTN_PRIMARY}`}
+            >
+              <Plus size={20} strokeWidth={1.5} />
+              Nueva receta
+            </Link>
+            <Link
+              to="/admin/recetas/elaboraciones"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] px-5 font-medium text-[#111827] dark:border-[#2e3347] dark:text-[#e8eaf0]"
+            >
+              <Layers size={20} strokeWidth={1.5} />
+              Elaboraciones
+            </Link>
+          </div>
+        </div>
+      ) : filtroVacio ? (
+        <div className="rounded-xl border border-[#e2e5ed] bg-white p-6 text-center dark:border-[#2e3347] dark:bg-[#1a1d27]">
+          <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
+            No hay platos con ese color de semáforo.
+          </p>
+          <button
+            type="button"
+            onClick={() => setFiltroColor('todos')}
+            className="mt-4 h-12 rounded-lg bg-amber-500 px-5 font-semibold text-black hover:bg-amber-600"
+          >
+            Ver todos
+          </button>
+        </div>
       ) : (
         <div className="space-y-8">
           {conReceta.some((r) => cardsFiltradas.includes(r)) ? (

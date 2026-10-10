@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { Layers } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
 import ConsumoModal from './components/ConsumoModal'
 import LoteModal from './components/LoteModal'
@@ -16,26 +15,13 @@ export default function FIFOPage() {
   }
 
   if (fifo.user && !ROLES_ACCESO_FIFO.includes(fifo.user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
     <div
-      className={`${PAGE_BG_FIFO} min-w-0 overflow-x-hidden px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
+      className={`${PAGE_BG_FIFO} min-w-0 overflow-x-hidden text-[15px] text-[#111827] dark:text-[#e8eaf0]`}
     >
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Layers
-            className="shrink-0 text-amber-500"
-            size={28}
-            strokeWidth={1.5}
-          />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-            Stock FIFO
-          </h1>
-        </div>
-      </header>
-
       <div className="mb-6 flex gap-2 overflow-x-auto border-b border-[#e2e5ed] pb-px dark:border-[#2e3347]">
         <button
           type="button"

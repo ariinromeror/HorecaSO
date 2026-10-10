@@ -12,11 +12,11 @@ export const PROJECT_INFO = {
     sobre: {
       resumenTitulo: 'Resumen General',
       resumen:
-        'ERP multitenant de alta complejidad para la hostelería española. Gestiona nóminas, stock real, facturación Verifactu e IA en un entorno SaaS profesional.',
+        'ERP multitenant de alta complejidad para la hostelería española. Gestiona nóminas, stock real e IA en un entorno SaaS profesional. Incluye registro interno de ventas por cobro, con huella encadenada para trazabilidad. Envío a la AEAT: no disponible todavía.',
       puntosTitulo: 'Puntos Clave — Por qué destaca',
       puntosClave: [
         'Multitenancy Estricto: Aislamiento total de datos por tenant_id mediante PostgreSQL RLS (Supabase) y RBAC con JWT (8 roles).',
-        'Cumplimiento Fiscal: Motor Verifactu con encadenamiento SHA-256 criptográfico atómico para registros inmutables.',
+        'Registro interno de ventas por cobro, con huella encadenada para trazabilidad. Envío a la AEAT: no disponible todavía.',
         'Lógica de Inventario: Gestión de stock por lotes FIFO, escandallos con cálculo automático de mermas y motor de nóminas español.',
         'IA en Producción: Escaneo de facturas con Groq Vision y modelos de predicción de desperdicio.',
       ],
@@ -35,7 +35,7 @@ export const PROJECT_INFO = {
         {
           rol: 'Contable',
           features:
-            'Fiscalidad Verifactu, exportación de libros y validación de impuestos.',
+            'Exportación de ventas para la gestoría y validación de impuestos.',
         },
         {
           rol: 'Jefe de Cocina',
@@ -74,14 +74,14 @@ export const PROJECT_INFO = {
       ],
       estructuraTitulo: 'Estructura de Archivos Backend',
       estructuraBackend: [
-        'fiscal/verifactu.py: Motor de firmas SHA-256.',
-        'services/ia_vision.py: Integración con Groq Vision.',
-        'services/stock_engine.py: Lógica FIFO y mermas.',
-        'auth/dependencies.py: Aislamiento de tenants y RBAC.',
+        'routers/verifactu.py: listado y exportación de registros internos.',
+        'services/verifactu_engine.py: huella SHA-256 encadenada al cobro.',
+        'services/stock.py: stock por lotes FIFO y mermas.',
+        'auth/dependencies.py: aislamiento de tenants y RBAC.',
       ],
       tablasTitulo: 'Tablas de Base de Datos',
       tablasBD: [
-        'tenants, usuarios, productos_ingredientes, escandallos, lotes_stock, comandas, facturas_emitidas (con hash Verifactu), turnos_fichajes.',
+        'tenants, usuarios, productos, tickets, ticket_lineas, ticket_pagos, verifactu_registros, lotes_inventario, recetas, turnos.',
       ],
     },
   },
@@ -93,11 +93,11 @@ export const PROJECT_INFO = {
     sobre: {
       resumenTitulo: 'General Summary',
       resumen:
-        'High-complexity multitenant ERP for Spanish hospitality. Manages payroll, real stock, Verifactu invoicing and AI in a professional SaaS environment.',
+        'High-complexity multitenant ERP for Spanish hospitality. Manages payroll, real stock and AI in a professional SaaS environment. Includes an internal sales ledger per payment, with SHA-256 chained records for traceability. AEAT submission: not available yet.',
       puntosTitulo: 'Key Points — Why it stands out',
       puntosClave: [
         'Strict Multitenancy: Total data isolation per tenant_id via PostgreSQL RLS (Supabase) and RBAC with JWT (8 roles).',
-        'Tax Compliance: Verifactu engine with atomic cryptographic SHA-256 chaining for immutable records.',
+        'Internal sales ledger per payment, with SHA-256 chained records for traceability. AEAT submission: not available yet.',
         'Inventory Logic: FIFO batch stock management, recipe costing with automatic waste calculation and Spanish payroll engine.',
         'AI in Production: Invoice scanning with Groq Vision and waste prediction models.',
       ],
@@ -115,7 +115,7 @@ export const PROJECT_INFO = {
         {
           rol: 'Accountant',
           features:
-            'Verifactu tax compliance, ledger exports and tax validation.',
+            'Sales export for accounting and tax validation.',
         },
         {
           rol: 'Head Chef',
@@ -154,14 +154,14 @@ export const PROJECT_INFO = {
       ],
       estructuraTitulo: 'Backend File Structure',
       estructuraBackend: [
-        'fiscal/verifactu.py: SHA-256 signature engine.',
-        'services/ia_vision.py: Groq Vision integration.',
-        'services/stock_engine.py: FIFO and waste logic.',
-        'auth/dependencies.py: Tenant isolation and RBAC.',
+        'routers/verifactu.py: list and export of internal fiscal records.',
+        'services/verifactu_engine.py: SHA-256 chained hash at payment.',
+        'services/stock.py: FIFO lot stock and waste.',
+        'auth/dependencies.py: tenant isolation and RBAC.',
       ],
       tablasTitulo: 'Database Tables',
       tablasBD: [
-        'tenants, usuarios, productos_ingredientes, escandallos, lotes_stock, comandas, facturas_emitidas (with Verifactu hash), turnos_fichajes.',
+        'tenants, usuarios, productos, tickets, ticket_lineas, ticket_pagos, verifactu_registros, lotes_inventario, recetas, turnos.',
       ],
     },
   },

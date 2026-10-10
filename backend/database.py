@@ -61,7 +61,8 @@ async def get_db():
     if _pool is None:
         raise RuntimeError("Pool no inicializado. Ejecuta init_connection_pool() en el lifespan.")
 
-    conn = await _pool.acquire()
+    # timeout evita colgar el event loop si el pool o Supabase no responden
+    conn = await _pool.acquire(timeout=10)
     try:
         async with conn.transaction():
             yield conn

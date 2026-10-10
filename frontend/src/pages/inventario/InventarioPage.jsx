@@ -18,16 +18,9 @@ export default function InventarioPage() {
   const inv = useInventarioData()
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto">
       <div className="mx-auto max-w-7xl min-w-0 space-y-4">
-        <div className="mb-2 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <Package {...ICON_PROPS} className="h-8 w-8 shrink-0 text-amber-500" />
-            <h1 className="text-2xl font-bold text-[#111827] dark:text-[#f5f5f5]">
-              Inventario
-            </h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <div className="mb-2 flex min-w-0 flex-wrap gap-2">
             <button
               type="button"
               onClick={() => inv.setTab('articulos')}
@@ -64,7 +57,6 @@ export default function InventarioPage() {
               <Calculator size={20} strokeWidth={1.5} />
               Calibración útil
             </button>
-          </div>
         </div>
 
         {inv.feedback.msg ? (
@@ -181,6 +173,9 @@ export default function InventarioPage() {
         setFormArticulo={inv.setFormArticulo}
         submitArticulo={inv.submitArticulo}
         savingArticulo={inv.savingArticulo}
+        skuManual={inv.skuManual}
+        setSkuManual={inv.setSkuManual}
+        articulos={inv.articulosOpciones?.length ? inv.articulosOpciones : inv.articulos}
       />
 
       <MovimientoModal

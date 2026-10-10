@@ -4,9 +4,12 @@ Opcional. El TPV intenta `http://127.0.0.1:9173/print` y si no hay agente usa `w
 
 ```bash
 cd tools/print_agent
-pip install fastapi uvicorn
-# opcional ESC/POS: pip install python-escpos
+pip install -r requirements.txt
 python print_agent.py
 ```
 
-Sin `HORECASO_PRINTER` solo simula (log). Con Epson USB ajusta vendor/product en el script.
+Comprobar: abrir `http://127.0.0.1:9173/health` → `{"status":"ok"}`.
+
+Sin `HORECASO_PRINTER` solo simula (log). Con Epson USB ajusta vendor/product en `print_agent.py`.
+
+Guía completa: [docs/CHECKLIST_EPSON_PRINT.md](../../docs/CHECKLIST_EPSON_PRINT.md).

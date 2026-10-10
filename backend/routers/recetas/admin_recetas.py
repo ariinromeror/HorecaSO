@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from auth.dependencies import require_roles
 from database import get_db
 
-from .admin_recetas_ingredientes import _sync_articulo_elaborado_coste
+from .admin_recetas_ingredientes import _actualizar_coste_receta
 from .admin_recetas_shared import (
     ROLES_RECETAS_ADMIN,
     ROLES_RECETAS_COCINA,
@@ -212,7 +212,7 @@ async def create_elaboracion(
             if not rec:
                 raise HTTPException(status_code=500, detail="No se pudo crear la receta")
 
-            await _sync_articulo_elaborado_coste(conn, rec["id"])
+            await _actualizar_coste_receta(conn, rec["id"])
             full = await fetch_receta_tenant(conn, rec["id"], tid)
             if not full:
                 raise HTTPException(status_code=500, detail="Receta no recuperada")
@@ -355,7 +355,7 @@ async def update_receta(
             row = await conn.fetchrow(sql, *args)
             if not row:
                 raise HTTPException(status_code=404, detail="Receta no encontrada")
-            await _sync_articulo_elaborado_coste(conn, id)
+            await _actualizar_coste_receta(conn, id)
 
         return _sanitize_receta_row(row)
     except HTTPException:

@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { CalendarCheck } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
 import ListaEsperaPanel from './components/ListaEsperaPanel'
 import ReservaAcciones from './components/ReservaAcciones'
@@ -53,24 +52,14 @@ export default function ReservasPage() {
   }
 
   if (user && !ROLES_ACCESO.includes(user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
     <div
-      className={`${PAGE_BG} min-w-0 overflow-x-hidden px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
+      className={`${PAGE_BG} min-w-0 overflow-x-hidden text-[15px] text-[#111827] dark:text-[#e8eaf0]`}
     >
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <CalendarCheck
-            className="shrink-0 text-amber-500"
-            size={28}
-            strokeWidth={1.5}
-          />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-            Reservas
-          </h1>
-        </div>
+      <header className="mb-6 flex justify-end">
         <button
           type="button"
           onClick={abrirNuevaReserva}

@@ -119,7 +119,7 @@ Siguiente
 | 7 | `npm run build` sin errores ni warnings | `frontend/` | Build limpio |
 | 8 | `python -c "from main import create_app; create_app()"` sin errores | `backend/` | Sin ImportError |
 | 9 | Flujo TPV completo funciona: abrir mesa → pedir → cobrar → Verifactu | Manual | Registro en `verifactu_registros` creado |
-| 10 | Tenant demo no tiene password `admin123` en producción | Supabase | Cambiar o deshabilitar tenant demo |
+| 10 | Tenant demo no tiene password `<ver gestor de contraseñas>` en producción | Supabase | Cambiar o deshabilitar tenant demo |
 
 ### 🟡 IMPORTANTE — despliega pero arréglalo la primera semana
 
@@ -231,7 +231,7 @@ curl https://tu-backend.onrender.com/api/health
 # 2. Login
 curl -X POST https://tu-backend.onrender.com/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@test.com","password":"admin123"}'
+  -d '{"email":"admin@test.com","password":"<ver gestor de contraseñas>"}'
 
 # 3. Guardar el token y probar un endpoint protegido
 TOKEN="el_token_del_login"
@@ -344,12 +344,12 @@ curl -H "Authorization: Bearer $TOKEN_CAMARERO" \
 ```bash
 # Login con admin del tenant A (tu tenant demo)
 TOKEN_A=$(curl -s -X POST .../api/auth/login \
-  -d '{"email":"admin@test.com","password":"admin123"}' \
+  -d '{"email":"admin@test.com","password":"<ver gestor de contraseñas>"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
 # Login con admin del tenant B (restauranteprueba)
 TOKEN_B=$(curl -s -X POST .../api/auth/login \
-  -d '{"email":"admin@prueba.com","password":"Admin1234!"}' \
+  -d '{"email":"admin@prueba.com","password":"<ver gestor de contraseñas>"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
 # Con token del tenant A, intentar acceder a recursos con IDs del tenant B
@@ -1970,7 +1970,7 @@ IDs fijos para que tus tests sean reproducibles:
 -- tenant_id: 11111111-1111-1111-1111-111111111111
 -- outlet_id: 22222222-2222-2222-2222-222222222222
 
--- Usuarios de prueba (password: Test1234! para todos)
+-- Usuarios de prueba (password: <ver gestor de contraseñas>)
 -- admin@prueba.com    → rol admin
 -- director@prueba.com → rol director
 -- carlos@prueba.com   → rol camarero

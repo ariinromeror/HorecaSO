@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { Clock } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
 import { ROLES_FICHAJES } from './constants'
 import FichajeAcciones from './components/FichajeAcciones'
@@ -14,17 +13,11 @@ export default function FichajesPage() {
   }
 
   if (f.user && !ROLES_FICHAJES.includes(f.user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
     <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[15px] text-[#111827] dark:text-[#e8eaf0]">
-      <header className="mb-6 flex items-center gap-3">
-        <Clock className="text-amber-500" size={28} strokeWidth={1.5} />
-        <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-          Control Horario
-        </h1>
-      </header>
 
       <FichajeAcciones
         ficharAlLogin={f.ficharAlLogin}

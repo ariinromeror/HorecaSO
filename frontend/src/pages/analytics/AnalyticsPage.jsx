@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { BarChart3 } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
 import CostPersonalPanel from './components/CostPersonalPanel'
 import IngenieriaMenuPanel from './components/IngenieriaMenuPanel'
@@ -15,24 +14,13 @@ export default function AnalyticsPage() {
   }
 
   if (a.user && !ROLES_ACCESO.includes(a.user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
     <div
-      className={`${PAGE_BG} min-w-0 overflow-x-hidden px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
+      className={`${PAGE_BG} min-w-0 overflow-x-hidden text-[15px] text-[#111827] dark:text-[#e8eaf0]`}
     >
-      <header className="mb-6 flex items-center gap-3">
-        <BarChart3
-          className="shrink-0 text-amber-500"
-          size={28}
-          strokeWidth={1.5}
-        />
-        <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-          Analytics
-        </h1>
-      </header>
-
       <div className="mb-6 flex gap-2 overflow-x-auto border-b border-[#e2e5ed] dark:border-[#2e3347] pb-px">
         <button
           type="button"

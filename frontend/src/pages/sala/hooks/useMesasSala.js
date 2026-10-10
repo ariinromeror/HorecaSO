@@ -54,6 +54,24 @@ export function useMesasSala() {
     navigate(`/tpv/${mesaId}`)
   }
 
+  const handleMesaReservada = (mesa) => {
+    const hora = mesa.reserva_hora
+      ? String(mesa.reserva_hora).slice(0, 5)
+      : null
+    const nombre = mesa.reserva_nombre || 'Cliente'
+    const pax = mesa.reserva_personas
+    const paxTxt = pax != null ? ` (${pax} pax)` : ''
+    if (hora) {
+      window.alert(
+        `Mesa reservada a las ${hora} — ${nombre}${paxTxt}`
+      )
+    } else {
+      window.alert(
+        `Mesa reservada — ${nombre}${paxTxt || ''}. Consulta Reservas para más detalle.`
+      )
+    }
+  }
+
   const handleMarcarMesaLibre = async (mesa) => {
     if (
       !window.confirm(
@@ -84,6 +102,7 @@ export function useMesasSala() {
     mesasPorZona,
     zonasOrdenadas,
     goTpv,
+    handleMesaReservada,
     handleMarcarMesaLibre,
   }
 }

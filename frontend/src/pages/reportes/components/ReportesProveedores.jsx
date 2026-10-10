@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
-import { ClipboardList, Loader2, Truck } from 'lucide-react'
+import { ClipboardList, Eye, Loader2, Printer, Truck } from 'lucide-react'
 import api from '../../../services/api'
 import { descargarPdf } from '../utilsPdf'
+import ReportesPreviewTable, {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  euro,
+} from './ReportesPreviewTable'
 
 const CARD =
   'rounded-xl border border-[#e2e5ed] bg-white p-6 shadow-sm dark:border-[#2e3347] dark:bg-[#1a1d27]'
 const INPUT =
   'w-full min-w-0 max-w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-4 py-3 text-[15px] text-[#111827] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]'
-const BTN =
-  'inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-amber-500 px-6 font-semibold text-black transition-colors hover:bg-amber-600 disabled:opacity-40'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -19,8 +22,12 @@ export default function ReportesProveedores() {
   const [artId, setArtId] = useState('')
   const [desde, setDesde] = useState(todayIso)
   const [hasta, setHasta] = useState(todayIso)
-  const [loading, setLoading] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [previewKind, setPreviewKind] = useState(null)
+  const [compData, setCompData] = useState(null)
+  const [appccData, setAppccData] = useState(null)
 
   useEffect(() => {
     let ok = true
@@ -38,25 +45,75 @@ export default function ReportesProveedores() {
     }
   }, [])
 
-  const onComparativa = () => {
+  const flashErr = (msg) => {
+    setError(msg)
+    setTimeout(() => setError(null), 3000)
+  }
+
+  const onComparativaVer = async () => {
     if (!artId) {
-      setError('Selecciona un artículo')
-      setTimeout(() => setError(null), 3000)
+      flashErr('Selecciona un artículo')
+      return
+    }
+    setPreviewLoading(true)
+    setError(null)
+    setPreviewKind('comparativa')
+    try {
+      const r = await api.get(
+        `/reportes/comparativa-proveedores/${encodeURIComponent(artId)}/datos`
+      )
+      setCompData(r.data)
+    } catch (e) {
+      setCompData(null)
+      flashErr(e.response?.data?.detail || 'Error al cargar comparativa')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const onComparativaPdf = () => {
+    if (!artId) {
+      flashErr('Selecciona un artículo')
       return
     }
     descargarPdf(
       `/reportes/comparativa-proveedores/${encodeURIComponent(artId)}`,
-      setLoading,
+      setPdfLoading,
       setError
     )
   }
 
-  const onAppcc = () => {
+  const rango = () => {
     const d0 = desde <= hasta ? desde : hasta
     const d1 = desde <= hasta ? hasta : desde
-    const q = `?desde=${encodeURIComponent(d0)}&hasta=${encodeURIComponent(d1)}`
-    descargarPdf(`/reportes/appcc${q}`, setLoading, setError)
+    return { d0, d1 }
   }
+
+  const onAppccVer = async () => {
+    const { d0, d1 } = rango()
+    setPreviewLoading(true)
+    setError(null)
+    setPreviewKind('appcc')
+    try {
+      const r = await api.get('/reportes/appcc/datos', {
+        params: { desde: d0, hasta: d1 },
+      })
+      setAppccData(r.data)
+    } catch (e) {
+      setAppccData(null)
+      flashErr(e.response?.data?.detail || 'Error al cargar APPCC')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const onAppccPdf = () => {
+    const { d0, d1 } = rango()
+    const q = `?desde=${encodeURIComponent(d0)}&hasta=${encodeURIComponent(d1)}`
+    descargarPdf(`/reportes/appcc${q}`, setPdfLoading, setError)
+  }
+
+  const busy = pdfLoading || previewLoading
 
   return (
     <div className="space-y-4">
@@ -87,14 +144,76 @@ export default function ReportesProveedores() {
               </option>
             ))}
           </select>
-          <button type="button" className={BTN} disabled={loading} onClick={onComparativa}>
-            {loading ? (
-              <Loader2 className="animate-spin" size={18} strokeWidth={1.5} />
-            ) : null}
-            Descargar comparativa PDF
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              disabled={busy || !artId}
+              onClick={onComparativaVer}
+            >
+              {previewLoading && previewKind === 'comparativa' ? (
+                <Loader2 className="animate-spin" size={18} strokeWidth={1.5} />
+              ) : (
+                <Eye size={18} strokeWidth={1.5} />
+              )}
+              Ver en pantalla
+            </button>
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              disabled={busy || !artId}
+              onClick={onComparativaPdf}
+            >
+              {pdfLoading ? (
+                <Loader2 className="animate-spin" size={18} strokeWidth={1.5} />
+              ) : (
+                <Printer size={18} strokeWidth={1.5} />
+              )}
+              Generar PDF
+            </button>
+          </div>
         </div>
       </div>
+
+      {previewKind === 'comparativa' ? (
+        <ReportesPreviewTable
+          loading={previewLoading}
+          title={
+            compData
+              ? `Comparativa — ${compData.articulo_nombre}`
+              : 'Comparativa proveedores'
+          }
+          emptyMessage="No hay compras de ese artículo a proveedores."
+          columns={[
+            { key: 'proveedor', label: 'Proveedor' },
+            {
+              key: 'precio_actual',
+              label: 'Precio actual',
+              align: 'right',
+              format: (v) => euro(v),
+            },
+            {
+              key: 'precio_min',
+              label: 'Mín.',
+              align: 'right',
+              format: (v) => euro(v),
+            },
+            {
+              key: 'precio_max',
+              label: 'Máx.',
+              align: 'right',
+              format: (v) => euro(v),
+            },
+            { key: 'ultima_compra', label: 'Última compra' },
+            {
+              key: 'num_compras',
+              label: 'Compras',
+              align: 'right',
+            },
+          ]}
+          rows={compData?.precios || []}
+        />
+      ) : null}
 
       <div className={CARD}>
         <h2 className="mb-1 flex items-center gap-2 text-lg font-semibold text-[#111827] dark:text-[#e8eaf0]">
@@ -127,14 +246,81 @@ export default function ReportesProveedores() {
               onChange={(e) => setHasta(e.target.value)}
             />
           </div>
-          <button type="button" className={BTN} disabled={loading} onClick={onAppcc}>
-            {loading ? (
-              <Loader2 className="animate-spin" size={18} strokeWidth={1.5} />
-            ) : null}
-            Descargar APPCC PDF
-          </button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              className={BTN_SECONDARY}
+              disabled={busy}
+              onClick={onAppccVer}
+            >
+              {previewLoading && previewKind === 'appcc' ? (
+                <Loader2 className="animate-spin" size={18} strokeWidth={1.5} />
+              ) : (
+                <Eye size={18} strokeWidth={1.5} />
+              )}
+              Ver en pantalla
+            </button>
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              disabled={busy}
+              onClick={onAppccPdf}
+            >
+              {pdfLoading ? (
+                <Loader2 className="animate-spin" size={18} strokeWidth={1.5} />
+              ) : (
+                <Printer size={18} strokeWidth={1.5} />
+              )}
+              Generar PDF
+            </button>
+          </div>
         </div>
       </div>
+
+      {previewKind === 'appcc' ? (
+        <ReportesPreviewTable
+          loading={previewLoading}
+          title={
+            appccData
+              ? `APPCC ${appccData.desde} → ${appccData.hasta}`
+              : 'Registro APPCC'
+          }
+          emptyMessage="No hay registros APPCC en ese periodo."
+          summary={
+            appccData ? (
+              <span>{appccData.total || 0} registros</span>
+            ) : null
+          }
+          columns={[
+            {
+              key: 'created_at',
+              label: 'Fecha',
+              format: (v) =>
+                v ? String(v).slice(0, 16).replace('T', ' ') : '—',
+            },
+            { key: 'tipo_control', label: 'Tipo' },
+            { key: 'nombre_equipo', label: 'Equipo' },
+            {
+              key: 'temperatura',
+              label: 'Temp.',
+              align: 'right',
+              format: (v) => (v == null ? '—' : `${v} °C`),
+            },
+            {
+              key: 'conforme',
+              label: 'Conforme',
+              format: (v) => (v === true ? 'Sí' : v === false ? 'No' : '—'),
+            },
+            { key: 'responsable', label: 'Responsable' },
+            {
+              key: 'observaciones',
+              label: 'Obs.',
+              format: (v) => (v ? String(v) : '—'),
+            },
+          ]}
+          rows={appccData?.filas || []}
+        />
+      ) : null}
     </div>
   )
 }

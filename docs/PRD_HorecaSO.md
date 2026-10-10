@@ -26,7 +26,7 @@ HorecaSO es el ERP web más completo del mercado de hostelería español. Conect
 
 | Feature | HorecaSO | Revo | Agora | ICG |
 |---------|----------|------|-------|-----|
-| Verifactu nativo | ✅ | Parcial | ✅ | ✅ |
+| Registro interno Verifactu-oriented (envío AEAT pendiente) | Parcial | Parcial | ✅ | ✅ |
 | Semáforo rentabilidad | ✅ | ❌ | ❌ | ❌ |
 | IA escaneo facturas | ✅ | ❌ | ❌ | ❌ |
 | Previsión demanda IA | ✅ | ❌ | ❌ | ❌ |
@@ -770,13 +770,14 @@ GET    /api/mesas/{id}/rentabilidad   # Fase 4 — €/hora por mesa
 
 ---
 
-### MÓDULO 3 — VERIFACTU ✅ IMPLEMENTADO
+### MÓDULO 3 — VERIFACTU (registro interno; envío AEAT pendiente)
 
 **Reglas inamovibles:**
 - NUNCA UPDATE ni DELETE en verifactu_registros
-- Cobro + Verifactu en la misma transacción
-- SHA-256 en MAYÚSCULAS, campos con &, UTF-8 sin BOM
+- Cobro + registro interno en la misma transacción
+- SHA-256 en MAYÚSCULAS, campos con &, UTF-8 sin BOM (formato pendiente de validar vs spec AEAT)
 - fecha_hora_generacion guardada en el registro
+- Sin remisión a la AEAT en esta versión
 
 **API Endpoints:**
 ```

@@ -2,15 +2,17 @@
 Router de autenticación.
 """
 
+import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from auth.dependencies import get_current_user
 from auth.schemas import LoginRequest, TokenResponse
 from auth.jwt_handler import create_access_token
 from database import get_db
 from passlib.context import CryptContext
+from rate_limit import LOGIN_LIMIT_POR_IP, check_login_por_cuenta, limiter
 
 logger = logging.getLogger(__name__)
 
@@ -27,23 +29,34 @@ router = APIRouter(
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(login_data: LoginRequest):
+@limiter.limit(LOGIN_LIMIT_POR_IP)
+async def login(request: Request, login_data: LoginRequest):
     """
     Login: verifica email/password y devuelve JWT.
-    HTTP 401 si credenciales incorrectas.
+    HTTP 401 si credenciales incorrectas. HTTP 429 si se supera el límite de intentos.
     """
-    async with get_db() as conn:
-        row = await conn.fetchrow(
-            """
-            SELECT u.id, u.tenant_id, u.outlet_id, u.nombre, u.email,
-                   u.password_hash, u.rol,
-                   t.activo AS tenant_activo
-            FROM usuarios u
-            LEFT JOIN tenants t ON t.id = u.tenant_id
-            WHERE u.email = $1 AND u.activo = true
-            """,
-            login_data.email,
-        )
+    check_login_por_cuenta(request, login_data.email)
+    try:
+        async with get_db() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT u.id, u.tenant_id, u.outlet_id, u.nombre, u.email,
+                       u.password_hash, u.rol,
+                       t.activo AS tenant_activo
+                FROM usuarios u
+                LEFT JOIN tenants t ON t.id = u.tenant_id
+                WHERE u.email = $1 AND u.activo = true
+                """,
+                login_data.email,
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en login: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno",
+        ) from e
 
     if not row:
         logger.warning("Login fallido: usuario no encontrado o inactivo")
@@ -106,21 +119,32 @@ async def get_perfil(current_user: dict = Depends(get_current_user)):
     Devuelve el perfil del usuario autenticado.
     HTTP 404 si no existe el usuario.
     """
-    async with get_db() as conn:
-        row = await conn.fetchrow(
-            """
-            SELECT u.id, u.nombre, u.email, u.rol, u.tenant_id, u.outlet_id, u.activo,
-                   t.modulos AS tenant_modulos,
-                   (SELECT e.id FROM empleados e
-                    WHERE e.usuario_id = u.id AND COALESCE(e.activo, true)
-                    ORDER BY e.id
-                    LIMIT 1) AS empleado_id
-            FROM usuarios u
-            LEFT JOIN tenants t ON t.id = u.tenant_id
-            WHERE u.id = $1
-            """,
-            current_user["sub"],
-        )
+    try:
+        async with get_db() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT u.id, u.nombre, u.email, u.rol, u.tenant_id, u.outlet_id, u.activo,
+                       t.modulos AS tenant_modulos,
+                       t.email_slug AS tenant_email_slug,
+                       t.nombre AS tenant_nombre,
+                       (SELECT e.id FROM empleados e
+                        WHERE e.usuario_id = u.id AND COALESCE(e.activo, true)
+                        ORDER BY e.id
+                        LIMIT 1) AS empleado_id
+                FROM usuarios u
+                LEFT JOIN tenants t ON t.id = u.tenant_id
+                WHERE u.id = $1
+                """,
+                current_user["sub"],
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_perfil: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno",
+        ) from e
 
     if not row:
         raise HTTPException(
@@ -129,6 +153,11 @@ async def get_perfil(current_user: dict = Depends(get_current_user)):
         )
 
     modulos = row["tenant_modulos"]
+    if isinstance(modulos, str):
+        try:
+            modulos = json.loads(modulos)
+        except (json.JSONDecodeError, TypeError):
+            modulos = {}
     if modulos is not None and hasattr(modulos, "keys"):
         modulos = dict(modulos)
     elif not isinstance(modulos, dict):
@@ -144,6 +173,8 @@ async def get_perfil(current_user: dict = Depends(get_current_user)):
         "activo": row["activo"],
         "empleado_id": str(row["empleado_id"]) if row.get("empleado_id") else None,
         "modulos": modulos,
+        "email_slug": row["tenant_email_slug"],
+        "tenant_nombre": row["tenant_nombre"],
     }
 
 

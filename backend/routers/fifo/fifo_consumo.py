@@ -5,22 +5,22 @@ FIFO — consumo, alertas de caducidad y valoración.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from auth.dependencies import require_roles
+from auth.dependencies import require_modulo, require_roles
 from database import get_db
+from services import stock
+from services.fechas import hoy_madrid
 
 from .fifo_shared import (
     ROLES_ALMACEN,
     _outlet_id_usuario,
     _q2,
-    _q4,
     _serialize_lote_row,
     _str_money,
     _str_qty,
@@ -50,133 +50,35 @@ class ConsumirFifoBody(BaseModel):
 async def consumir_fifo(
     body: ConsumirFifoBody,
     current_user: dict = Depends(require_roles(ROLES_ALMACEN)),
+    _: dict = Depends(require_modulo("fifo")),
 ):
     user_uuid = _uid(current_user)
-    need = _q4(body.cantidad)
-    motivo = body.motivo.strip()
     try:
         async with get_db() as conn:
             tenant_id = await _tenant_id_usuario(conn, user_uuid)
             outlet_id = await _outlet_id_usuario(conn, user_uuid)
 
-            art = await conn.fetchrow(
-                """
-                SELECT id FROM articulos
-                WHERE id = $1 AND tenant_id = $2
-                FOR UPDATE
-                """,
-                body.articulo_id,
-                tenant_id,
-            )
-            if not art:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Artículo no encontrado",
-                )
-
-            sum_row = await conn.fetchrow(
-                """
-                SELECT COALESCE(SUM(cantidad), 0) AS total
-                FROM lotes_inventario
-                WHERE articulo_id = $1 AND outlet_id = $2 AND cantidad > 0
-                """,
-                body.articulo_id,
-                outlet_id,
-            )
-            disponible = _q4(Decimal(str(sum_row["total"] or 0)))
-            if disponible < need:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Stock insuficiente. Disponible: {_str_qty(disponible)} unidades",
-                )
-
-            lotes = await conn.fetch(
-                """
-                SELECT id, cantidad, coste_unitario
-                FROM lotes_inventario
-                WHERE articulo_id = $1 AND outlet_id = $2 AND cantidad > 0
-                ORDER BY fecha_caducidad ASC NULLS LAST, created_at ASC
-                FOR UPDATE
-                """,
-                body.articulo_id,
-                outlet_id,
-            )
-
-            remaining = need
-            lotes_afectados: list[dict[str, Any]] = []
-            coste_total = Decimal("0")
-
-            for l in lotes:
-                if remaining <= 0:
-                    break
-                l_cant = _q4(Decimal(str(l["cantidad"] or 0)))
-                l_coste = _q2(Decimal(str(l["coste_unitario"] or 0)))
-                take = min(remaining, l_cant)
-                take = _q4(take)
-                if take <= 0:
-                    continue
-                new_cant = _q4(l_cant - take)
-                await conn.execute(
-                    """
-                    UPDATE lotes_inventario
-                    SET cantidad = $1
-                    WHERE id = $2
-                    """,
-                    new_cant,
-                    l["id"],
-                )
-                lotes_afectados.append(
-                    {
-                        "lote_id": str(l["id"]),
-                        "cantidad_consumida": _str_qty(take),
-                    }
-                )
-                coste_total = _q2(coste_total + take * l_coste)
-                remaining = _q4(remaining - take)
-
-            if remaining > Decimal("0.0001"):
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Error al aplicar consumo FIFO",
-                )
-
-            coste_medio = _q2(coste_total / need) if need > 0 else Decimal("0")
-
-            await conn.execute(
-                """
-                UPDATE articulos
-                SET stock_actual = stock_actual - $1
-                WHERE id = $2 AND tenant_id = $3
-                """,
-                need,
-                body.articulo_id,
-                tenant_id,
-            )
-
-            await conn.execute(
-                """
-                INSERT INTO movimientos_stock (
-                    articulo_id, outlet_id, tipo, cantidad, coste_unitario,
-                    motivo, usuario_id, ticket_id
-                )
-                VALUES ($1, $2, 'salida', $3, $4, $5, $6, NULL)
-                """,
-                body.articulo_id,
-                outlet_id,
-                need,
-                coste_medio,
-                motivo,
-                user_uuid,
+            res = await stock.registrar_salida(
+                conn,
+                tenant_id=tenant_id,
+                outlet_id=outlet_id,
+                usuario_id=user_uuid,
+                articulo_id=body.articulo_id,
+                cantidad=body.cantidad,
+                tipo="salida",
+                motivo=body.motivo.strip(),
             )
 
             return {
                 "articulo_id": str(body.articulo_id),
-                "cantidad_consumida": _str_qty(need),
-                "coste_medio_ponderado": _str_money(coste_medio),
-                "lotes_afectados": lotes_afectados,
+                "cantidad_consumida": _str_qty(res.cantidad),
+                "coste_medio_ponderado": _str_money(res.coste_unitario),
+                "lotes_afectados": res.lotes_afectados,
             }
     except HTTPException:
         raise
+    except stock.StockError as e:
+        raise stock.a_http(e)
     except Exception as e:
         logger.error("consumir_fifo: %s", e)
         raise HTTPException(
@@ -189,9 +91,10 @@ async def consumir_fifo(
 async def list_alertas_caducidad(
     dias: int = Query(7, ge=1, le=365),
     current_user: dict = Depends(require_roles(ROLES_ALMACEN)),
+    _: dict = Depends(require_modulo("fifo")),
 ):
     user_uuid = _uid(current_user)
-    hoy = date.today()
+    hoy = hoy_madrid()
     try:
         async with get_db() as conn:
             tenant_id = await _tenant_id_usuario(conn, user_uuid)
@@ -216,13 +119,14 @@ async def list_alertas_caducidad(
                   AND a.tenant_id = $2
                   AND l.cantidad > 0
                   AND l.fecha_caducidad IS NOT NULL
-                  AND l.fecha_caducidad <= (CURRENT_DATE + $3::integer)
-                  AND l.fecha_caducidad >= CURRENT_DATE
+                  AND l.fecha_caducidad <= ($4::date + $3::integer)
+                  AND l.fecha_caducidad >= $4::date
                 ORDER BY l.fecha_caducidad ASC
                 """,
                 outlet_id,
                 tenant_id,
                 dias,
+                hoy,
             )
 
         out = []
@@ -249,6 +153,7 @@ async def list_alertas_caducidad(
 @router.get("/valoracion-stock")
 async def get_valoracion_stock(
     current_user: dict = Depends(require_roles(ROLES_ALMACEN)),
+    _: dict = Depends(require_modulo("fifo")),
 ):
     user_uuid = _uid(current_user)
     try:

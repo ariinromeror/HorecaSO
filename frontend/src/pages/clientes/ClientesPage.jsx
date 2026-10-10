@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { Users } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
 import ClienteModal from './components/ClienteModal'
 import ClientesTable from './components/ClientesTable'
@@ -52,24 +51,12 @@ export default function ClientesPage() {
   }
 
   if (user && !ROLES_ACCESO.includes(user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
-    <div
-      className={`${PAGE_BG} px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
-    >
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Users
-            className="shrink-0 text-amber-500"
-            size={28}
-            strokeWidth={1.5}
-          />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-            Clientes
-          </h1>
-        </div>
+    <div className={`${PAGE_BG} text-[15px] text-[#111827] dark:text-[#e8eaf0]`}>
+      <header className="mb-6 flex justify-end">
         <button
           type="button"
           onClick={abrirNuevo}

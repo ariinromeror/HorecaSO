@@ -8,7 +8,6 @@ import {
 } from '../../../../services/api'
 import {
   emptyForm,
-  formaToFormValue,
   normZona,
   zonaToFormValue,
 } from '../constants'
@@ -85,7 +84,6 @@ export function useMesasAdmin() {
       numero: String(m.numero ?? ''),
       capacidad: Number(m.capacidad) || 4,
       zona: zonaToFormValue(m.zona),
-      forma: formaToFormValue(m.forma),
     })
     setModalMesa(m)
     setFormError('')
@@ -137,7 +135,6 @@ export function useMesasAdmin() {
           numero: num,
           capacidad: cap,
           zona: formMesa.zona,
-          forma: formMesa.forma,
         })
         setFeedback({ msg: 'Mesa actualizada', type: 'ok' })
       } else {
@@ -152,7 +149,6 @@ export function useMesasAdmin() {
           numero: num,
           capacidad: cap,
           zona: formMesa.zona,
-          forma: formMesa.forma,
           outlet_id: outletIdResolved,
         })
         setFeedback({ msg: 'Mesa creada', type: 'ok' })
@@ -160,10 +156,19 @@ export function useMesasAdmin() {
       cerrarModal()
       await loadMesas()
     } catch (e) {
-      setFeedback({
-        msg: e.response?.data?.detail || 'Error al guardar',
-        type: 'error',
-      })
+      const status = e.response?.status
+      const d = e.response?.data?.detail
+      let msg =
+        typeof d === 'string'
+          ? d
+          : Array.isArray(d)
+            ? d.map((x) => x.msg || x).join(', ')
+            : 'Error al guardar'
+      if (status === 405) {
+        msg =
+          'Método no permitido al crear mesa (ruta API). Recarga o reinicia el backend.'
+      }
+      setFeedback({ msg, type: 'error' })
     } finally {
       setSaving(false)
     }

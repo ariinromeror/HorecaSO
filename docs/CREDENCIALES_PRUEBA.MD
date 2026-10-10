@@ -12,7 +12,7 @@
 
 | Email | Contraseña | Hash en BD (referencia) |
 |-------|-------------|-------------------------|
-| superadmin@horecaso.com | SuperAdmin2024! | $2b$12$A.B.OrrorO87.4DJYXwE8eQA7RAlSW/BZ/m44eN6AIl9aWLfDe2ZG |
+| superadmin@horecaso.com | <ver gestor de contraseñas> | <ver gestor de contraseñas> |
 
 ---
 
@@ -20,12 +20,12 @@
 
 | Email | Contraseña | Hash en BD (referencia) |
 |-------|-------------|-------------------------|
-| admin@prueba.com | Admin1234! | $2b$12$ih8PncMrzwXmzrB4DEM5/uH6a2Vajo.uJ18Mx9IxxuBuipgpABKdK |
-| director@prueba.com | Director1234! | $2b$12$BnFZ8CtWMgBf/taGx8eaZOHduU6hcjyH8g024fNp3QUcN6VrNuyEa |
-| jefesala@prueba.com | JefeSala1234! | $2b$12$3cFyXRDGL59p319s.FYwEu5QnDQ/A.qh46ZDXLv1vSxTN/AWZR7la |
-| camarero@prueba.com | Camarero1234! | $2b$12$9lzy0rOfkCaa8CwOEXTTse63jLHvtm0h/Jj3qKB3DmzWMwuo2wAWS |
-| cocina@prueba.com | Cocina1234! | $2b$12$dUD4eJEY2E6YjQQHuT7xVOXZsAQSxg2RRslMqA.m7GjAym2b0OCRO |
-| barra@prueba.com | Barra1234! | $2b$12$54sI/cXkEy7CnrmvIHvSX.BElXr5AdfuLO.vBW.RpVvBrVfnrhUcC |
+| admin@prueba.com | <ver gestor de contraseñas> | <ver gestor de contraseñas> |
+| director@prueba.com | <ver gestor de contraseñas> | <ver gestor de contraseñas> |
+| jefesala@prueba.com | <ver gestor de contraseñas> | <ver gestor de contraseñas> |
+| camarero@prueba.com | <ver gestor de contraseñas> | <ver gestor de contraseñas> |
+| cocina@prueba.com | <ver gestor de contraseñas> | <ver gestor de contraseñas> |
+| barra@prueba.com | <ver gestor de contraseñas> | <ver gestor de contraseñas> |
 
 ---
 

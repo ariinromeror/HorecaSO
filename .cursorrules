@@ -599,7 +599,7 @@ efectivo | tarjeta_credito | tarjeta_debito | bizum | transferencia | invitacion
 
 - tenant_id: 00000000-0000-0000-0000-000000000001 (NIF: B12345678)
 - outlet_id: 00000000-0000-0000-0000-000000000002 (Sala Principal)
-- usuario: admin@test.com / admin123 (rol: admin)
+- usuario: admin@test.com / <ver gestor de contraseñas> (rol: admin)
 
 ---
 

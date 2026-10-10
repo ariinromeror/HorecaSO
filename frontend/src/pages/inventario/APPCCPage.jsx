@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom'
-import { ShieldCheck } from 'lucide-react'
 import Loader from '../../components/shared/Loader'
 import NoConformidadesPanel from './components/NoConformidadesPanel'
 import RegistroAPPCCModal from './components/RegistroAPPCCModal'
@@ -21,24 +20,14 @@ export default function APPCCPage() {
   }
 
   if (a.user && !ROLES_ACCESO_APPCC.includes(a.user.rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return (
     <div
-      className={`${PAGE_BG_APPCC} px-4 py-6 text-[15px] text-[#111827] dark:text-[#e8eaf0] md:px-6`}
+      className={`${PAGE_BG_APPCC} text-[15px] text-[#111827] dark:text-[#e8eaf0]`}
     >
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <ShieldCheck
-            className="shrink-0 text-amber-500"
-            size={28}
-            strokeWidth={1.5}
-          />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-            APPCC
-          </h1>
-        </div>
+      <header className="mb-6 flex justify-end">
         <button
           type="button"
           onClick={a.abrirModal}

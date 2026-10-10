@@ -130,8 +130,17 @@ class CreateFacturaProveedorRequest(BaseModel):
 
 
 class EscanearFacturaIARequest(BaseModel):
-    imagen_base64: str = Field(..., min_length=1)
+    imagen_base64: Optional[str] = None
+    imagenes_base64: Optional[list[str]] = None
     proveedor_id: Optional[str] = None
+
+
+ESCANEO_MAX_BYTES = 8 * 1024 * 1024
+ESCANEO_MAX_ARCHIVOS = 1
+ESCANEO_MIME_PERMITIDOS = frozenset({"image/jpeg", "image/png", "application/pdf"})
+ESCANEO_MIME_ALIAS = {"image/jpg": "image/jpeg"}
+ESCANEO_ERROR_GENERICO = "No se pudo analizar la factura"
+ESCANEO_B64_MAX_CHARS = (ESCANEO_MAX_BYTES * 4 // 3) + 16
 
 
 def _strip_data_url(b64: str) -> tuple[str, str]:
@@ -142,6 +151,44 @@ def _strip_data_url(b64: str) -> tuple[str, str]:
         mime = m.group(1).strip() or mime
         s = m.group(2).strip()
     return s, mime
+
+
+def archivos_escaneo(body: EscanearFacturaIARequest) -> list[str]:
+    archivos: list[str] = []
+    if body.imagen_base64 and body.imagen_base64.strip():
+        archivos.append(body.imagen_base64)
+    if body.imagenes_base64:
+        archivos.extend(x for x in body.imagenes_base64 if x and str(x).strip())
+    return archivos
+
+
+def validar_escaneo(imagen_base64: str) -> tuple[str, str]:
+    """Valida MIME y tamaño (8 MB) antes de llamar a Groq. 400 genérico."""
+    raw, mime = _strip_data_url(imagen_base64)
+    mime = ESCANEO_MIME_ALIAS.get(mime.lower(), mime.lower())
+    if mime not in ESCANEO_MIME_PERMITIDOS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Tipo de archivo no permitido. Usa JPEG, PNG o PDF.",
+        )
+    if len(raw) > ESCANEO_B64_MAX_CHARS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo supera el tamaño máximo (8 MB)",
+        )
+    try:
+        data = base64.b64decode(raw, validate=True)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="imagen_base64 no es válida",
+        )
+    if len(data) > ESCANEO_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El archivo supera el tamaño máximo (8 MB)",
+        )
+    return raw, mime
 
 
 def _parse_json_desde_groq(text: str) -> dict[str, Any]:
@@ -199,10 +246,7 @@ def _groq_escanear_sync(imagen_base64: str, mime: str) -> dict[str, Any]:
             return parsed
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning("No se pudo parsear JSON de Groq: %s", e)
-            return {
-                "error": f"No se pudo parsear la respuesta: {e!s}",
-                "lineas": [],
-            }
+            return {"error": ESCANEO_ERROR_GENERICO, "lineas": []}
     except Exception as e:
         logger.error("Error llamada Groq: %s", e)
-        return {"error": str(e), "lineas": []}
+        return {"error": ESCANEO_ERROR_GENERICO, "lineas": []}

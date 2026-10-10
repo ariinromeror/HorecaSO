@@ -72,44 +72,131 @@ ORDER BY ri.orden
 """
 
 
-async def _calcular_coste_total_receta(conn, receta_id: UUID) -> Decimal:
-    ingredientes = await conn.fetch(SQL_INGREDIENTES_RECETA, receta_id)
+def _no_costeado(ing, motivo: str, detalle: str) -> dict:
+    return {
+        "ingrediente_id": str(ing["id"]),
+        "articulo_id": str(ing["articulo_id"]),
+        "articulo_nombre": ing["articulo_nombre"],
+        "motivo": motivo,
+        "detalle": detalle,
+    }
+
+
+def _costear_ingredientes(ingredientes) -> tuple[Decimal, list[dict]]:
+    """
+    Coste total de las líneas costeables y lista de las que no lo son
+    (motivo: sin_coste | unidad_incompatible | error_calculo); estas suman 0 €.
+    """
     coste_total = Decimal("0")
+    no_costeados: list[dict] = []
     for ing in ingredientes:
         u_linea = str(ing["unidad"] or "").strip()
         u_art = str(ing["articulo_unidad_medida"] or "").strip()
+        coste_eff = _effective_coste_articulo_row(ing)
         try:
-            coste_eff = _effective_coste_articulo_row(ing)
-            coste_total += _coste_linea_ingrediente(
+            coste_linea = _coste_linea_ingrediente(
                 Decimal(str(ing["cantidad_neta"])),
                 Decimal(str(ing["porcentaje_merma"] or 0)),
                 u_linea,
                 coste_eff,
                 u_art,
             )
-        except (ValueError, ArithmeticError):
-            pass
-    return coste_total
+        except ValueError as ex:
+            no_costeados.append(_no_costeado(ing, "unidad_incompatible", str(ex)))
+            continue
+        except ArithmeticError as ex:
+            no_costeados.append(_no_costeado(ing, "error_calculo", str(ex)))
+            continue
+        if coste_eff <= 0:
+            no_costeados.append(
+                _no_costeado(ing, "sin_coste", "El artículo no tiene coste unitario")
+            )
+            continue
+        coste_total += coste_linea
+    return coste_total, no_costeados
 
 
-async def _sync_articulo_elaborado_coste(conn, receta_id: UUID) -> None:
-    """Modelo A: actualiza coste_unitario del artículo elaborado = coste_total / rendimiento."""
+def _margen_y_semaforo(
+    es_elaboracion: bool, precio_venta: Decimal, coste_total: Decimal
+) -> tuple[Decimal | None, str]:
+    if es_elaboracion:
+        return None, "sin_venta"
+    if precio_venta > 0:
+        margen = (
+            (precio_venta - coste_total) / precio_venta * 100
+        ).quantize(Decimal("0.01"), ROUND_HALF_UP)
+    else:
+        margen = Decimal("0")
+    return margen, _calcular_semaforo(margen)
+
+
+# recetas.margen_porcentaje es NUMERIC(5,2).
+MARGEN_MIN_GUARDADO = Decimal("-999.99")
+
+
+async def _actualizar_coste_receta(conn, receta_id: UUID) -> tuple[Decimal, list[dict]]:
+    """
+    Recalcula y guarda coste_calculado, margen_porcentaje y semaforo de la receta.
+    Modelo A: si es elaboración, coste_unitario del artículo = coste_total / rendimiento.
+    """
     meta = await conn.fetchrow(
-        "SELECT articulo_salida_id, rendimiento FROM recetas WHERE id = $1",
+        """
+        SELECT r.producto_id, r.articulo_salida_id, r.rendimiento,
+               p.precio AS precio_venta,
+               COALESCE(
+                   p.tenant_id,
+                   (SELECT a.tenant_id FROM receta_ingredientes ri
+                    JOIN articulos a ON a.id = ri.articulo_id
+                    WHERE ri.receta_id = r.id LIMIT 1)
+               ) AS tenant_id
+        FROM recetas r
+        LEFT JOIN productos p ON p.id = r.producto_id
+        WHERE r.id = $1
+        """,
         receta_id,
     )
-    if not meta or not meta.get("articulo_salida_id"):
-        return
-    total = await _calcular_coste_total_receta(conn, receta_id)
-    rend = Decimal(str(meta["rendimiento"] or 1))
-    if rend <= 0:
-        rend = Decimal("1")
-    cpu = (total / rend).quantize(Decimal("0.0001"), ROUND_HALF_UP)
-    await conn.execute(
-        "UPDATE articulos SET coste_unitario = $1 WHERE id = $2",
-        cpu,
-        meta["articulo_salida_id"],
+    if not meta:
+        return Decimal("0"), []
+    ingredientes = await conn.fetch(SQL_INGREDIENTES_RECETA, receta_id)
+    total, no_costeados = _costear_ingredientes(ingredientes)
+    margen, semaforo = _margen_y_semaforo(
+        meta["producto_id"] is None,
+        Decimal(str(meta["precio_venta"] or 0)),
+        total,
     )
+    await conn.execute(
+        """
+        UPDATE recetas
+        SET coste_calculado = $1, margen_porcentaje = $2, semaforo = $3, updated_at = NOW()
+        WHERE id = $4
+        """,
+        total.quantize(Decimal("0.0001"), ROUND_HALF_UP),
+        max(margen, MARGEN_MIN_GUARDADO) if margen is not None else None,
+        semaforo,
+        receta_id,
+    )
+    if no_costeados:
+        logger.warning(
+            "Receta %s con %d ingrediente(s) sin costear: %s",
+            receta_id,
+            len(no_costeados),
+            ", ".join(f"{x['articulo_nombre']} ({x['motivo']})" for x in no_costeados),
+        )
+
+    if meta["articulo_salida_id"]:
+        rend = Decimal(str(meta["rendimiento"] or 1))
+        if rend <= 0:
+            rend = Decimal("1")
+        cpu = (total / rend).quantize(Decimal("0.0001"), ROUND_HALF_UP)
+        if meta["tenant_id"]:
+            await conn.execute(
+                "UPDATE articulos SET coste_unitario = $1 "
+                "WHERE id = $2 AND tenant_id = $3",
+                cpu,
+                meta["articulo_salida_id"],
+                meta["tenant_id"],
+            )
+    return total, no_costeados
 
 
 logger = logging.getLogger(__name__)
@@ -129,6 +216,24 @@ class AddIngredienteRequest(BaseModel):
     cantidad_neta: Decimal
     porcentaje_merma: Decimal = Decimal("0")
     unidad: str
+
+
+class BulkIngredientesRequest(BaseModel):
+    lineas: list[AddIngredienteRequest]
+
+
+class UpdateIngredienteRequest(BaseModel):
+    cantidad_neta: Decimal | None = None
+    porcentaje_merma: Decimal | None = None
+    unidad: str | None = None
+
+
+def _validar_merma(pct: Decimal) -> None:
+    if pct < 0 or pct >= 100:
+        raise HTTPException(
+            status_code=400,
+            detail="porcentaje_merma debe estar entre 0 y 99.99",
+        )
 
 
 @router.get("/recetas/semaforo")
@@ -158,12 +263,15 @@ async def get_semaforo_platos(
             if receta_ids:
                 ingredientes = await conn.fetch(
                     """
-                    SELECT ri.receta_id, ri.cantidad_neta, ri.porcentaje_merma, ri.unidad,
-                           a.coste_unitario, a.unidad_medida,
+                    SELECT ri.id, ri.receta_id, ri.articulo_id, ri.cantidad_neta,
+                           ri.porcentaje_merma, ri.unidad,
+                           a.coste_unitario, a.unidad_medida AS articulo_unidad_medida,
+                           a.nombre AS articulo_nombre,
                            a.calibracion_comprado, a.calibracion_util
                     FROM receta_ingredientes ri
                     JOIN articulos a ON ri.articulo_id = a.id
                     WHERE ri.receta_id = ANY($1::uuid[])
+                    ORDER BY ri.orden
                     """,
                     receta_ids,
                 )
@@ -184,8 +292,11 @@ async def get_semaforo_platos(
                 UUID(tenant_id),
             )
             for er in elabor_rows:
-                ct = await _calcular_coste_total_receta(conn, er["receta_id"])
-                elabor_costes.append((er, ct))
+                ingredientes_elab = await conn.fetch(
+                    SQL_INGREDIENTES_RECETA, er["receta_id"]
+                )
+                ct, nc = _costear_ingredientes(ingredientes_elab)
+                elabor_costes.append((er, ct, nc))
 
         result = []
         for r in rows:
@@ -205,34 +316,10 @@ async def get_semaforo_platos(
                 continue
 
             ingredientes = ingredientes_por_receta.get(str(r["receta_id"]), [])
-            coste_total = Decimal("0")
-            for ing in ingredientes:
-                try:
-                    u_linea = str(ing["unidad"] or "").strip()
-                    u_art = str(ing["unidad_medida"] or "").strip()
-                    coste_eff = _effective_coste_articulo_row(ing)
-                    coste_total += _coste_linea_ingrediente(
-                        Decimal(str(ing["cantidad_neta"])),
-                        Decimal(str(ing["porcentaje_merma"] or 0)),
-                        u_linea,
-                        coste_eff,
-                        u_art,
-                    )
-                except (ValueError, ArithmeticError):
-                    logger.warning(
-                        "Línea receta incompatible receta_id=%s: unidad=%s art=%s",
-                        ing.get("receta_id"),
-                        ing.get("unidad"),
-                        ing.get("unidad_medida"),
-                    )
+            coste_total, no_costeados = _costear_ingredientes(ingredientes)
 
             precio_venta = Decimal(str(r["precio"] or 0))
-            if precio_venta > 0:
-                margen = (
-                    (precio_venta - coste_total) / precio_venta * 100
-                ).quantize(Decimal("0.01"), ROUND_HALF_UP)
-            else:
-                margen = Decimal("0")
+            margen, semaforo = _margen_y_semaforo(False, precio_venta, coste_total)
 
             result.append(
                 {
@@ -244,11 +331,13 @@ async def get_semaforo_platos(
                     "coste": _decimal_respuesta_dinero(coste_total),
                     "coste_calculado": _decimal_respuesta_dinero(coste_total),
                     "margen_porcentaje": _decimal_respuesta_dinero(margen),
-                    "semaforo": _calcular_semaforo(margen),
+                    "semaforo": semaforo,
+                    "coste_completo": not no_costeados,
+                    "ingredientes_no_costeados": no_costeados,
                 }
             )
 
-        for er, coste_total in elabor_costes:
+        for er, coste_total, no_costeados in elabor_costes:
             result.append(
                 {
                     "producto_id": None,
@@ -262,6 +351,8 @@ async def get_semaforo_platos(
                     "coste_calculado": _decimal_respuesta_dinero(coste_total),
                     "margen_porcentaje": None,
                     "semaforo": "sin_venta",
+                    "coste_completo": not no_costeados,
+                    "ingredientes_no_costeados": no_costeados,
                 }
             )
 
@@ -319,6 +410,8 @@ async def add_ingrediente(
                     ),
                 )
 
+            _validar_merma(body.porcentaje_merma or Decimal("0"))
+
             max_orden = await conn.fetchval(
                 "SELECT COALESCE(MAX(orden), 0) FROM receta_ingredientes WHERE receta_id = $1",
                 id,
@@ -338,13 +431,238 @@ async def add_ingrediente(
                 (max_orden or 0) + 1,
             )
 
-            await _sync_articulo_elaborado_coste(conn, id)
+            _, no_costeados = await _actualizar_coste_receta(conn, id)
 
-        return _sanitize_ingrediente_row(row)
+        return {
+            **_sanitize_ingrediente_row(row),
+            "ingredientes_no_costeados": no_costeados,
+        }
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Error en add_ingrediente: %s", e)
+        raise HTTPException(status_code=500, detail="Error interno")
+
+
+@router.post("/recetas/{id}/ingredientes/bulk")
+async def add_ingredientes_bulk(
+    id: UUID,
+    body: BulkIngredientesRequest,
+    current_user: dict = Depends(require_roles(ROLES_RECETAS_ADMIN)),
+):
+    """Añadir varias líneas de ingredientes en una sola transacción."""
+    try:
+        if not body.lineas:
+            raise HTTPException(
+                status_code=400, detail="Envía al menos una línea de ingredientes"
+            )
+        if len(body.lineas) > 200:
+            raise HTTPException(
+                status_code=400, detail="Máximo 200 líneas por importación"
+            )
+
+        async with get_db() as conn:
+            tenant_id = await _require_tenant_id(conn, current_user["sub"])
+            tenant_uuid = UUID(tenant_id)
+
+            receta = await fetch_receta_tenant(conn, id, tenant_uuid)
+            if not receta:
+                raise HTTPException(status_code=404, detail="Receta no encontrada")
+
+            salida = receta.get("articulo_salida_id")
+            max_orden = await conn.fetchval(
+                "SELECT COALESCE(MAX(orden), 0) FROM receta_ingredientes WHERE receta_id = $1",
+                id,
+            )
+            orden = int(max_orden or 0)
+            inserted_rows = []
+
+            for idx, linea in enumerate(body.lineas):
+                if salida and str(salida) == str(linea.articulo_id):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Fila {idx + 1}: no puedes añadir el propio elaborado "
+                            "como ingrediente"
+                        ),
+                    )
+
+                try:
+                    art_uuid = UUID(str(linea.articulo_id))
+                except (ValueError, TypeError):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Fila {idx + 1}: articulo_id no válido",
+                    ) from None
+
+                art = await conn.fetchrow(
+                    "SELECT id, unidad_medida FROM articulos WHERE id = $1 AND tenant_id = $2",
+                    art_uuid,
+                    tenant_uuid,
+                )
+                if not art:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Fila {idx + 1}: artículo no encontrado",
+                    )
+
+                if linea.cantidad_neta is None or linea.cantidad_neta <= 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Fila {idx + 1}: cantidad_neta debe ser mayor que cero",
+                    )
+
+                u_req = (linea.unidad or "").strip().lower()
+                u_art = str(art["unidad_medida"] or "").strip()
+                permitidas = [
+                    x.lower() for x in unidades_permitidas_para_articulo(u_art)
+                ]
+                if u_req not in permitidas:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"Fila {idx + 1}: unidad no válida. El inventario usa "
+                            f"«{u_art}»: solo "
+                            f"{', '.join(unidades_permitidas_para_articulo(u_art))}."
+                        ),
+                    )
+
+                try:
+                    _validar_merma(linea.porcentaje_merma or Decimal("0"))
+                except HTTPException as he:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Fila {idx + 1}: {he.detail}",
+                    ) from he
+
+                orden += 1
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO receta_ingredientes (
+                        receta_id, articulo_id, cantidad_neta, porcentaje_merma, unidad, orden
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    RETURNING *
+                    """,
+                    id,
+                    art_uuid,
+                    linea.cantidad_neta,
+                    linea.porcentaje_merma or Decimal("0"),
+                    linea.unidad,
+                    orden,
+                )
+                inserted_rows.append(_sanitize_ingrediente_row(row))
+
+            coste_total, no_costeados = await _actualizar_coste_receta(conn, id)
+
+        return {
+            "inserted": len(inserted_rows),
+            "coste_total": _decimal_respuesta_dinero(coste_total),
+            "coste_completo": not no_costeados,
+            "ingredientes_no_costeados": no_costeados,
+            "ingredientes": inserted_rows,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en add_ingredientes_bulk: %s", e)
+        raise HTTPException(status_code=500, detail="Error interno")
+
+
+@router.put("/recetas/{id}/ingredientes/{ingrediente_id}")
+async def update_ingrediente(
+    id: UUID,
+    ingrediente_id: UUID,
+    body: UpdateIngredienteRequest,
+    current_user: dict = Depends(require_roles(ROLES_RECETAS_ADMIN)),
+):
+    """Actualiza cantidad, merma y/o unidad de una línea de ingrediente."""
+    try:
+        if (
+            body.cantidad_neta is None
+            and body.porcentaje_merma is None
+            and body.unidad is None
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Al menos un campo es requerido",
+            )
+        if body.cantidad_neta is not None and body.cantidad_neta <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="cantidad_neta debe ser mayor que 0",
+            )
+        if body.porcentaje_merma is not None:
+            _validar_merma(body.porcentaje_merma)
+
+        async with get_db() as conn:
+            tenant_id = await _require_tenant_id(conn, current_user["sub"])
+            receta = await fetch_receta_tenant(conn, id, UUID(tenant_id))
+            if not receta:
+                raise HTTPException(status_code=404, detail="Receta no encontrada")
+
+            ing = await conn.fetchrow(
+                """
+                SELECT ri.*, a.unidad_medida, a.tenant_id
+                FROM receta_ingredientes ri
+                JOIN articulos a ON a.id = ri.articulo_id
+                WHERE ri.id = $1 AND ri.receta_id = $2
+                """,
+                ingrediente_id,
+                id,
+            )
+            if not ing or str(ing["tenant_id"]) != str(tenant_id):
+                raise HTTPException(
+                    status_code=404, detail="Ingrediente no encontrado"
+                )
+
+            args: list = []
+            updates: list[str] = []
+            if body.cantidad_neta is not None:
+                args.append(body.cantidad_neta)
+                updates.append("cantidad_neta = $" + str(len(args)))
+            if body.porcentaje_merma is not None:
+                args.append(body.porcentaje_merma)
+                updates.append("porcentaje_merma = $" + str(len(args)))
+            if body.unidad is not None:
+                u_req = body.unidad.strip().lower()
+                u_art = str(ing["unidad_medida"] or "").strip()
+                permitidas = [
+                    x.lower() for x in unidades_permitidas_para_articulo(u_art)
+                ]
+                if u_req not in permitidas:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Unidad no válida para este artículo. "
+                            f"El inventario usa «{u_art}»: solo "
+                            f"{', '.join(unidades_permitidas_para_articulo(u_art))}."
+                        ),
+                    )
+                args.append(u_req)
+                updates.append("unidad = $" + str(len(args)))
+
+            args.extend([ingrediente_id, id])
+            sql = (
+                "UPDATE receta_ingredientes SET "
+                + ", ".join(updates)
+                + " WHERE id = $"
+                + str(len(args) - 1)
+                + " AND receta_id = $"
+                + str(len(args))
+                + " RETURNING *"
+            )
+            row = await conn.fetchrow(sql, *args)
+            _, no_costeados = await _actualizar_coste_receta(conn, id)
+
+        return {
+            **_sanitize_ingrediente_row(row),
+            "ingredientes_no_costeados": no_costeados,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en update_ingrediente: %s", e)
         raise HTTPException(status_code=500, detail="Error interno")
 
 
@@ -372,7 +690,7 @@ async def delete_ingrediente(
                 id,
             )
 
-            await _sync_articulo_elaborado_coste(conn, id)
+            await _actualizar_coste_receta(conn, id)
 
         if "DELETE 0" in result:
             raise HTTPException(status_code=404, detail="Ingrediente no encontrado")
@@ -406,37 +724,13 @@ async def get_receta_coste(
 
             ingredientes = await conn.fetch(SQL_INGREDIENTES_RECETA, id)
 
-            coste_total = Decimal("0")
-            for ing in ingredientes:
-                u_linea = str(ing["unidad"] or "").strip()
-                u_art = str(ing["articulo_unidad_medida"] or "").strip()
-                try:
-                    coste_eff = _effective_coste_articulo_row(ing)
-                    coste_total += _coste_linea_ingrediente(
-                        Decimal(str(ing["cantidad_neta"])),
-                        Decimal(str(ing["porcentaje_merma"] or 0)),
-                        u_linea,
-                        coste_eff,
-                        u_art,
-                    )
-                except (ValueError, ArithmeticError) as ex:
-                    logger.warning("Coste línea receta %s: %s", ing.get("id"), ex)
-
             es_elaboracion = receta.get("producto_id") is None
             precio_venta = Decimal(str(receta["precio_venta"] or 0))
-            if es_elaboracion:
-                margen = None
-                semaforo = "sin_venta"
-            elif precio_venta > 0:
-                margen = (
-                    (precio_venta - coste_total) / precio_venta * 100
-                ).quantize(Decimal("0.01"), ROUND_HALF_UP)
-                semaforo = _calcular_semaforo(margen)
-            else:
-                margen = Decimal("0")
-                semaforo = _calcular_semaforo(margen)
-
-            await _sync_articulo_elaborado_coste(conn, id)
+            coste_total, no_costeados = await _actualizar_coste_receta(conn, id)
+            margen, semaforo = _margen_y_semaforo(
+                es_elaboracion, precio_venta, coste_total
+            )
+            ids_no_costeados = {x["ingrediente_id"] for x in no_costeados}
 
             nombre_display = receta.get("producto_nombre") or receta.get(
                 "articulo_salida_nombre"
@@ -451,16 +745,12 @@ async def get_receta_coste(
                 u_linea = str(ing["unidad"] or "").strip()
                 u_art = str(ing["articulo_unidad_medida"] or "").strip()
                 coste_eff = _effective_coste_articulo_row(ing)
-                try:
-                    coste_lin = _coste_linea_ingrediente(
-                        cn,
-                        pm,
-                        u_linea,
-                        coste_eff,
-                        u_art,
-                    )
-                except (ValueError, ArithmeticError):
-                    coste_lin = Decimal("0")
+                costeado = str(ing["id"]) not in ids_no_costeados
+                coste_lin = (
+                    _coste_linea_ingrediente(cn, pm, u_linea, coste_eff, u_art)
+                    if costeado
+                    else Decimal("0")
+                )
 
                 calib_ok = (
                     ing.get("calibracion_comprado") is not None
@@ -489,6 +779,7 @@ async def get_receta_coste(
                         "coste_unitario_efectivo": _decimal_respuesta_qty(coste_eff),
                         "calibracion_activa": calib_ok,
                         "coste_linea": _decimal_respuesta_dinero(coste_lin),
+                        "costeado": costeado,
                     }
                 )
 
@@ -512,6 +803,8 @@ async def get_receta_coste(
                 if margen is not None
                 else None,
                 "semaforo": semaforo,
+                "coste_completo": not no_costeados,
+                "ingredientes_no_costeados": no_costeados,
                 "ingredientes": ing_out,
             }
     except HTTPException:

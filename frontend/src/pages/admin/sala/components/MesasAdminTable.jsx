@@ -9,7 +9,6 @@ import {
   ICON,
   estadoBadgeClass,
   estadoLabel,
-  formaLabel,
   zonaBadgeClass,
 } from '../constants'
 
@@ -97,13 +96,12 @@ export default function MesasAdminTable({
       ) : (
         <>
           <div className={`hidden overflow-x-auto md:block ${CARD_BASE}`}>
-            <table className="horeca-body-text w-full min-w-[720px] text-left text-sm">
+            <table className="horeca-body-text w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#e2e5ed] text-[#6b7280] dark:border-[#2e3347] dark:text-[#9ca3af]">
                   <th className="px-4 py-3 font-medium">Nº</th>
                   <th className="px-4 py-3 font-medium">Capacidad</th>
                   <th className="px-4 py-3 font-medium">Zona</th>
-                  <th className="px-4 py-3 font-medium">Forma</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
                   <th className="px-4 py-3 font-medium text-right">
                     Acciones
@@ -135,9 +133,6 @@ export default function MesasAdminTable({
                           >
                             {m.zona || '—'}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 capitalize text-[#111827] dark:text-[#e8eaf0]">
-                          {formaLabel(m.forma)}
                         </td>
                         <td className="px-4 py-3">
                           <span
@@ -221,14 +216,6 @@ export default function MesasAdminTable({
                           >
                             {m.zona || '—'}
                           </span>
-                        </dd>
-                      </div>
-                      <div className="flex justify-between gap-2">
-                        <dt className="text-[#6b7280] dark:text-[#9ca3af]">
-                          Forma
-                        </dt>
-                        <dd className="capitalize text-[#111827] dark:text-[#e8eaf0]">
-                          {formaLabel(m.forma)}
                         </dd>
                       </div>
                     </dl>

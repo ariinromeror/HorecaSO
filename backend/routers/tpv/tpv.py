@@ -13,9 +13,16 @@ router = APIRouter(
     },
 )
 
-from . import tpv_lineas, tpv_tickets_create, tpv_tickets_detalle, tpv_tickets_list
+from . import (
+    tpv_cierre_caja,
+    tpv_lineas,
+    tpv_tickets_create,
+    tpv_tickets_detalle,
+    tpv_tickets_list,
+)
 
 router.include_router(tpv_tickets_create.router)
 router.include_router(tpv_tickets_list.router)
 router.include_router(tpv_tickets_detalle.router)
 router.include_router(tpv_lineas.router)
+router.include_router(tpv_cierre_caja.router)

@@ -1,13 +1,73 @@
 /** Todas las unidades posibles en formularios (se filtra por artículo). */
 export const UNIDADES_OPTS = ['kg', 'g', 'l', 'ml', 'ud']
 
-export function familiaUnidad(u) {
+const VOLUMEN_ALIAS = new Set([
+  'l',
+  'lt',
+  'litro',
+  'litros',
+  'litro(s)',
+  'ml',
+  'mililitro',
+  'mililitros',
+])
+const MASA_ALIAS = new Set([
+  'kg',
+  'kilo',
+  'kilos',
+  'kilogramo',
+  'kilogramos',
+  'g',
+  'gr',
+  'gramo',
+  'gramos',
+  'gramo(s)',
+])
+const UNIDAD_ALIAS = new Set(['ud', 'unidad', 'unidades', 'u', 'uds'])
+
+/** Canoniza sinónimos de inventario a kg|g|l|ml|ud. */
+export function normalizarUnidad(u) {
   const x = String(u || '')
     .trim()
     .toLowerCase()
-  if (x === 'kg' || x === 'g') return 'masa'
-  if (x === 'l' || x === 'ml') return 'volumen'
-  if (x === 'ud' || x === 'unidad' || x === 'u') return 'unidad'
+  if (!x) return ''
+  if (x === 'ml' || x === 'mililitro' || x === 'mililitros') return 'ml'
+  if (
+    x === 'l' ||
+    x === 'lt' ||
+    x === 'litro' ||
+    x === 'litros' ||
+    x === 'litro(s)'
+  )
+    return 'l'
+  if (
+    x === 'g' ||
+    x === 'gr' ||
+    x === 'gramo' ||
+    x === 'gramos' ||
+    x === 'gramo(s)'
+  )
+    return 'g'
+  if (
+    x === 'kg' ||
+    x === 'kilo' ||
+    x === 'kilos' ||
+    x === 'kilogramo' ||
+    x === 'kilogramos'
+  )
+    return 'kg'
+  if (UNIDAD_ALIAS.has(x)) return 'ud'
+  return x
+}
+
+export function familiaUnidad(u) {
+  const raw = String(u || '')
+    .trim()
+    .toLowerCase()
+  const x = normalizarUnidad(u)
+  if (x === 'kg' || x === 'g' || MASA_ALIAS.has(raw)) return 'masa'
+  if (x === 'l' || x === 'ml' || VOLUMEN_ALIAS.has(raw)) return 'volumen'
+  if (x === 'ud' || UNIDAD_ALIAS.has(raw)) return 'unidad'
   return 'desconocido'
 }
 
@@ -18,9 +78,32 @@ export function unidadesPermitidasParaArticulo(unidadMedidaArticulo) {
   if (fam === 'masa') return ['kg', 'g']
   if (fam === 'unidad') return ['ud']
   if (unidadMedidaArticulo && String(unidadMedidaArticulo).trim()) {
-    return [String(unidadMedidaArticulo).trim().toLowerCase()]
+    const n = normalizarUnidad(unidadMedidaArticulo)
+    return n ? [n] : [...UNIDADES_OPTS]
   }
   return [...UNIDADES_OPTS]
+}
+
+/** Unidad por defecto al elegir un artículo (respeta ml si el stock está en ml). */
+export function unidadLineaPorDefecto(unidadMedidaArticulo) {
+  const n = normalizarUnidad(unidadMedidaArticulo)
+  const fam = familiaUnidad(unidadMedidaArticulo)
+  if (fam === 'volumen') return n === 'ml' ? 'ml' : 'l'
+  if (fam === 'masa') return n === 'g' ? 'g' : 'kg'
+  if (fam === 'unidad') return 'ud'
+  return n || ''
+}
+
+export function etiquetaUnidad(u) {
+  const n = normalizarUnidad(u) || String(u || '').toLowerCase()
+  const map = {
+    l: 'l (litros)',
+    ml: 'ml',
+    kg: 'kg',
+    g: 'g',
+    ud: 'ud',
+  }
+  return map[n] || n || '—'
 }
 
 export function formatEuro(n) {

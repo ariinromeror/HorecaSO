@@ -16,12 +16,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 
 from config import settings
+from rate_limit import limiter, rate_limit_exceeded_handler
 from database import close_connection_pool, init_connection_pool, get_db
 from routers.admin_carta.admin_carta import router as admin_carta_router
 from routers.admin_carta.admin_carta import router_alergenos as alergenos_router
@@ -68,6 +67,7 @@ from routers.fifo.fifo_consumo import router as fifo_consumo_router
 from routers.reportes.reportes import router as reportes_router
 from routers.admin_usuarios import router as admin_usuarios_router
 from routers.superadmin import router as superadmin_router
+from routers.superadmin import acuerdos_router as superadmin_acuerdos_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -75,9 +75,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-limiter = Limiter(key_func=get_remote_address)
-
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Cabeceras HTTP recomendadas en producción (§1.2 GUIA_PRODUCCION_COMPLETA)."""
@@ -104,27 +101,28 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """App factory."""
-    is_prod = (settings.ENVIRONMENT or "").strip().lower() == "production"
+    is_dev = (settings.ENVIRONMENT or "").strip().lower() == "development"
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
         lifespan=lifespan,
         redirect_slashes=False,
-        docs_url=None if is_prod else "/docs",
-        redoc_url=None if is_prod else "/redoc",
+        docs_url="/docs" if is_dev else None,
+        redoc_url="/redoc" if is_dev else None,
+        openapi_url="/openapi.json" if is_dev else None,
     )
 
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)
 
-    # CORS dinámico
+    # CORS: lista explícita. Vacío = no se acepta ningún origen (nunca *).
     origins = settings.allowed_origins_list
     if not origins:
-        origins = ["*"]
-        allow_credentials = False
-    else:
-        allow_credentials = True
+        logger.warning(
+            "ALLOWED_ORIGINS vacío: CORS no acepta ningún origen (HSO-22)"
+        )
+    allow_credentials = bool(origins)
 
     app.add_middleware(
         CORSMiddleware,
@@ -193,13 +191,19 @@ def create_app() -> FastAPI:
     app.include_router(fifo_consumo_router, prefix="/api")
     app.include_router(reportes_router, prefix="/api")
     app.include_router(superadmin_router)
+    app.include_router(superadmin_acuerdos_router)
 
     @app.get("/api/health")
     async def health_check():
-        """Health check — verifica conexión a DB con SELECT 1."""
-        try:
+        """Health check — verifica conexión a DB con SELECT 1 (timeout 8s)."""
+        import asyncio
+
+        async def _db_ping():
             async with get_db() as conn:
-                await conn.fetchval("SELECT 1")
+                return await conn.fetchval("SELECT 1")
+
+        try:
+            await asyncio.wait_for(_db_ping(), timeout=8.0)
             return {"status": "ok"}
         except Exception as e:
             logger.error("Health check fallido: %s", e)

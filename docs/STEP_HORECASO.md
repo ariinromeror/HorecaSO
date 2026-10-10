@@ -58,7 +58,7 @@
    - Tablas `platform_logs`, `tenant_audit_log`, `usuario_permisos` creadas.
    - Tenant `Restaurante Prueba` y usuarios `admin@prueba.com`, etc., si el bloque DO $$ del script no falló.
 
-**Credenciales** (las contraseñas son las del script `generate_test_hashes.py`, por defecto en el propio archivo: `SuperAdmin2024!`, `Admin1234!`, … — **cámbialas en producción**).
+**Credenciales** (las contraseñas son las del script `generate_test_hashes.py`, por defecto en el propio archivo: `<ver gestor de contraseñas>` — **cámbialas en producción**).
 
 ---
 
@@ -131,7 +131,7 @@ Orden sugerido de dificultad creciente:
 | Estilos | Tailwind CSS | 4 | ✅ |
 | Iconos | lucide-react strokeWidth={1.5} | — | ✅ |
 | Base de datos | PostgreSQL 15 vía Supabase | — | ✅ |
-| Auth | JWT + bcrypt 4.0.1 + passlib 1.7.4 | — | ✅ |
+| Auth | JWT (PyJWT 2.10.1) + bcrypt 4.0.1 + passlib 1.7.4 | — | ✅ |
 | Deploy | Render (backend) + Vercel (frontend) | — | ⏳ **AL FINAL** (tras fixes local) |
 | IA | Groq API (llama3 + vision) | — | ✅ facturas; ⏳ previsión Analytics |
 | PDF | ReportLab | — | ✅ nómina, inventario, cierre, ventas, cuadrante, rentabilidad platos, comparativa, appcc |
@@ -185,7 +185,7 @@ Orden sugerido de dificultad creciente:
 - Tenant demo: `00000000-0000-0000-0000-000000000001` (NIF: B12345678)
 - Outlet demo: `00000000-0000-0000-0000-000000000002` (Sala Principal)
 - Mesa demo: `e81c7ff3-bd71-4739-b371-d43ddc10067e` (interior, cap 4)
-- Usuario admin: `admin@test.com` / `admin123` (rol: admin)
+- Usuario admin: `admin@test.com` / `<ver gestor de contraseñas>` (rol: admin)
 - Categoria Bebidas: `00000000-0000-0000-0000-000000000010`
 - Categoria Entrantes: `d6768a83-2e98-4698-a5cf-528c5111d6a2`
 - Coca Cola ID: `666291da-ddab-409b-85fb-d682962bee71`
@@ -338,12 +338,12 @@ HorecaSO/
 - GestionSalaPage: crear/editar/eliminar mesas ✅
 - Pendiente Fase 4: mapa de calor rentabilidad por mesa
 
-### MÓDULO 3 — VERIFACTU ✅ COMPLETO
-- Hash chain SHA-256 implementado ✅
-- Exportar CSV para AEAT ✅
+### MÓDULO 3 — VERIFACTU (registro interno; envío AEAT pendiente)
+- Hash chain SHA-256 interno ✅
+- Exportación CSV interna (no es envío a la AEAT) ✅
 - Verificar integridad de cadena ✅
 - fecha_hora_generacion guardada correctamente ✅
-- Envío real AEAT: Fase 5 (requiere certificado digital)
+- Envío real AEAT: pendiente (requiere certificado digital + spec validada)
 
 ### MÓDULO 4 — CARTA Y MENÚ ✅ COMPLETO
 - Backend: categorías, productos, alérgenos ✅ + saneo/prohibición emoji al guardar (`admin_carta`) ✅
@@ -375,7 +375,9 @@ HorecaSO/
 ### MÓDULO 7 — INVENTARIO ✅ COMPLETO
 - Backend: artículos, movimientos, alertas, inventario físico ✅
 - Frontend: InventarioPage + MermasPage ✅
-- **FIFO:** [`routers/fifo/`](backend/routers/fifo/) + [`FIFOPage.jsx`](frontend/src/pages/inventario/FIFOPage.jsx) ✅ (lotes, consumos, valoración)
+- **Stock (HSO-11):** [`services/stock.py`](backend/services/stock.py) único (entrada→lote, salida/merma→FIFO, ajuste por diferencia); `stock_actual` es caché. SQL pendiente de ejecutar: `migration_hso11_stock_schema.sql` + `migration_hso11_datos_lotes.sql`
+- **Índices de tráfico (HSO-14):** `migration_hso14_indices.sql` (`CREATE INDEX CONCURRENTLY`, sin transacción). Pendiente de ejecutar en Supabase.
+- **FIFO:** [`routers/fifo/`](backend/routers/fifo/) + [`FIFOPage.jsx`](frontend/src/pages/inventario/FIFOPage.jsx) ✅ (lotes, consumos, valoración; pasan por el servicio de stock)
 - **APPCC:** [`routers/appcc.py`](backend/routers/appcc.py) + [`APPCCPage.jsx`](frontend/src/pages/inventario/APPCCPage.jsx) ✅
 
 ### MÓDULO 8 — DASHBOARD ✅ COMPLETO (básico)
@@ -385,7 +387,7 @@ HorecaSO/
 - Pendiente Fase 4: previsión IA; KPIs extra en dashboard si se desean
 
 ### MÓDULO 9 — PROVEEDORES Y COMPRAS ✅ COMPLETO (parcial)
-- Backend: CRUD proveedores + facturas + IA escaneo Groq vision ✅
+- Backend: CRUD proveedores + facturas + IA escaneo Groq vision ✅ (HSO-18: 8 MB, JPEG/PNG/PDF, 1 archivo)
 - Frontend: ProveedoresPage + FacturasPage ✅; modal IA con confirmación y `POST /api/facturas-proveedor` ✅
 - **PENDIENTE:** movimientos de **stock automáticos** al registrar factura desde IA (backend)
 - **PENDIENTE:** soporte PDF en escaneo + conversión backend
@@ -426,7 +428,7 @@ HorecaSO/
 ### MÓDULO 13 — REPORTES Y PDF ✅ PARCIAL
 - **✅ Implementado (ReportLab):** nómina, inventario, cierre caja, ventas periodo, cuadrante, rentabilidad platos (BCG), comparativa proveedores, appcc ([`reportes.py`](backend/routers/reportes.py) + [`reportes_diferenciales.py`](backend/routers/reportes_diferenciales.py)); UI [`ReportesPage`](frontend/src/pages/reportes/ReportesPage.jsx)
 - **⏳ Pendiente:** ticket de venta con QR Verifactu; resumen fiscal modelo 303; más informes si PRD los pide
-- **✅** Exportación CSV AEAT (Verifactu) — ya en módulo Verifactu
+- **✅** Exportación CSV interna de registros (no es envío a la AEAT)
 
 ### MÓDULO 14 — APPCC Y FIFO ✅ HECHO · food_cost ⏳
 - **✅ APPCC:** CRUD registros + resumen + PDF informe

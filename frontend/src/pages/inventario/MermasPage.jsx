@@ -1,4 +1,4 @@
-import { Calendar, Package, Plus, Trash2, TrendingDown } from 'lucide-react'
+import { Calendar, Package, Plus, TrendingDown } from 'lucide-react'
 import StatCard from '../../components/shared/StatCard'
 import MermaModal from './components/MermaModal'
 import MermasList from './components/MermasList'
@@ -9,23 +9,12 @@ export default function MermasPage() {
   const m = useMermas()
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 md:p-6">
+    <div className="min-h-0 flex-1 overflow-auto">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <Trash2
-                {...ICON_MERMAS}
-                className="h-8 w-8 shrink-0 text-red-500"
-              />
-              <h1 className="text-2xl font-bold text-[#111827] dark:text-[#f5f5f5]">
-                Mermas
-              </h1>
-            </div>
-            <p className="mt-1 text-sm text-[#6b7280] dark:text-[#9ca3af]">
-              Registro de pérdidas y control de desperdicios
-            </p>
-          </div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[15px] text-[#6b7280] dark:text-[#9ca3af]">
+            Registro de pérdidas y control de desperdicios
+          </p>
           {m.canRegistrarMerma ? (
             <button type="button" onClick={m.openModal} className={BTN_PRIMARY_MERMAS}>
               <Plus {...ICON_MERMAS} className="h-5 w-5" />

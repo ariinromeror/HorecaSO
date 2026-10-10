@@ -53,7 +53,7 @@ DESC = {
     "turnos": "Fichajes y turnos de empleados",
     "usuario_permisos": "Permisos granulares por usuario y tenant",
     "usuarios": "Usuarios del sistema con rol y acceso",
-    "verifactu_registros": "Registros fiscales Verifactu (AEAT)",
+    "verifactu_registros": "Registros internos de facturación (pendiente de envío a la AEAT)",
 }
 
 

@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import time
+from datetime import date, datetime, time
 from typing import Any
-
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
 
@@ -24,6 +24,13 @@ ROLES_TODOS = [
     "cocina",
     "almacen",
 ]
+
+ESTADOS_RESERVA_ACTIVOS = frozenset({"pendiente", "confirmada"})
+TZ_MADRID = ZoneInfo("Europe/Madrid")
+
+
+def _hoy_madrid() -> date:
+    return datetime.now(TZ_MADRID).date()
 
 
 def _uid(current_user: dict) -> UUID:
@@ -67,6 +74,61 @@ def _parse_hora_time(s: str) -> time:
             detail="hora inválida",
         )
     return time(h, m)
+
+
+async def _sync_estado_mesa_reserva(
+    conn,
+    mesa_id: UUID | None,
+    fecha: date | None = None,
+) -> None:
+    """
+    El estado de sala solo refleja reservas activas de HOY (Europe/Madrid).
+    Si hay pendiente/confirmada hoy y no hay ticket abierto → reservada.
+    Si no quedan → libre (solo si estaba reservada).
+    """
+    if not mesa_id:
+        return
+    # fecha se acepta por compatibilidad; el bloqueo operativo es siempre "hoy"
+    _ = fecha
+    fecha_ref = _hoy_madrid()
+
+    abierto = await conn.fetchval(
+        """
+        SELECT 1 FROM tickets
+        WHERE mesa_id = $1 AND estado = 'abierto'
+        LIMIT 1
+        """,
+        mesa_id,
+    )
+    if abierto:
+        return
+
+    activa = await conn.fetchval(
+        """
+        SELECT 1 FROM reservas
+        WHERE mesa_id = $1
+          AND fecha = $2
+          AND estado = ANY($3::text[])
+        LIMIT 1
+        """,
+        mesa_id,
+        fecha_ref,
+        list(ESTADOS_RESERVA_ACTIVOS),
+    )
+    if activa:
+        await conn.execute(
+            "UPDATE mesas SET estado = 'reservada' WHERE id = $1",
+            mesa_id,
+        )
+    else:
+        await conn.execute(
+            """
+            UPDATE mesas
+            SET estado = 'libre'
+            WHERE id = $1 AND estado = 'reservada'
+            """,
+            mesa_id,
+        )
 
 
 def _serialize_reserva(r: Any) -> dict:

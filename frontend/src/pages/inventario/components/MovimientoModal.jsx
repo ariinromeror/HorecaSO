@@ -68,7 +68,9 @@ export default function MovimientoModal({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
-              Cantidad *
+              {formMovimiento.tipo === 'ajuste'
+                ? 'Cantidad real (recuento) *'
+                : 'Cantidad *'}
             </label>
             <input
               type="number"
@@ -83,6 +85,19 @@ export default function MovimientoModal({
               }
               className={INPUT}
             />
+            {formMovimiento.tipo === 'ajuste' ? (
+              <p className="mt-1 text-sm text-[#6b7280] dark:text-[#9ca3af]">
+                Se registra la diferencia con el stock. Si falta, se consume
+                FIFO; si sobra, se crea un lote.
+              </p>
+            ) : null}
+            {formMovimiento.tipo === 'salida' ||
+            formMovimiento.tipo === 'merma' ? (
+              <p className="mt-1 text-sm text-[#6b7280] dark:text-[#9ca3af]">
+                Se descuenta por FIFO (el lote que caduca antes). Sin stock
+                suficiente no se registra.
+              </p>
+            ) : null}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
@@ -97,24 +112,57 @@ export default function MovimientoModal({
             />
           </div>
           {formMovimiento.tipo === 'entrada' ? (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
-                Actualizar coste unitario (opcional)
-              </label>
-              <input
-                type="number"
-                step="0.0001"
-                min="0"
-                value={formMovimiento.coste_unitario}
-                onChange={(e) =>
-                  setFormMovimiento((f) => ({
-                    ...f,
-                    coste_unitario: e.target.value,
-                  }))
-                }
-                className={INPUT}
-              />
-            </div>
+            <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
+                  Actualizar coste unitario (opcional)
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={formMovimiento.coste_unitario}
+                  onChange={(e) =>
+                    setFormMovimiento((f) => ({
+                      ...f,
+                      coste_unitario: e.target.value,
+                    }))
+                  }
+                  className={INPUT}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
+                  Caducidad (opcional)
+                </label>
+                <input
+                  type="date"
+                  value={formMovimiento.fecha_caducidad || ''}
+                  onChange={(e) =>
+                    setFormMovimiento((f) => ({
+                      ...f,
+                      fecha_caducidad: e.target.value,
+                    }))
+                  }
+                  className={INPUT}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#374151] dark:text-[#9ca3af]">
+                  Número de lote (opcional)
+                </label>
+                <input
+                  value={formMovimiento.numero_lote || ''}
+                  onChange={(e) =>
+                    setFormMovimiento((f) => ({
+                      ...f,
+                      numero_lote: e.target.value,
+                    }))
+                  }
+                  className={INPUT}
+                />
+              </div>
+            </>
           ) : null}
         </div>
         <div className="mt-6 flex justify-end gap-2">

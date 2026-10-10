@@ -15,12 +15,12 @@ from pydantic import BaseModel, Field
 
 from auth.dependencies import require_modulo, require_roles
 from database import get_db
+from services import stock
 
 from .fifo_shared import (
     ROLES_ALMACEN,
     _outlet_id_usuario,
     _q2,
-    _q4,
     _serialize_lote_row,
     _tenant_id_usuario,
     _uid,
@@ -112,73 +112,24 @@ async def create_lote_fifo(
     _: dict = Depends(require_modulo("fifo")),
 ):
     user_uuid = _uid(current_user)
-    cant = _q4(body.cantidad)
-    coste_u = _q2(body.coste_unitario)
     try:
         async with get_db() as conn:
             tenant_id = await _tenant_id_usuario(conn, user_uuid)
             outlet_id = await _outlet_id_usuario(conn, user_uuid)
 
-            art = await conn.fetchrow(
-                """
-                SELECT id FROM articulos
-                WHERE id = $1 AND tenant_id = $2
-                FOR UPDATE
-                """,
-                body.articulo_id,
-                tenant_id,
+            res = await stock.registrar_entrada(
+                conn,
+                tenant_id=tenant_id,
+                outlet_id=outlet_id,
+                usuario_id=user_uuid,
+                articulo_id=body.articulo_id,
+                cantidad=body.cantidad,
+                coste_unitario=_q2(body.coste_unitario),
+                fecha_caducidad=body.fecha_caducidad,
+                numero_lote=body.numero_lote,
+                motivo="lote_fifo",
             )
-            if not art:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Artículo no encontrado",
-                )
-
-            row = await conn.fetchrow(
-                """
-                INSERT INTO lotes_inventario (
-                    articulo_id, outlet_id, cantidad, coste_unitario,
-                    fecha_caducidad, numero_lote
-                )
-                VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING id
-                """,
-                body.articulo_id,
-                outlet_id,
-                cant,
-                coste_u,
-                body.fecha_caducidad,
-                body.numero_lote.strip() if body.numero_lote else None,
-            )
-            lid = row["id"]
-
-            await conn.execute(
-                """
-                UPDATE articulos
-                SET stock_actual = stock_actual + $1,
-                    coste_unitario = $2
-                WHERE id = $3 AND tenant_id = $4
-                """,
-                cant,
-                coste_u,
-                body.articulo_id,
-                tenant_id,
-            )
-
-            await conn.execute(
-                """
-                INSERT INTO movimientos_stock (
-                    articulo_id, outlet_id, tipo, cantidad, coste_unitario,
-                    motivo, usuario_id, ticket_id
-                )
-                VALUES ($1, $2, 'entrada', $3, $4, 'lote_fifo', $5, NULL)
-                """,
-                body.articulo_id,
-                outlet_id,
-                cant,
-                coste_u,
-                user_uuid,
-            )
+            lid = res.lote_id
 
             r2 = await conn.fetchrow(
                 """
@@ -203,6 +154,8 @@ async def create_lote_fifo(
             return _serialize_lote_row(r2)
     except HTTPException:
         raise
+    except stock.StockError as e:
+        raise stock.a_http(e)
     except Exception as e:
         logger.error("create_lote_fifo: %s", e)
         raise HTTPException(

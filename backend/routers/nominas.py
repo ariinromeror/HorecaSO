@@ -10,6 +10,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Optional
 from uuid import UUID
 
+import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -82,10 +83,10 @@ class CalcularNominaBody(BaseModel):
     empleado_id: str
     mes: int = Field(..., ge=1, le=12)
     anio: int = Field(..., ge=2000, le=2100)
-    horas_extra_cantidad: Optional[Decimal] = None
-    plus_festivos: Optional[Decimal] = None
-    otros_devengos: Optional[Decimal] = None
-    otras_deducciones: Optional[Decimal] = None
+    horas_extra_cantidad: Optional[Decimal] = Field(None, ge=0)
+    plus_festivos: Optional[Decimal] = Field(None, ge=0)
+    otros_devengos: Optional[Decimal] = Field(None, ge=0)
+    otras_deducciones: Optional[Decimal] = Field(None, ge=0)
 
 
 @router.post("/calcular", status_code=status.HTTP_201_CREATED)
@@ -145,7 +146,7 @@ async def calcular_nomina(
             )
             if existe:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
+                    status_code=status.HTTP_409_CONFLICT,
                     detail="Ya existe nómina para ese periodo",
                 )
 
@@ -223,6 +224,11 @@ async def calcular_nomina(
             return out
     except HTTPException:
         raise
+    except asyncpg.UniqueViolationError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ya existe nómina para ese periodo",
+        )
     except Exception as e:
         logger.error("calcular_nomina: %s", e)
         raise HTTPException(

@@ -1,23 +1,25 @@
 import {
   ArrowLeft,
   ChefHat,
+  Printer,
   ShoppingCart,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Loader from '../../components/shared/Loader'
+import { useAuth } from '../../context/AuthContext'
 import CartaPanel from './components/CartaPanel'
 import CobroModal from './components/CobroModal'
 import LineasTicket from './components/LineasTicket'
 import TicketPrintView, {
-  printTicketThermal,
+  printViaAgentOrBrowser,
 } from './components/TicketPrintView'
 import TpvMesaOcupadaAlert from './components/TpvMesaOcupadaAlert'
 import { MESA_OCUPADA_SIN_TICKET_MSG } from './constants'
 import { useTicketTPV } from './hooks/useTicketTPV'
 
 export default function TPVPage() {
+  const { user, refreshProfile } = useAuth()
   const {
-    mesaId,
     navigate,
     categorias,
     categActiva,
@@ -51,6 +53,7 @@ export default function TPVPage() {
     totalPagado,
     pendienteDivision,
     handleAddLinea,
+    handlePatchNotaLinea,
     lineasAgrupadas,
     totalUnidadesComanda,
     handleRestarUnidadGrupo,
@@ -68,11 +71,56 @@ export default function TPVPage() {
   } = useTicketTPV()
 
   const [printType, setPrintType] = useState('ticket')
-  const mesaIdShort = mesaId?.slice(0, 8) ?? '—'
+  const mesaLabel =
+    ticket?.mesa_numero != null && ticket.mesa_numero !== ''
+      ? String(ticket.mesa_numero)
+      : '—'
+  const tenantPrint = ticket?.tenant_print || null
+  const tenantNombre =
+    (tenantPrint?.razon_social && String(tenantPrint.razon_social).trim()) ||
+    (tenantPrint?.nombre && String(tenantPrint.nombre).trim()) ||
+    (ticket?.tenant_nombre && String(ticket.tenant_nombre).trim()) ||
+    (user?.tenant_nombre && String(user.tenant_nombre).trim()) ||
+    'HorecaSO'
 
-  const runPrint = (type) => {
+  useEffect(() => {
+    if (user?.tenant_nombre || tenantPrint?.nombre) return undefined
+    let cancelled = false
+    ;(async () => {
+      try {
+        await refreshProfile()
+      } catch {
+        if (!cancelled) {
+          /* perfil opcional para impresión */
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.tenant_nombre, tenantPrint?.nombre, refreshProfile])
+
+  const runPrint = async (type) => {
     setPrintType(type)
-    requestAnimationFrame(() => printTicketThermal())
+    await new Promise((r) =>
+      requestAnimationFrame(() => requestAnimationFrame(r))
+    )
+    await printViaAgentOrBrowser({
+      tipo: type,
+      mesa: mesaLabel,
+      tenant: tenantNombre,
+      tenant_print: tenantPrint,
+      total: Number(ticket?.total) || 0,
+      lineas: (lineas || []).map((ln) => ({
+        cantidad: ln.cantidad,
+        nombre:
+          productoNombrePorId?.get?.(String(ln.producto_id)) ||
+          ln.nombre ||
+          'Producto',
+        subtotal: Number(ln.subtotal) || 0,
+        nota: ln.nota || null,
+      })),
+    })
   }
 
   if (loading) {
@@ -83,27 +131,33 @@ export default function TPVPage() {
     <div className="flex h-screen flex-col overflow-hidden bg-[#f4f6f9] dark:bg-[#0f1117]">
       <TicketPrintView
         type={printType}
-        mesaLabel={mesaIdShort}
+        mesaLabel={mesaLabel}
         lineas={lineas}
         productoNombrePorId={productoNombrePorId}
         total={ticket?.total}
         qrUrl={ticket?.verifactu_qr_url}
+        tenantNombre={tenantNombre}
+        tenantPrint={tenantPrint}
         numeroSerie={ticket?.verifactu_numero_serie}
         anchoMm={80}
       />
 
-      <header className="h-header-safe sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-[#e2e5ed] bg-white px-4 dark:border-[#2e3347] dark:bg-[#1a1d27]">
-        <button
-          type="button"
-          onClick={() => navigate('/mesas')}
-          className="flex h-12 items-center gap-1 text-[#6b7280] active:text-[#111827] hover:text-[#111827] dark:text-[#8b90a7] dark:hover:text-[#e8eaf0]"
-        >
-          <ArrowLeft size={20} strokeWidth={1.5} />
-          <span className="text-[15px]">Sala</span>
-        </button>
-        <span className="flex-1 text-center text-[15px] font-semibold text-[#111827] dark:text-[#e8eaf0]">
-          TPV · Mesa {mesaIdShort}
+      <header className="h-header-safe sticky top-0 z-20 grid shrink-0 grid-cols-[3rem_1fr_3rem] items-center border-b border-[#e2e5ed] bg-white px-2 dark:border-[#2e3347] dark:bg-[#1a1d27] sm:px-3">
+        <div className="flex justify-start">
+          <button
+            type="button"
+            onClick={() => navigate('/mesas')}
+            className="flex h-12 w-12 items-center justify-center rounded-lg text-[#6b7280] hover:bg-[#f0f2f5] hover:text-[#111827] dark:text-[#8b90a7] dark:hover:bg-[#222536] dark:hover:text-[#e8eaf0]"
+            aria-label="Volver a sala"
+          >
+            <ArrowLeft size={20} strokeWidth={1.5} />
+            <span className="sr-only">Sala</span>
+          </button>
+        </div>
+        <span className="min-w-0 truncate px-1 text-center text-[15px] font-semibold text-[#111827] dark:text-[#e8eaf0]">
+          TPV · Mesa {mesaLabel}
         </span>
+        <div className="w-12" aria-hidden />
       </header>
 
       {error ? (
@@ -186,6 +240,9 @@ export default function TPVPage() {
             <h2 className="text-[15px] font-semibold text-[#111827] dark:text-[#e8eaf0]">
               Comanda
             </h2>
+            <p className="mt-1 text-xs text-[#6b7280] dark:text-[#8b90a7]">
+              Icono de nota: «sin azúcar», alergias… Se imprime en la comanda.
+            </p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <LineasTicket
@@ -194,8 +251,23 @@ export default function TPVPage() {
               productoNombrePorId={productoNombrePorId}
               actionLoading={actionLoading}
               handleRestarUnidadGrupo={handleRestarUnidadGrupo}
+              handlePatchNotaLinea={handlePatchNotaLinea}
             />
             <div className="shrink-0 border-t border-[#e2e5ed] p-4 dark:border-[#2e3347]">
+              <button
+                type="button"
+                disabled={!lineas.length}
+                onClick={() => runPrint('comanda')}
+                className="mb-3 flex h-auto min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-lg border border-[#e2e5ed] bg-white px-3 py-2 text-[#111827] dark:border-[#2e3347] dark:bg-[#1a1d27] dark:text-[#e8eaf0] disabled:opacity-40"
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <Printer size={18} strokeWidth={1.5} />
+                  Comanda cocina
+                </span>
+                <span className="text-xs font-normal text-[#6b7280] dark:text-[#8b90a7]">
+                  Sin precios · cocina/barra
+                </span>
+              </button>
               <CobroModal
                 ticket={ticket}
                 lineas={lineas}
@@ -227,7 +299,7 @@ export default function TPVPage() {
                 handleCompletarDivision={handleCompletarDivision}
                 totalPagado={totalPagado}
                 productoNombrePorId={productoNombrePorId}
-                mesaLabel={mesaIdShort}
+                mesaLabel={mesaLabel}
                 onPrintComanda={() => runPrint('comanda')}
                 onPrintTicket={() => runPrint('ticket')}
               />

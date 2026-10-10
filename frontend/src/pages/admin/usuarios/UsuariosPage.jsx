@@ -3,15 +3,15 @@ import {
   AlertTriangle,
   Check,
   Plus,
-  UserRound,
   X,
 } from 'lucide-react'
 import {
   createAdminUsuario,
+  getAdminOutlets,
   getAdminUsuarios,
-  getMesas,
   patchAdminUsuario,
 } from '../../../services/api'
+import { useAuth } from '../../../context/AuthContext'
 
 const ROLES_OPERATIVOS = [
   { value: 'admin', label: 'Admin' },
@@ -64,6 +64,9 @@ const inputClass =
 const labelClass = 'text-xs font-medium text-[#6b7280] dark:text-[#8b90a7]'
 
 export default function UsuariosPage() {
+  const { user } = useAuth()
+  const emailSlug = user?.email_slug || ''
+  const emailSuffix = emailSlug ? `@${emailSlug}.com` : ''
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -86,7 +89,7 @@ export default function UsuariosPage() {
     return [
       {
         id: modalEdit.outlet_id,
-        label: `Outlet (${String(modalEdit.outlet_id).slice(0, 8)}…)`,
+        label: 'Sala asignada',
       },
       ...outletOptions,
     ]
@@ -94,14 +97,12 @@ export default function UsuariosPage() {
 
   const loadOutletsFromMesas = useCallback(async () => {
     try {
-      const res = await getMesas()
-      const mesas = Array.isArray(res.data) ? res.data : []
-      const ids = [...new Set(mesas.map((x) => x.outlet_id).filter(Boolean))]
-      ids.sort()
+      const res = await getAdminOutlets()
+      const list = Array.isArray(res.data?.items) ? res.data.items : []
       setOutletOptions(
-        ids.map((id, i) => ({
-          id,
-          label: `Local ${i + 1} (${String(id).slice(0, 8)}…)`,
+        list.map((o) => ({
+          id: o.id,
+          label: o.nombre || 'Sala',
         }))
       )
     } catch {
@@ -132,28 +133,17 @@ export default function UsuariosPage() {
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <UserRound
-            className="text-amber-500"
-            size={28}
-            strokeWidth={1.5}
-          />
-          <div>
-            <h1 className="text-xl font-bold text-[#111827] dark:text-[#e8eaf0] sm:text-2xl">
-              Usuarios del local
-            </h1>
-            <p className="text-sm text-[#6b7280] dark:text-[#8b90a7]">
-              Alta y edición de usuarios del mismo tenant
-            </p>
-          </div>
-        </div>
+        <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
+          Alta y edición de usuarios del mismo tenant
+          {emailSuffix ? ` · login ${emailSuffix}` : ''}
+        </p>
         <button
           type="button"
           onClick={() => {
             setFeedback(null)
             setModalCreate(true)
           }}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-medium text-[#111827] hover:bg-amber-400"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 text-sm font-medium text-[#111827] hover:bg-amber-400"
         >
           <Plus size={18} strokeWidth={1.5} />
           Nuevo usuario
@@ -203,7 +193,7 @@ export default function UsuariosPage() {
                   Rol
                 </th>
                 <th className="px-4 py-3 font-semibold text-[#374151] dark:text-[#c4c9d4]">
-                  Outlet
+                  Sala
                 </th>
                 <th className="px-4 py-3 font-semibold text-[#374151] dark:text-[#c4c9d4]">
                   Activo
@@ -263,8 +253,7 @@ export default function UsuariosPage() {
                     </td>
                     <td className="max-w-[200px] truncate px-4 py-3 text-[#6b7280] dark:text-[#8b90a7]">
                       {row.outlet_id
-                        ? outletLabelMap.get(row.outlet_id) ||
-                          `${String(row.outlet_id).slice(0, 8)}…`
+                        ? outletLabelMap.get(row.outlet_id) || 'Sala asignada'
                         : '—'}
                     </td>
                     <td className="px-4 py-3">
@@ -288,6 +277,7 @@ export default function UsuariosPage() {
 
       {modalCreate ? (
         <UsuarioCreateModal
+          emailSuffix={emailSuffix}
           outletOptions={outletOptions}
           submitting={submitting}
           onClose={() => setModalCreate(false)}
@@ -332,19 +322,27 @@ export default function UsuariosPage() {
   )
 }
 
-function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
+function UsuarioCreateModal({
+  emailSuffix,
+  outletOptions,
+  submitting,
+  onClose,
+  onSubmit,
+}) {
   const [nombre, setNombre] = useState('')
-  const [email, setEmail] = useState('')
+  const [localpart, setLocalpart] = useState('')
   const [password, setPassword] = useState('')
   const [rol, setRol] = useState('camarero')
   const [outletId, setOutletId] = useState('')
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const handleCreate = () => {
     if (password.length < 8) return
+    const part = localpart.trim().toLowerCase().replace(/@.*$/, '')
+    if (!part) return
+    const email = emailSuffix ? `${part}${emailSuffix}` : part
     onSubmit({
       nombre: nombre.trim(),
-      email: email.trim(),
+      email,
       password,
       rol,
       outlet_id: outletId || null,
@@ -375,14 +373,13 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
             <X size={22} strokeWidth={1.5} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-3">
           <div>
             <label htmlFor="cu-nombre" className={labelClass}>
               Nombre
             </label>
             <input
               id="cu-nombre"
-              required
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
               className={inputClass}
@@ -390,16 +387,26 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
           </div>
           <div>
             <label htmlFor="cu-email" className={labelClass}>
-              Email
+              Usuario de login
             </label>
-            <input
-              id="cu-email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-            />
+            <div className="mt-1 flex overflow-hidden rounded-lg border border-[#e2e5ed] dark:border-[#2e3347]">
+              <input
+                id="cu-email"
+                value={localpart}
+                onChange={(e) => setLocalpart(e.target.value)}
+                className="min-w-0 flex-1 bg-[#f9fafb] px-3 py-2 text-sm text-[#111827] focus:outline-none dark:bg-[#14161f] dark:text-[#e8eaf0]"
+                placeholder="empleado"
+                autoComplete="off"
+              />
+              <span className="flex items-center bg-[#f0f2f5] px-3 text-sm text-[#6b7280] dark:bg-[#222536] dark:text-[#8b90a7]">
+                {emailSuffix || '@…'}
+              </span>
+            </div>
+            {!emailSuffix ? (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Sin slug del local: vuelve a iniciar sesión o revisa el tenant.
+              </p>
+            ) : null}
           </div>
           <div>
             <label htmlFor="cu-pass" className={labelClass}>
@@ -408,7 +415,6 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
             <input
               id="cu-pass"
               type="password"
-              required
               minLength={8}
               autoComplete="new-password"
               value={password}
@@ -435,7 +441,7 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
           </div>
           <div>
             <label htmlFor="cu-outlet" className={labelClass}>
-              Outlet (opcional)
+              Sala (outlet)
             </label>
             <select
               id="cu-outlet"
@@ -461,14 +467,15 @@ function UsuarioCreateModal({ outletOptions, submitting, onClose, onSubmit }) {
               Cancelar
             </button>
             <button
-              type="submit"
-              disabled={submitting}
+              type="button"
+              disabled={submitting || !emailSuffix}
+              onClick={handleCreate}
               className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-[#111827] hover:bg-amber-400 disabled:opacity-50"
             >
               {submitting ? 'Guardando…' : 'Crear'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )
@@ -555,7 +562,7 @@ function UsuarioEditModal({ userRow, outletOptions, submitting, onClose, onSubmi
           </div>
           <div>
             <label htmlFor="eu-outlet" className={labelClass}>
-              Outlet (opcional)
+              Sala (outlet)
             </label>
             <select
               id="eu-outlet"

@@ -12,7 +12,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 
-from auth.dependencies import get_current_user
+from auth.dependencies import require_roles
 from database import get_db
 from services.verifactu_engine import generar_huella
 
@@ -26,6 +26,8 @@ router = APIRouter(
         403: {"description": "Prohibido"},
     },
 )
+
+ROLES_VERIFACTU = ["admin", "director"]
 
 
 async def _get_user_tenant(conn, user_id: str) -> str | None:
@@ -60,181 +62,225 @@ def _registro_to_dict(row) -> dict:
 
 
 @router.get("/registros")
-async def list_registros(current_user: dict = Depends(get_current_user)):
+async def list_registros(current_user: dict = Depends(require_roles(ROLES_VERIFACTU))):
     """Lista todos los registros Verifactu del tenant del usuario."""
-    async with get_db() as conn:
-        tenant_id = await _get_user_tenant(conn, current_user["sub"])
-        if not tenant_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Usuario sin tenant asignado",
+    try:
+        async with get_db() as conn:
+            tenant_id = await _get_user_tenant(conn, current_user["sub"])
+            if not tenant_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Usuario sin tenant asignado",
+                )
+
+            rows = await conn.fetch(
+                """
+                SELECT * FROM verifactu_registros
+                WHERE tenant_id = $1
+                ORDER BY created_at DESC
+                """,
+                UUID(tenant_id),
             )
 
-        rows = await conn.fetch(
-            """
-            SELECT * FROM verifactu_registros
-            WHERE tenant_id = $1
-            ORDER BY created_at DESC
-            """,
-            UUID(tenant_id),
+        return [_registro_to_dict(r) for r in rows]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en list_registros: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno",
         )
-
-    return [_registro_to_dict(r) for r in rows]
 
 
 @router.get("/registros/{registro_id}")
 async def get_registro(
     registro_id: UUID,
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(require_roles(ROLES_VERIFACTU)),
 ):
     """Devuelve detalle completo de un registro. 404 si no existe o no pertenece al tenant."""
-    async with get_db() as conn:
-        tenant_id = await _get_user_tenant(conn, current_user["sub"])
-        if not tenant_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Usuario sin tenant asignado",
+    try:
+        async with get_db() as conn:
+            tenant_id = await _get_user_tenant(conn, current_user["sub"])
+            if not tenant_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Usuario sin tenant asignado",
+                )
+
+            row = await conn.fetchrow(
+                "SELECT * FROM verifactu_registros WHERE id = $1 AND tenant_id = $2",
+                registro_id,
+                UUID(tenant_id),
             )
 
-        row = await conn.fetchrow(
-            "SELECT * FROM verifactu_registros WHERE id = $1 AND tenant_id = $2",
-            registro_id,
-            UUID(tenant_id),
-        )
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Registro no encontrado",
+            )
 
-    if not row:
+        return _registro_to_dict(row)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en get_registro: %s", e)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Registro no encontrado",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno",
         )
-
-    return _registro_to_dict(row)
 
 
 @router.get("/verificar-cadena")
-async def verificar_cadena(current_user: dict = Depends(get_current_user)):
+async def verificar_cadena(current_user: dict = Depends(require_roles(ROLES_VERIFACTU))):
     """
     Verifica la integridad del hash chaining del tenant.
     Recalcula la huella de cada registro y compara con la almacenada.
     """
-    async with get_db() as conn:
-        tenant_id = await _get_user_tenant(conn, current_user["sub"])
-        if not tenant_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Usuario sin tenant asignado",
+    try:
+        async with get_db() as conn:
+            tenant_id = await _get_user_tenant(conn, current_user["sub"])
+            if not tenant_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Usuario sin tenant asignado",
+                )
+
+            tenant_row = await conn.fetchrow(
+                "SELECT nif FROM tenants WHERE id = $1",
+                UUID(tenant_id),
+            )
+            if not tenant_row:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Tenant no encontrado",
+                )
+
+            rows = await conn.fetch(
+                """
+                SELECT * FROM verifactu_registros
+                WHERE tenant_id = $1
+                ORDER BY fecha_hora_generacion ASC NULLS FIRST, created_at ASC
+                """,
+                UUID(tenant_id),
             )
 
-        tenant_row = await conn.fetchrow(
-            "SELECT nif FROM tenants WHERE id = $1",
-            UUID(tenant_id),
-        )
-        if not tenant_row:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tenant no encontrado",
-            )
+        nif = tenant_row["nif"]
+        errores = []
+        huella_anterior = ""
 
-        rows = await conn.fetch(
-            """
-            SELECT * FROM verifactu_registros
-            WHERE tenant_id = $1
-            ORDER BY created_at ASC
-            """,
-            UUID(tenant_id),
-        )
+        for row in rows:
+            fecha_expedicion = row["fecha_expedicion"]
+            if hasattr(fecha_expedicion, "isoformat"):
+                fecha_expedicion_str = fecha_expedicion.isoformat()
+            else:
+                fecha_expedicion_str = str(fecha_expedicion)[:10]
 
-    nif = tenant_row["nif"]
-    errores = []
-    huella_anterior = ""
+            if row.get("fecha_hora_generacion"):
+                fecha_hora_generacion = row["fecha_hora_generacion"].strftime(
+                    "%Y-%m-%dT%H:%M:%S+00:00"
+                )
+            else:
+                dt = row["created_at"]
+                if dt and hasattr(dt, "astimezone"):
+                    dt = dt.astimezone(timezone.utc)
+                fecha_hora_generacion = (
+                    dt.strftime("%Y-%m-%dT%H:%M:%S+00:00") if dt else ""
+                )
 
-    for row in rows:
-        fecha_expedicion = row["fecha_expedicion"]
-        if hasattr(fecha_expedicion, "isoformat"):
-            fecha_expedicion_str = fecha_expedicion.isoformat()
-        else:
-            fecha_expedicion_str = str(fecha_expedicion)[:10]
-
-        if row.get("fecha_hora_generacion"):
-            fecha_hora_generacion = row["fecha_hora_generacion"].strftime("%Y-%m-%dT%H:%M:%S+00:00")
-        else:
-            dt = row["created_at"]
-            if dt and hasattr(dt, "astimezone"):
-                dt = dt.astimezone(timezone.utc)
-            fecha_hora_generacion = dt.strftime("%Y-%m-%dT%H:%M:%S+00:00") if dt else ""
-
-        registro = {
-            "nif_emisor": nif,
-            "numero_serie": row["numero_serie"],
-            "fecha_expedicion": fecha_expedicion_str,
-            "tipo_factura": row["tipo_factura"] or "F1",
-            "cuota_iva": Decimal(str(row["cuota_iva"])).quantize(Decimal("0.01"), ROUND_HALF_UP),
-            "importe_total": Decimal(str(row["importe_total"])).quantize(Decimal("0.01"), ROUND_HALF_UP),
-            "fecha_hora_generacion": fecha_hora_generacion,
-        }
-
-        huella_calculada = generar_huella(registro, huella_anterior)
-
-        if huella_calculada != row["huella_actual"]:
-            errores.append({
-                "registro_id": str(row["id"]),
+            registro = {
+                "nif_emisor": nif,
                 "numero_serie": row["numero_serie"],
-                "mensaje": "Huella no coincide",
-            })
+                "fecha_expedicion": fecha_expedicion_str,
+                "tipo_factura": row["tipo_factura"] or "F1",
+                "cuota_iva": Decimal(str(row["cuota_iva"])).quantize(
+                    Decimal("0.01"), ROUND_HALF_UP
+                ),
+                "importe_total": Decimal(str(row["importe_total"])).quantize(
+                    Decimal("0.01"), ROUND_HALF_UP
+                ),
+                "fecha_hora_generacion": fecha_hora_generacion,
+            }
 
-        huella_anterior = row["huella_actual"]
+            huella_calculada = generar_huella(registro, huella_anterior)
 
-    return {
-        "integra": len(errores) == 0,
-        "total_registros": len(rows),
-        "errores": errores,
-    }
+            if huella_calculada != row["huella_actual"]:
+                errores.append({
+                    "registro_id": str(row["id"]),
+                    "numero_serie": row["numero_serie"],
+                    "mensaje": "Huella no coincide",
+                })
+
+            huella_anterior = row["huella_actual"]
+
+        return {
+            "integra": len(errores) == 0,
+            "total_registros": len(rows),
+            "errores": errores,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en verificar_cadena: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno",
+        )
 
 
 @router.get("/exportar")
-async def exportar_registros(current_user: dict = Depends(get_current_user)):
+async def exportar_registros(current_user: dict = Depends(require_roles(ROLES_VERIFACTU))):
     """Exporta todos los registros del tenant en formato CSV."""
-    async with get_db() as conn:
-        tenant_id = await _get_user_tenant(conn, current_user["sub"])
-        if not tenant_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Usuario sin tenant asignado",
+    try:
+        async with get_db() as conn:
+            tenant_id = await _get_user_tenant(conn, current_user["sub"])
+            if not tenant_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Usuario sin tenant asignado",
+                )
+
+            rows = await conn.fetch(
+                """
+                SELECT numero_serie, fecha_expedicion, tipo_factura,
+                       base_imponible, cuota_iva, importe_total, huella_actual
+                FROM verifactu_registros
+                WHERE tenant_id = $1
+                ORDER BY created_at ASC
+                """,
+                UUID(tenant_id),
             )
 
-        rows = await conn.fetch(
-            """
-            SELECT numero_serie, fecha_expedicion, tipo_factura,
-                   base_imponible, cuota_iva, importe_total, huella_actual
-            FROM verifactu_registros
-            WHERE tenant_id = $1
-            ORDER BY created_at ASC
-            """,
-            UUID(tenant_id),
-        )
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow([
-        "numero_serie", "fecha_expedicion", "tipo_factura",
-        "base_imponible", "cuota_iva", "importe_total", "huella_actual",
-    ])
-
-    for row in rows:
-        fecha = row["fecha_expedicion"]
-        fecha_str = fecha.isoformat() if hasattr(fecha, "isoformat") else str(fecha)
+        output = io.StringIO()
+        writer = csv.writer(output)
         writer.writerow([
-            row["numero_serie"],
-            fecha_str,
-            row["tipo_factura"] or "F1",
-            row["base_imponible"],
-            row["cuota_iva"],
-            row["importe_total"],
-            row["huella_actual"],
+            "numero_serie", "fecha_expedicion", "tipo_factura",
+            "base_imponible", "cuota_iva", "importe_total", "huella_actual",
         ])
 
-    return Response(
-        content=output.getvalue(),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=verifactu_registros.csv"},
-    )
+        for row in rows:
+            fecha = row["fecha_expedicion"]
+            fecha_str = fecha.isoformat() if hasattr(fecha, "isoformat") else str(fecha)
+            writer.writerow([
+                row["numero_serie"],
+                fecha_str,
+                row["tipo_factura"] or "F1",
+                row["base_imponible"],
+                row["cuota_iva"],
+                row["importe_total"],
+                row["huella_actual"],
+            ])
+
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=verifactu_registros.csv"},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error en exportar_registros: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno",
+        )

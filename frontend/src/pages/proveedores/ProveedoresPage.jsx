@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Plus, Truck } from 'lucide-react'
+import { AlertTriangle, Check, Plus } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { BTN_PRIMARY_PROVEEDOR, ROLES_ESCRITURA } from './constants'
 import ProveedorDetalleModal from './components/ProveedorDetalleModal'
@@ -12,14 +12,8 @@ export default function ProveedoresPage() {
   const p = useProveedores()
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9] px-4 py-6 dark:bg-[#0f1117] md:px-6">
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <Truck className="text-amber-500" size={28} strokeWidth={1.5} />
-          <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-            Proveedores
-          </h1>
-        </div>
+    <div>
+      <header className="mb-6 flex justify-end">
         {puedeEscribir ? (
           <button
             type="button"

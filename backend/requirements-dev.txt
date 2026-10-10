@@ -1,0 +1,8 @@
+-r requirements.txt
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.28.1
+# Postgres embebido para tests sin Docker (tests/local_pg.py)
+pgserver==0.1.4
+# Zonas horarias para el Postgres embebido (no las trae en Windows)
+tzdata==2026.2

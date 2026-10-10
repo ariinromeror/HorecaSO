@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Layers, Plus, Trash2, Wallet } from 'lucide-react'
+import { ArrowLeft, Layers, Plus, Wallet } from 'lucide-react'
 import {
-  addIngredienteReceta,
+  addIngredientesRecetaBulk,
+  updateIngredienteReceta,
   createElaboracion,
   createRecetaPlatoNuevo,
   deleteIngredienteReceta,
@@ -13,6 +14,11 @@ import {
   updateReceta,
 } from '../../../services/api'
 import RecetaDetalleIngredientesSection from './RecetaDetalleIngredientesSection'
+import IngredientesGridEditor from './components/IngredientesGridEditor'
+import {
+  newGridRow,
+  validRowsFromGrid,
+} from './ingredientesImportUtils'
 import {
   formatEuro,
   precioVentaSugerido,
@@ -37,6 +43,7 @@ const UNIDAD_SALIDA_OPTS = [
 ]
 
 export default function ElaboracionesPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [lista, setLista] = useState([])
   const [articulos, setArticulos] = useState([])
   const [categorias, setCategorias] = useState([])
@@ -45,7 +52,7 @@ export default function ElaboracionesPage() {
   const [err, setErr] = useState(null)
   const [formErr, setFormErr] = useState(null)
   const [savingBase, setSavingBase] = useState(false)
-  const [loadingAddIngrediente, setLoadingAddIngrediente] = useState(false)
+  const [savingIngredienteId, setSavingIngredienteId] = useState(null)
   const [editingRecetaId, setEditingRecetaId] = useState(null)
   const [modoCreacion, setModoCreacion] = useState('plato')
   const [pctCosteVenta, setPctCosteVenta] = useState(() =>
@@ -58,19 +65,9 @@ export default function ElaboracionesPage() {
     rendimiento: '1',
     instrucciones: '',
   })
-  const [formIngrediente, setFormIngrediente] = useState({
-    articulo_id: '',
-    cantidad_neta: '',
-    porcentaje_merma: '0',
-    unidad: 'kg',
-  })
-  /** Líneas a enviar al crear la receta (misma tarjeta que el formulario base). */
-  const [ingredientesPendientes, setIngredientesPendientes] = useState([])
-  const [lineaNueva, setLineaNueva] = useState({
-    articulo_id: '',
-    cantidad_neta: '',
-    unidad: 'kg',
-  })
+  /** Filas de la tabla / import al crear receta. */
+  const [gridRows, setGridRows] = useState(() => [newGridRow()])
+  const [savingBulk, setSavingBulk] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -115,16 +112,6 @@ export default function ElaboracionesPage() {
         )
       ),
     [lista]
-  )
-
-  const articulosOrdenados = useMemo(
-    () =>
-      [...articulos].sort((a, b) =>
-        String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', {
-          sensitivity: 'base',
-        })
-      ),
-    [articulos]
   )
 
   const loadDetalle = useCallback(async (recetaId) => {
@@ -175,94 +162,7 @@ export default function ElaboracionesPage() {
       rendimiento: '1',
       instrucciones: '',
     })
-    setFormIngrediente({
-      articulo_id: '',
-      cantidad_neta: '',
-      porcentaje_merma: '0',
-      unidad: 'kg',
-    })
-    setIngredientesPendientes([])
-    setLineaNueva({ articulo_id: '', cantidad_neta: '', unidad: 'kg' })
-  }
-
-  const onSelectLineaNuevaArticulo = (id) => {
-    if (!id) {
-      setLineaNueva((f) => ({ ...f, articulo_id: '', unidad: 'kg' }))
-      return
-    }
-    const art = articulos.find((a) => String(a.id) === String(id))
-    const um = String(art?.unidad_medida || 'kg').toLowerCase()
-    setLineaNueva((f) => ({
-      ...f,
-      articulo_id: id,
-      unidad: um || 'kg',
-    }))
-  }
-
-  const handleAnadirIngredientePendiente = () => {
-    setFormErr(null)
-    const neta = Number(String(lineaNueva.cantidad_neta).replace(',', '.'))
-    if (!lineaNueva.articulo_id) {
-      setFormErr('Elige un ingrediente del inventario')
-      return
-    }
-    if (Number.isNaN(neta) || neta <= 0) {
-      setFormErr('Indica una cantidad neta mayor que cero')
-      return
-    }
-    if (
-      ingredientesPendientes.some(
-        (p) => String(p.articulo_id) === String(lineaNueva.articulo_id)
-      )
-    ) {
-      setFormErr('Ese artículo ya está en la lista; quítalo antes o elige otro')
-      return
-    }
-    const art = articulos.find(
-      (a) => String(a.id) === String(lineaNueva.articulo_id)
-    )
-    setIngredientesPendientes((prev) => [
-      ...prev,
-      {
-        key: `${lineaNueva.articulo_id}-${Date.now()}`,
-        articulo_id: lineaNueva.articulo_id,
-        cantidad_neta: neta,
-        unidad: lineaNueva.unidad,
-        articulo_nombre: art?.nombre || 'Artículo',
-      },
-    ])
-    setLineaNueva({ articulo_id: '', cantidad_neta: '', unidad: 'kg' })
-  }
-
-  const handleQuitarIngredientePendiente = (key) => {
-    setIngredientesPendientes((prev) => prev.filter((p) => p.key !== key))
-  }
-
-  /** Si hay artículo+cantidad en el desplegable sin pulsar "Añadir línea", se incluyen al guardar. */
-  const incorporarLineaNuevaSiValida = () => {
-    const neta = Number(String(lineaNueva.cantidad_neta).replace(',', '.'))
-    if (!lineaNueva.articulo_id || Number.isNaN(neta) || neta <= 0) {
-      return []
-    }
-    if (
-      ingredientesPendientes.some(
-        (p) => String(p.articulo_id) === String(lineaNueva.articulo_id)
-      )
-    ) {
-      return []
-    }
-    const art = articulos.find(
-      (a) => String(a.id) === String(lineaNueva.articulo_id)
-    )
-    return [
-      {
-        key: `${lineaNueva.articulo_id}-flush`,
-        articulo_id: lineaNueva.articulo_id,
-        cantidad_neta: neta,
-        unidad: lineaNueva.unidad,
-        articulo_nombre: art?.nombre || 'Artículo',
-      },
-    ]
+    setGridRows([newGridRow()])
   }
 
   const handleGuardarBase = async () => {
@@ -318,19 +218,18 @@ export default function ElaboracionesPage() {
       }
 
       const id = res?.data?.id
-      const extra = incorporarLineaNuevaSiValida()
-      const lineasAGuardar = [...ingredientesPendientes, ...extra]
+      const lineasAGuardar = validRowsFromGrid(gridRows)
       if (id && lineasAGuardar.length > 0) {
-        for (const line of lineasAGuardar) {
-          await addIngredienteReceta(id, {
+        await addIngredientesRecetaBulk(
+          id,
+          lineasAGuardar.map((line) => ({
             articulo_id: line.articulo_id,
             cantidad_neta: line.cantidad_neta,
-            porcentaje_merma: 0,
+            porcentaje_merma: Number(line.porcentaje_merma) || 0,
             unidad: line.unidad,
-          })
-        }
-        setIngredientesPendientes([])
-        setLineaNueva({ articulo_id: '', cantidad_neta: '', unidad: 'kg' })
+          }))
+        )
+        setGridRows([newGridRow()])
       }
       if (id) {
         await loadDetalle(id)
@@ -345,39 +244,31 @@ export default function ElaboracionesPage() {
     }
   }
 
-  const onSelectArticulo = (id) => {
-    const art = articulos.find((a) => String(a.id) === String(id))
-    const um = String(art?.unidad_medida || 'kg').toLowerCase()
-    setFormIngrediente((f) => ({ ...f, articulo_id: id, unidad: um || 'kg' }))
-  }
-
-  const handleAddIngrediente = async () => {
-    if (!editingRecetaId) {
-      setFormErr('Primero crea o selecciona una receta')
+  const handleUpdateIngrediente = async (ingredienteId, body) => {
+    if (!editingRecetaId) return
+    const neta = Number(body.cantidad_neta)
+    const merma = Number(body.porcentaje_merma)
+    if (Number.isNaN(neta) || neta <= 0) {
+      setFormErr('Cantidad no válida')
       return
     }
-    const neta = Number(formIngrediente.cantidad_neta)
-    if (!formIngrediente.articulo_id || Number.isNaN(neta) || neta <= 0) {
-      setFormErr('Selecciona ingrediente y cantidad válida')
+    if (Number.isNaN(merma) || merma < 0 || merma >= 100) {
+      setFormErr('Merma debe estar entre 0 y 99.99')
       return
     }
-
-    setLoadingAddIngrediente(true)
+    setSavingIngredienteId(ingredienteId)
     try {
-      await addIngredienteReceta(editingRecetaId, {
-        articulo_id: formIngrediente.articulo_id,
+      await updateIngredienteReceta(editingRecetaId, ingredienteId, {
         cantidad_neta: neta,
-        porcentaje_merma: 0,
-        unidad: formIngrediente.unidad,
+        porcentaje_merma: merma,
       })
-      setFormIngrediente((f) => ({ ...f, articulo_id: '', cantidad_neta: '' }))
       await loadDetalle(editingRecetaId)
       await load()
       setFormErr(null)
     } catch (e) {
-      setFormErr(e.response?.data?.detail || 'No se pudo añadir ingrediente')
+      setFormErr(e.response?.data?.detail || 'No se pudo guardar el ingrediente')
     } finally {
-      setLoadingAddIngrediente(false)
+      setSavingIngredienteId(null)
     }
   }
 
@@ -413,15 +304,8 @@ export default function ElaboracionesPage() {
     <div className="min-h-full min-w-0 max-w-full overflow-x-hidden text-[#111827] dark:text-[#e8eaf0]">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
-          <Layers
-            size={32}
-            strokeWidth={1.5}
-            className="shrink-0 text-amber-500"
-            aria-hidden
-          />
           <div>
-            <h1 className="text-2xl font-bold">Editor simple de recetas</h1>
-            <p className="mt-1 text-sm text-[#6b7280] dark:text-[#8b90a7]">
+            <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
               Crea un plato nuevo en carta o una elaboración, añade ingredientes
               y revisa el coste. El precio de venta se define después en carta.
             </p>
@@ -594,97 +478,15 @@ export default function ElaboracionesPage() {
 
           {!editingRecetaId ? (
             <div className="rounded-lg border border-[#e2e5ed] bg-[#f9fafb] p-4 dark:border-[#2e3347] dark:bg-[#222536]">
-              <p className="mb-1 text-sm font-medium text-[#111827] dark:text-[#e8eaf0]">
+              <p className="mb-3 text-sm font-medium text-[#111827] dark:text-[#e8eaf0]">
                 Ingredientes del inventario
               </p>
-              <p className="mb-3 text-xs text-[#6b7280] dark:text-[#8b90a7]">
-                Elige artículo y cantidad y pulsa Guardar abajo, o usa «Añadir línea»
-                para varios ingredientes antes de guardar.
-              </p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-                <div className="min-w-0 flex-1 sm:min-w-[220px]">
-                  <label className="mb-1 block text-xs text-[#6b7280] dark:text-[#8b90a7]">
-                    Artículo
-                  </label>
-                  <select
-                    className={INPUT}
-                    value={lineaNueva.articulo_id}
-                    onChange={(e) =>
-                      onSelectLineaNuevaArticulo(e.target.value)
-                    }
-                  >
-                    <option value="">Selecciona del inventario…</option>
-                    {articulosOrdenados.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nombre}
-                        {a.sku ? ` (${a.sku})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="w-full sm:w-32">
-                  <label className="mb-1 block text-xs text-[#6b7280] dark:text-[#8b90a7]">
-                    Cantidad (neta)
-                  </label>
-                  <input
-                    type="number"
-                    min="0.0001"
-                    step="any"
-                    className={INPUT}
-                    value={lineaNueva.cantidad_neta}
-                    onChange={(e) =>
-                      setLineaNueva((f) => ({
-                        ...f,
-                        cantidad_neta: e.target.value,
-                      }))
-                    }
-                    placeholder="0"
-                  />
-                </div>
-                <div className="w-full sm:w-28">
-                  <label className="mb-1 block text-xs text-[#6b7280] dark:text-[#8b90a7]">
-                    Unidad
-                  </label>
-                  <input
-                    className={`${INPUT} cursor-not-allowed opacity-90`}
-                    readOnly
-                    value={lineaNueva.unidad}
-                    title="Unidad del artículo en inventario"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAnadirIngredientePendiente}
-                  className="inline-flex h-12 shrink-0 items-center justify-center rounded-lg border border-amber-500/40 bg-amber-500/15 px-4 text-sm font-semibold text-amber-900 hover:bg-amber-500/25 dark:text-amber-200"
-                >
-                  Añadir línea
-                </button>
-              </div>
-              {ingredientesPendientes.length > 0 ? (
-                <ul className="mt-3 space-y-2 border-t border-[#e2e5ed] pt-3 dark:border-[#2e3347]">
-                  {ingredientesPendientes.map((p) => (
-                    <li
-                      key={p.key}
-                      className="flex items-center justify-between gap-2 text-sm"
-                    >
-                      <span>
-                        <strong>{p.articulo_nombre}</strong>{' '}
-                        <span className="text-[#6b7280] dark:text-[#8b90a7]">
-                          {p.cantidad_neta} {p.unidad}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleQuitarIngredientePendiente(p.key)}
-                        className="rounded p-1 text-red-600 hover:bg-red-500/10 dark:text-red-400"
-                        aria-label="Quitar"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              <IngredientesGridEditor
+                articulos={articulos}
+                rows={gridRows}
+                onChange={setGridRows}
+                mode="create"
+              />
             </div>
           ) : null}
 
@@ -763,14 +565,31 @@ export default function ElaboracionesPage() {
           </div>
           <RecetaDetalleIngredientesSection
             recetaDetalle={detalle}
-            formIngrediente={formIngrediente}
-            setFormIngrediente={setFormIngrediente}
             articulos={articulos}
-            onSelectArticulo={onSelectArticulo}
             onReloadCoste={loadDetalle}
-            onAddIngrediente={handleAddIngrediente}
+            onBulkAddIngredientes={async (lineas) => {
+              setSavingBulk(true)
+              try {
+                await addIngredientesRecetaBulk(
+                  editingRecetaId,
+                  lineas.map((line) => ({
+                    articulo_id: line.articulo_id,
+                    cantidad_neta: line.cantidad_neta,
+                    porcentaje_merma: Number(line.porcentaje_merma) || 0,
+                    unidad: line.unidad,
+                  }))
+                )
+                await loadDetalle(editingRecetaId)
+                await load()
+                setFormErr(null)
+              } finally {
+                setSavingBulk(false)
+              }
+            }}
+            onUpdateIngrediente={handleUpdateIngrediente}
             onDeleteIngrediente={handleDeleteIngrediente}
-            loadingAddIngrediente={loadingAddIngrediente}
+            savingBulk={savingBulk}
+            savingIngredienteId={savingIngredienteId}
           />
         </div>
       ) : null}

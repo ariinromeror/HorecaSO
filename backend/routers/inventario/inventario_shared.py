@@ -87,35 +87,3 @@ def _articulo_to_dict(r: Any) -> dict:
         "created_at": created_iso,
         "alerta_stock": alerta,
     }
-
-
-async def _insert_movimiento(
-    conn,
-    articulo_id: UUID,
-    outlet_id: Optional[UUID],
-    usuario_id: UUID,
-    tipo: str,
-    cantidad: Decimal,
-    coste_unitario: Optional[Decimal],
-    motivo: Optional[str],
-    ticket_id: Optional[UUID],
-) -> UUID:
-    row = await conn.fetchrow(
-        """
-        INSERT INTO movimientos_stock (
-            articulo_id, outlet_id, tipo, cantidad, coste_unitario,
-            motivo, usuario_id, ticket_id
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id
-        """,
-        articulo_id,
-        outlet_id,
-        tipo,
-        cantidad,
-        coste_unitario,
-        motivo,
-        usuario_id,
-        ticket_id,
-    )
-    return row["id"]

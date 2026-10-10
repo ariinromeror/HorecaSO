@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from auth.dependencies import get_current_user, require_roles
 from database import get_db
+from services.audit_log import audit_config_change
 
 from .mesas_shared import (
     CreateMesaRequest,
@@ -25,11 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/")
-async def create_mesa(
-    body: CreateMesaRequest,
-    current_user: dict = Depends(get_current_user),
-):
+async def create_mesa_handler(body: CreateMesaRequest, current_user: dict):
     """Crea nueva mesa con estado='libre'."""
     async with get_db() as conn:
         tenant_id, user_outlet_id = await _get_user_tenant_outlet(
@@ -75,9 +72,34 @@ async def create_mesa(
             body.posicion_y,
             body.zona,
         )
+        await audit_config_change(
+            conn,
+            tenant_id=tenant_id,
+            usuario_id=current_user.get("sub"),
+            modulo="sala",
+            accion="create_mesa",
+            tabla="mesas",
+            operacion="INSERT",
+            registro_id=row["id"],
+            detalle={
+                "id": str(row["id"]),
+                "numero": row["numero"],
+                "capacidad": row["capacidad"],
+                "zona": row.get("zona"),
+                "outlet_id": body.outlet_id,
+            },
+        )
 
     logger.info("Mesa creada: %s en outlet %s", body.numero, body.outlet_id)
     return _mesa_to_dict(row)
+
+
+@router.post("/")
+async def create_mesa(
+    body: CreateMesaRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    return await create_mesa_handler(body, current_user)
 
 
 @router.patch("/{mesa_id}/estado")
@@ -129,6 +151,24 @@ async def update_mesa_estado(
                 detail="No puede modificar esa mesa",
             )
 
+        if body.estado == "libre":
+            abierto = await conn.fetchval(
+                """
+                SELECT 1 FROM tickets
+                WHERE mesa_id = $1 AND estado = 'abierto'
+                LIMIT 1
+                """,
+                mesa_id,
+            )
+            if abierto:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Hay un ticket abierto en esta mesa. "
+                        "Cobre o cierre el ticket en el TPV antes de marcarla libre."
+                    ),
+                )
+
         row = await conn.fetchrow(
             "UPDATE mesas SET estado = $1 WHERE id = $2 RETURNING *",
             body.estado,
@@ -147,13 +187,12 @@ async def update_mesa(
         require_roles(["admin", "director", "jefe_sala"])
     ),
 ):
-    """Edita campos de una mesa (numero, capacidad, zona, forma, posición)."""
+    """Edita campos de una mesa (numero, capacidad, zona, posición)."""
     try:
         has_any = (
             body.numero is not None
             or body.capacidad is not None
             or body.zona is not None
-            or body.forma is not None
             or body.posicion_x is not None
             or body.posicion_y is not None
         )
@@ -177,9 +216,6 @@ async def update_mesa(
             if body.zona is not None:
                 args.append(body.zona)
                 updates.append("zona = $" + str(len(args)))
-            if body.forma is not None:
-                args.append(body.forma)
-                updates.append("forma = $" + str(len(args)))
             if body.posicion_x is not None:
                 args.append(body.posicion_x)
                 updates.append("posicion_x = $" + str(len(args)))
@@ -197,6 +233,27 @@ async def update_mesa(
                 + " RETURNING *"
             )
             row = await conn.fetchrow(sql, *args)
+
+            if row:
+                tenant_id, _ = await _get_user_tenant_outlet(
+                    conn, current_user["sub"]
+                )
+                await audit_config_change(
+                    conn,
+                    tenant_id=tenant_id,
+                    usuario_id=current_user.get("sub"),
+                    modulo="sala",
+                    accion="update_mesa",
+                    tabla="mesas",
+                    operacion="UPDATE",
+                    registro_id=mesa_id,
+                    detalle={
+                        "id": str(mesa_id),
+                        "numero": row.get("numero"),
+                        "capacidad": row.get("capacidad"),
+                        "zona": row.get("zona"),
+                    },
+                )
 
         if not row:
             raise HTTPException(
@@ -236,6 +293,20 @@ async def delete_mesa(
                 )
 
             await conn.execute("DELETE FROM mesas WHERE id = $1", mesa_id)
+            await audit_config_change(
+                conn,
+                tenant_id=mesa_row["tenant_id"],
+                usuario_id=current_user.get("sub"),
+                modulo="sala",
+                accion="delete_mesa",
+                tabla="mesas",
+                operacion="DELETE",
+                registro_id=mesa_id,
+                detalle={
+                    "id": str(mesa_id),
+                    "numero": mesa_row.get("numero"),
+                },
+            )
 
         logger.info("Mesa eliminada: %s", mesa_id)
         return {"deleted": True, "id": str(mesa_id)}

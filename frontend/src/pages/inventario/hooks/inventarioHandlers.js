@@ -5,14 +5,22 @@ import {
   updateArticulo,
 } from '../../../services/api'
 import { differsStock, emptyFormArticulo } from '../constants'
+import { sugerirSku } from '../skuFromNombre'
 
 export function createInventarioHandlers(ctx) {
+  const skusExistentes = () =>
+    (ctx.articulosOpciones || ctx.articulos || [])
+      .map((a) => a.sku)
+      .filter(Boolean)
+
   const openNuevoArticulo = () => {
+    ctx.setSkuManual?.(false)
     ctx.setFormArticulo(emptyFormArticulo())
     ctx.setModalArticulo('new')
   }
 
   const openEditarArticulo = (a) => {
+    ctx.setSkuManual?.(true)
     ctx.setFormArticulo({
       nombre: a.nombre || '',
       sku: a.sku || '',
@@ -33,9 +41,24 @@ export function createInventarioHandlers(ctx) {
       ctx.setFeedback({ msg: 'El nombre es obligatorio', type: 'error' })
       return
     }
+
+    let sku = ctx.formArticulo.sku.trim()
+    if (!sku) {
+      const excluir =
+        ctx.modalArticulo && ctx.modalArticulo !== 'new'
+          ? ctx.modalArticulo.sku
+          : null
+      sku = sugerirSku(
+        ctx.formArticulo.nombre,
+        skusExistentes(),
+        excluir
+      )
+      ctx.setFormArticulo((f) => ({ ...f, sku }))
+    }
+
     const body = {
       nombre: ctx.formArticulo.nombre.trim(),
-      sku: ctx.formArticulo.sku.trim() || null,
+      sku: sku || null,
       unidad_medida: ctx.formArticulo.unidad_medida,
       stock_minimo: Number(ctx.formArticulo.stock_minimo) || 0,
       stock_maximo: ctx.formArticulo.stock_maximo.trim()
@@ -74,6 +97,7 @@ export function createInventarioHandlers(ctx) {
         ctx.setFeedback({ msg: 'Artículo creado', type: 'ok' })
       }
       ctx.setModalArticulo(null)
+      ctx.setSkuManual?.(false)
       await ctx.loadArticulos()
       await ctx.loadArticulosOpciones()
       await ctx.loadAlertas()
@@ -94,13 +118,21 @@ export function createInventarioHandlers(ctx) {
       cantidad: '',
       motivo: '',
       coste_unitario: '',
+      fecha_caducidad: '',
+      numero_lote: '',
     })
     ctx.setModalMovimiento({ articulo, tipo: tipoPref })
   }
 
   const submitMovimiento = async () => {
     const cant = Number(ctx.formMovimiento.cantidad)
-    if (!ctx.formMovimiento.articulo_id || Number.isNaN(cant) || cant <= 0) {
+    const esAjuste = ctx.formMovimiento.tipo === 'ajuste'
+    if (
+      !ctx.formMovimiento.articulo_id ||
+      Number.isNaN(cant) ||
+      cant < 0 ||
+      (!esAjuste && cant <= 0)
+    ) {
       ctx.setFeedback({ msg: 'Indica una cantidad válida', type: 'error' })
       return
     }
@@ -114,6 +146,12 @@ export function createInventarioHandlers(ctx) {
         ctx.formMovimiento.coste_unitario.trim()
           ? Number(ctx.formMovimiento.coste_unitario)
           : null,
+    }
+    if (ctx.formMovimiento.tipo === 'entrada') {
+      const cad = ctx.formMovimiento.fecha_caducidad?.trim()
+      const num = ctx.formMovimiento.numero_lote?.trim()
+      if (cad) body.fecha_caducidad = cad
+      if (num) body.numero_lote = num
     }
 
     ctx.setSavingMovimiento(true)

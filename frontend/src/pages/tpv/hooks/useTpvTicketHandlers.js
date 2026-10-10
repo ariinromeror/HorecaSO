@@ -6,6 +6,7 @@ import {
   deleteLinea as apiDeleteLinea,
   deleteTicketPago,
   getTicket,
+  patchLineaNota as apiPatchLineaNota,
   patchMesaEstado,
 } from '../../../services/api'
 import { splitImporteEnNPartes } from '../../../utils/pagos'
@@ -84,6 +85,22 @@ export function useTpvTicketHandlers({
       }
     },
     [ticket?.id, setActionLoading, setError, setTicket, setFeedback, setActiveTab]
+  )
+
+  const handlePatchNotaLinea = useCallback(
+    async (lineaId, nota) => {
+      if (!ticket?.id) return
+      try {
+        await apiPatchLineaNota(ticket.id, lineaId, nota)
+        const t = await getTicket(ticket.id)
+        setTicket(t.data)
+        setFeedback('Nota guardada (saldrá al imprimir)')
+      } catch (e) {
+        setError(e.response?.data?.detail || 'Error al guardar nota')
+        throw e
+      }
+    },
+    [ticket?.id, setTicket, setFeedback, setError]
   )
 
   const handleRestarUnidadGrupo = useCallback(
@@ -286,6 +303,7 @@ export function useTpvTicketHandlers({
   return {
     handleLiberarMesa,
     handleAddLinea,
+    handlePatchNotaLinea,
     handleRestarUnidadGrupo,
     handleCobrar,
     iniciarDivision,

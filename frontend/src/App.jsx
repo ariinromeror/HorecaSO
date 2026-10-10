@@ -9,9 +9,11 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import AppLayout from './components/layout/AppLayout'
 import Loader from './components/shared/Loader'
+import { isModuloActivo } from './utils/tenantModulos'
 import LoginPage from './pages/LoginPage'
 import MesasPage from './pages/sala/MesasPage'
 import TPVPage from './pages/tpv/TPVPage'
+import CierreCajaPage from './pages/tpv/CierreCajaPage'
 import DashboardPage from './pages/director/DashboardPage'
 import AnalyticsPage from './pages/analytics/AnalyticsPage'
 import VentaLivePage from './pages/director/VentaLivePage'
@@ -38,7 +40,35 @@ import SuperadminLayout from './pages/superadmin/SuperadminLayout'
 import TenantsListPage from './pages/superadmin/TenantsListPage'
 import TenantDetailPage from './pages/superadmin/TenantDetailPage'
 import PlatformLogsPage from './pages/superadmin/PlatformLogsPage'
+import AcuerdoComercialPage from './pages/superadmin/AcuerdoComercialPage'
 import UsuariosPage from './pages/admin/usuarios/UsuariosPage'
+import MenuHubPage from './pages/MenuHubPage'
+
+function homePathForUser(user) {
+  return user?.rol === 'superadmin' ? '/superadmin/tenants' : '/menu'
+}
+
+function HomeRedirect() {
+  const { isLoading, isAuthenticated, user } = useAuth()
+
+  if (isLoading) {
+    return <Loader />
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  return <Navigate to={homePathForUser(user)} replace />
+}
+
+function SuperadminAwayFromMesas() {
+  const { user } = useAuth()
+  if (user?.rol === 'superadmin') {
+    return <Navigate to="/superadmin/tenants" replace />
+  }
+  return <MesasPage />
+}
 
 function PrivateRoute({ children, allowedRoles }) {
   const { isLoading, isAuthenticated, user } = useAuth()
@@ -54,7 +84,7 @@ function PrivateRoute({ children, allowedRoles }) {
   if (allowedRoles != null && allowedRoles.length > 0) {
     const rol = user?.rol
     if (!rol || !allowedRoles.includes(rol)) {
-      return <Navigate to="/mesas" replace />
+      return <Navigate to="/menu" replace />
     }
   }
 
@@ -78,7 +108,7 @@ function AdminDirectorRoute() {
 
   const rol = user?.rol
   if (rol !== 'admin' && rol !== 'director') {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return <Outlet />
@@ -101,7 +131,7 @@ function AdminDirectorJefeSalaRoute() {
     rol !== 'director' &&
     rol !== 'jefe_sala'
   ) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return <Outlet />
@@ -120,7 +150,7 @@ function AdminDirectorCocinaRoute() {
 
   const rol = user?.rol
   if (rol !== 'admin' && rol !== 'director' && rol !== 'cocina') {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return <Outlet />
@@ -141,7 +171,7 @@ function InventarioRoute() {
 
   const rol = user?.rol
   if (!rol || !ROLES_INVENTARIO.includes(rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return <Outlet />
@@ -162,7 +192,7 @@ function ProveedoresRoute() {
 
   const rol = user?.rol
   if (!rol || !ROLES_PROVEEDORES.includes(rol)) {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return <Outlet />
@@ -180,20 +210,29 @@ function AdminOnlyRoute() {
   }
 
   if (user?.rol !== 'admin') {
-    return <Navigate to="/mesas" replace />
+    return <Navigate to="/menu" replace />
   }
 
   return <Outlet />
 }
 
-/** Página mínima para rutas del menú aún no implementadas (cualquier usuario autenticado). */
-function ModulePlaceholder({ name }) {
-  return (
-    <div className="p-8 text-center text-[#6b7280] dark:text-[#8b90a7]">
-      <p className="text-lg">{name} — Próximamente</p>
-      <p className="text-sm mt-2">Este módulo está en desarrollo</p>
-    </div>
-  )
+/** Bloquea rutas si el tenant no tiene el módulo activo (defensa en profundidad). */
+function ModuloRoute({ modulo }) {
+  const { user, isLoading, isAuthenticated } = useAuth()
+
+  if (isLoading) {
+    return <Loader />
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!isModuloActivo(user?.modulos, modulo)) {
+    return <Navigate to="/menu" replace />
+  }
+
+  return <Outlet />
 }
 
 export default function App() {
@@ -202,7 +241,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/mesas" replace />} />
+            <Route path="/" element={<HomeRedirect />} />
             <Route path="/login" element={<LoginPage />} />
 
             <Route element={<PrivateRoute allowedRoles={['superadmin']} />}>
@@ -214,11 +253,14 @@ export default function App() {
                 <Route path="tenants" element={<TenantsListPage />} />
                 <Route path="tenants/:id" element={<TenantDetailPage />} />
                 <Route path="logs" element={<PlatformLogsPage />} />
+                <Route
+                  path="acuerdo-comercial"
+                  element={<AcuerdoComercialPage />}
+                />
               </Route>
             </Route>
 
             <Route
-              path="/kds"
               element={
                 <PrivateRoute
                   allowedRoles={[
@@ -229,58 +271,99 @@ export default function App() {
                     'cocina',
                     'barra',
                   ]}
-                >
-                  <KDSPage />
-                </PrivateRoute>
+                />
               }
-            />
+            >
+              <Route element={<ModuloRoute modulo="kds" />}>
+                <Route path="/kds" element={<KDSPage />} />
+              </Route>
+            </Route>
 
             <Route element={<PrivateRoute />}>
               <Route element={<AppLayout />}>
-                <Route path="/mesas" element={<MesasPage />} />
-                <Route element={<AdminDirectorJefeSalaRoute />}>
-                  <Route
-                    path="/admin/sala"
-                    element={<GestionSalaPage />}
-                  />
+                <Route path="/menu" element={<MenuHubPage />} />
+                <Route path="/mesas" element={<SuperadminAwayFromMesas />} />
+                <Route element={<ModuloRoute modulo="sala" />}>
+                  <Route element={<AdminDirectorJefeSalaRoute />}>
+                    <Route
+                      path="/admin/sala"
+                      element={<GestionSalaPage />}
+                    />
+                  </Route>
+                  <Route element={<AdminOnlyRoute />}>
+                    <Route path="/admin/usuarios" element={<UsuariosPage />} />
+                  </Route>
                 </Route>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/venta-live" element={<VentaLivePage />} />
-                <Route element={<InventarioRoute />}>
-                  <Route path="/inventario" element={<InventarioPage />} />
-                  <Route path="/inventario/mermas" element={<MermasPage />} />
+                <Route element={<ModuloRoute modulo="reportes" />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/reportes" element={<ReportesPage />} />
+                  <Route element={<AdminDirectorCocinaRoute />}>
+                    <Route path="/admin/costes" element={<CostesPage />} />
+                  </Route>
                 </Route>
-                <Route path="/appcc" element={<APPCCPage />} />
-                <Route path="/fifo" element={<FIFOPage />} />
-                <Route element={<ProveedoresRoute />}>
-                  <Route path="/proveedores" element={<ProveedoresPage />} />
-                  <Route
-                    path="/proveedores/facturas"
-                    element={<FacturasProveedorPage />}
-                  />
+                <Route element={<ModuloRoute modulo="predicciones" />}>
+                  <Route path="/analytics" element={<AnalyticsPage />} />
                 </Route>
-                <Route element={<AdminDirectorRoute />}>
-                  <Route path="/admin/carta" element={<CartaPage />} />
+                <Route element={<ModuloRoute modulo="tpv" />}>
+                  <Route path="/venta-live" element={<VentaLivePage />} />
+                  <Route element={<AdminDirectorJefeSalaRoute />}>
+                    <Route
+                      path="/cierre-caja"
+                      element={<CierreCajaPage />}
+                    />
+                  </Route>
                 </Route>
-                <Route element={<AdminOnlyRoute />}>
-                  <Route path="/admin/usuarios" element={<UsuariosPage />} />
+                <Route element={<ModuloRoute modulo="inventario" />}>
+                  <Route element={<InventarioRoute />}>
+                    <Route path="/inventario" element={<InventarioPage />} />
+                    <Route path="/inventario/mermas" element={<MermasPage />} />
+                  </Route>
                 </Route>
-                <Route element={<AdminDirectorCocinaRoute />}>
-                  <Route path="/admin/recetas" element={<RecetasPage />} />
-                  <Route
-                    path="/admin/recetas/elaboraciones"
-                    element={<ElaboracionesPage />}
-                  />
-                  <Route path="/admin/costes" element={<CostesPage />} />
+                <Route element={<ModuloRoute modulo="appcc" />}>
+                  <Route path="/appcc" element={<APPCCPage />} />
                 </Route>
-                <Route path="/empleados" element={<EmpleadosPage />} />
-                <Route path="/fichajes" element={<FichajesPage />} />
-                <Route path="/cuadrante" element={<CuadrantePage />} />
-                <Route path="/nominas" element={<NominasPage />} />
-                <Route path="/reservas" element={<ReservasPage />} />
-                <Route path="/clientes" element={<ClientesPage />} />
-                <Route path="/reportes" element={<ReportesPage />} />
+                <Route element={<ModuloRoute modulo="fifo" />}>
+                  <Route path="/fifo" element={<FIFOPage />} />
+                </Route>
+                <Route element={<ModuloRoute modulo="proveedores" />}>
+                  <Route element={<ProveedoresRoute />}>
+                    <Route path="/proveedores" element={<ProveedoresPage />} />
+                  </Route>
+                </Route>
+                <Route element={<ModuloRoute modulo="ia_facturas" />}>
+                  <Route element={<ProveedoresRoute />}>
+                    <Route
+                      path="/proveedores/facturas"
+                      element={<FacturasProveedorPage />}
+                    />
+                  </Route>
+                </Route>
+                <Route element={<ModuloRoute modulo="carta" />}>
+                  <Route element={<AdminDirectorRoute />}>
+                    <Route path="/admin/carta" element={<CartaPage />} />
+                  </Route>
+                  <Route element={<AdminDirectorCocinaRoute />}>
+                    <Route path="/admin/recetas" element={<RecetasPage />} />
+                    <Route
+                      path="/admin/recetas/elaboraciones"
+                      element={<ElaboracionesPage />}
+                    />
+                  </Route>
+                </Route>
+                <Route element={<ModuloRoute modulo="empleados" />}>
+                  <Route path="/empleados" element={<EmpleadosPage />} />
+                  <Route path="/fichajes" element={<FichajesPage />} />
+                  <Route path="/cuadrante" element={<CuadrantePage />} />
+                </Route>
+                <Route element={<ModuloRoute modulo="nominas" />}>
+                  <Route path="/nominas" element={<NominasPage />} />
+                </Route>
+                <Route element={<ModuloRoute modulo="reservas" />}>
+                  <Route path="/reservas" element={<ReservasPage />} />
+                </Route>
+                <Route element={<ModuloRoute modulo="clientes" />}>
+                  <Route path="/clientes" element={<ClientesPage />} />
+                </Route>
               </Route>
               <Route path="/tpv/:mesaId" element={<TPVPage />} />
             </Route>

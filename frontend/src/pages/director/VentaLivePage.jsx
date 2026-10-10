@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom'
-import { Activity } from 'lucide-react'
 import EmptyState from '../../components/shared/EmptyState'
 import Loader from '../../components/shared/Loader'
 import VentaLiveCards from './components/VentaLiveCards'
@@ -21,17 +20,8 @@ export default function VentaLivePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6f9] dark:bg-[#0f1117]">
+    <div>
       <header className="mb-6 flex flex-wrap items-center gap-3 border-b border-[#e2e5ed] pb-4 dark:border-[#2e3347]">
-        <Activity
-          size={28}
-          strokeWidth={1.5}
-          className="text-amber-500"
-          aria-hidden
-        />
-        <h1 className="text-2xl font-bold text-[#111827] dark:text-[#e8eaf0]">
-          Venta Live
-        </h1>
         <div className="ml-auto flex items-center gap-2 text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
           <span
             className={`h-2.5 w-2.5 shrink-0 rounded-full ${

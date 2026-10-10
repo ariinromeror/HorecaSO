@@ -1,10 +1,364 @@
 # BITÁCORA HORECASO — Estado real del proyecto
-**Última actualización:** 5 de octubre de 2026 (piloto casa: KDS/print/tenants/flags/fiscal)  
+**Última actualización:** 10 de octubre de 2026 (copy Verifactu honesto — 8 pasos)  
 **Generada por:** Cursor leyendo el repo real
 
 ---
 
-## 0. SESIÓN PILOTO 05/10/2026
+## 0. SESIÓN PILOTO 05–06/10/2026
+
+### 10/10/2026 — Textos Verifactu: registro interno, sin AEAT (8 pasos)
+
+- **Estado honesto del producto:** HorecaSO genera un **registro interno** por cobro (serie, importes, huella encadenada). **No hay envío a la AEAT**, ni certificado, ni XML de remisión, ni declaración responsable del fabricante. La huella no está validada contra la spec oficial (`docs/verifactu_spec/` ausente).
+- **Paso 1:** ticket impreso sin etiqueta «QR Verifactu» (`TicketPrintView.jsx`); prop `qrUrl` intacta.
+- **Paso 2:** ReportesFiscal — «IVA de ventas» (sin Verifactu).
+- **Paso 3–4:** `sobreHorecaSO.js` — sin «cumplimiento»/compliance. Grep 10/10/2026 de lo que cita el copy: archivos `routers/verifactu.py`, `services/verifactu_engine.py`, `services/stock.py`, `auth/dependencies.py` → **existen en el filesystem** bajo `backend/`; **0 coincidencias** en `App.jsx` y `navConfig.js` (no son rutas FE). Tablas `tenants, usuarios, productos, tickets, ticket_lineas, ticket_pagos, verifactu_registros, lotes_inventario, recetas, turnos` → **todas** tienen sección en `docs/SCHEMA_BASE_DATOS.md`.
+- **Paso 5:** docstrings de `verifactu_engine.py` sin afirmar Orden HAC/1177/2024.
+- **Paso 6:** schema MCP + `SCHEMA_BASE_DATOS.md` — «Registros internos… (pendiente de envío a la AEAT)».
+- **Paso 7:** README, STEP, PRD, REFERENCIA — sin COMPLETO/Complete/nativo/implements/CSV AEAT en claims Verifactu.
+- **Paso 8:** esta entrada + nota HSO-17 superado (parcial) en AUDITORIA.
+- **Resultado:** pytest **178 passed**, 1 warning (reportlab), 0 failed/skipped. No hay suite Vitest/RTL de frontend para estos cambios; verificación con scripts locales: `assert_ticket_print_sin_verifactu.mjs`, `assert_reportes_fiscal_sin_verifactu.mjs`, `assert_sobre_horecaso_sin_claims.mjs`, `assert_sobre_horecaso_rutas_reales.mjs`, `assert_docs_verifactu_copy.py`, `assert_schema_md_sin_verifactu_aeat.py` (todos OK tras el cambio). Click-through en navegador: pendiente.
+- **Pendiente (no hecho):** envío a la AEAT; huella conforme a la especificación oficial (HSO-10); declaración responsable del fabricante; libro de ventas exportable; decisión sobre reinicio de cadena.
+
+### 10/10/2026 — Auditoría Fase 5: índices, escaneo, dependencias y defensa (HSO-14/18/19/22/23)
+
+- **HSO-14:** `migration_hso14_indices.sql` con `CREATE INDEX CONCURRENTLY IF NOT EXISTS` (no va dentro de transacción). Índices justificados por consultas reales: `tickets(outlet_id,estado)` KDS/abiertos; `tickets(outlet_id,cobrado_at)` dashboard/reportes/cierre; `tickets(outlet_id,created_at)` /tickets/hoy; `ticket_lineas(ticket_id)` KDS/suma/get; `verifactu_registros(tenant_id,created_at)` list/export; `movimientos_stock(articulo_id,created_at)` historial; `lotes_inventario(articulo_id,fecha_caducidad)` listado FIFO; `reservas(outlet_id,fecha)`; `turnos(empleado_id,fecha)`. Sin índice extra en `cierres_caja` (UNIQUE HSO-13). Tests quitan `CONCURRENTLY`.
+- **HSO-18:** escaneo IA: 8 MB, MIME jpeg/png/pdf, 1 archivo; error Groq genérico. Test de archivo demasiado grande.
+- **HSO-19:** `xlsx` ya era SheetJS 0.20.3 del CDN oficial (`https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`); `python-jose` sustituido por `PyJWT==2.10.1`. `npm audit` y `pip-audit` ejecutados: **sin actualizar nada más**. Resumen real (10/10/2026): **npm audit** — total 17 (critical 0, high 13, moderate 3, low 1, info 0). High: axios, brace-expansion, browserslist, fast-uri, form-data, js-yaml, nanoid, picomatch, postcss, react-router, react-router-dom, source-map-js, vite. Moderate: `@humanfs/node`, `baseline-browser-mapping`, `follow-redirects`. Low: `@babel/core`. **pip-audit** — «Found 84 known vulnerabilities in 5 packages»: pyjwt 2.10.1, python-multipart 0.0.9, python-dotenv 1.0.1, pillow 11.1.0, starlette 0.38.6. Login y escritura/lectura xlsx verificados.
+- **HSO-22:** `UPDATE articulos` de elaboraciones con `tenant_id`; CORS vacío = `[]` (nunca `*`); `/docs` solo si `ENVIRONMENT==development`. `/fifo/consumir` ya tenía `require_modulo` (HSO-11).
+- **HSO-23:** try/except + `logger.error` + 500 genérico en `tpv_lineas`, `tpv_cobrar`, `dashboard` y `verifactu`.
+- **Archivos:** `sql/migration_hso14_indices.sql`, `routers/proveedores/{proveedores_shared,facturas_proveedor_escaneo}.py`, `auth/jwt_handler.py`, `requirements.txt`, `main.py`, `routers/recetas/admin_recetas_ingredientes.py`, `routers/tpv/{tpv_lineas,tpv_cobrar}.py`, `routers/{dashboard,verifactu}.py`, tests `test_hso14/18/19/22_23_*.py`, `frontend/scripts/verify_sheetjs.mjs`.
+- **Resultado:** 178 passed. Pendientes: ejecutar `migration_hso14_indices.sql` en Supabase (`CREATE INDEX CONCURRENTLY`, fuera de transacción); no subir deps con CVE sin decisión (PyJWT, python-multipart, python-dotenv, Pillow, Starlette; npm high listados arriba).
+
+### 07/10/2026 — Auditoría Fase 4: inventario unificado (HSO-11)
+
+- **Modelo (opción A):** `lotes_inventario` es la fuente de verdad (por local). `articulos.stock_actual` es caché por tenant = suma de todos los locales. Un único `services/stock.py`: entrada crea lote; salida/merma consume FIFO; ajuste registra la diferencia. Guarda: 400 «Stock insuficiente» + sugerencia de recuento; CHECK `cantidad >= 0` y `stock_actual >= 0`. `/fifo/consumir` (y el resto de `/fifo/*`) con `require_modulo('fifo')`.
+- **SQL (sin ejecutar en Supabase):** `migration_hso11_stock_schema.sql` (origen, delta, índice FIFO) y `migration_hso11_datos_lotes.sql` (alinea lotes a `stock_actual`, copia de seguridad, rollback). Tras el deploy, recuento físico desde Inventario. Periódico: `python scripts/reconciliar_stock.py` (solo informe; `--apply` iguala la caché a los lotes).
+- **FE:** entrada con caducidad y nº de lote opcionales; ajuste = cantidad real; historial usa `delta` con signo (`MovimientoModal`, `InventarioFisicoModal`, `inventarioHandlers.js`).
+- **Archivos:** `services/stock.py`, `scripts/reconciliar_stock.py`, `routers/inventario/inventario_movimientos_{core,schemas}.py`, `routers/fifo/{fifo,fifo_consumo}.py`, tests `test_hso11_stock_fifo.py` y `test_hso11_migracion_reconciliacion.py`.
+- **Resultado:** OK — 167 passed. Pendiente: ejecutar las dos migraciones SQL en este orden y hacer el recuento el día del cambio.
+
+### 07/10/2026 — Auditoría Fase 3: coherencia de informes (HSO-09, HSO-17, HSO-21, HSO-15)
+
+- **HSO-09:** `services/fechas.py` (`hoy_madrid()`, `fecha_madrid()`); en SQL `(col AT TIME ZONE 'Europe/Madrid')::date`. Aplicado en dashboard, informe de ventas, informe APPCC, analytics (ingeniería de menú, coste de personal, predicción de mermas, rango por defecto), APPCC y alertas de caducidad FIFO. El cierre del dashboard usa `services/totales_cobro.py`, el mismo cálculo por `ticket_pagos` que el cierre TPV (extraído de `tpv_cierre_caja`).
+- **HSO-17:** `total_iva` = cuota del registro Verifactu al cobrar (ambos caminos). Script para históricos sin ejecutar: `backend/sql/ops_hso17_recalcular_total_iva.sql` (probado en local: idempotente, copia y rollback).
+- **HSO-21:** `/cobrar` inserta el pendiente en `ticket_pagos`; si había pagos parciales, el ticket queda `mixto`.
+- **HSO-15:** `_actualizar_coste_receta` guarda `coste_calculado`, `margen_porcentaje` y `semaforo` en cada cambio y al abrir el escandallo. Ingredientes sin precio o con unidad incompatible se devuelven en `ingredientes_no_costeados` (+ `coste_completo`) en lugar del `pass`.
+- **Infra tests:** `tests/local_pg.py` instala las zonas horarias de `tzdata` en pgserver (no las trae en Windows); `conftest` fija la BD de tests a UTC. `tzdata` en `requirements-dev.txt`.
+- **Archivos:** `services/{fechas,totales_cobro,ml_predicciones}.py`, `routers/dashboard.py`, `routers/appcc.py`, `routers/analytics/{analytics_shared,analytics_menu,analytics_personal,analytics_predicciones}.py`, `routers/fifo/fifo_consumo.py`, `routers/reportes/{reportes_dif_ventas,reportes_dif_appcc}.py`, `routers/tpv/{tpv_cobrar,tpv_shared,tpv_cierre_caja}.py`, `routers/recetas/{admin_recetas,admin_recetas_ingredientes}.py`, tests nuevos `test_hso09_zona_horaria.py`, `test_hso17_21_cobro_iva_pagos.py`, `test_hso15_coste_recetas.py`.
+- **Resultado:** OK — 148 passed. Pendiente: ejecutar el script de HSO-17; las recetas existentes conservan coste NULL hasta que se editen o se abra su escandallo.
+
+### 07/10/2026 — Auditoría Fase 2: sesiones y login (HSO-06, HSO-07)
+
+- **HSO-06:** `get_current_user` revalida en BD usuario activo, rol, tenant y tenant activo (caché por proceso 10 s; `invalidate_user_session` en PATCH de usuario, `invalidate_tenant_sessions` en PATCH de tenant/activo). 401 si no cuadra → el frontend cierra sesión. TTL por defecto 720 min y tope de 12 h en `create_access_token`.
+- **HSO-07:** nuevo `backend/rate_limit.py` (limiter fuera de `main`). Login: 30/min por IP (`@limiter.limit`) + 5/min por IP+email; IP = última entrada de `X-Forwarded-For`. 429 con `detail` legible. No se añade `--forwarded-allow-ips="*"`: uvicorn tomaría la primera entrada (falsificable) y el límite se podría saltar.
+- **Archivos:** `auth/dependencies.py`, `auth/jwt_handler.py`, `config.py`, `rate_limit.py`, `main.py`, `routers/auth.py`, `routers/admin_usuarios/admin_usuarios_router.py`, `routers/superadmin/superadmin_router.py`, `tests/conftest.py`, `tests/test_hso06_revalidacion_sesion.py`, `tests/test_hso07_rate_limit_login.py`.
+- **Resultado:** OK — 107 passed. Pendiente: poner `ACCESS_TOKEN_EXPIRE_MINUTES` ≤ 720 en el entorno del despliegue y comprobar en producción la IP que registra el log de 429.
+
+### 07/10/2026 — Auditoría Fase 1B: HSO-13 (unicidad e importes)
+
+- **Qué:** Nómina duplicada → 409 (comprobación previa y `UniqueViolationError`); cierre de caja ya devolvía 409. Entradas de nómina (`horas_extra_cantidad`, `plus_festivos`, `otros_devengos`, `otras_deducciones`) con `ge=0`. Nueva migración de CHECK de importes no negativos. Decisiones: `tickets.total >= 0` (devoluciones por rectificativa), `nominas.liquido` sin CHECK, ajustes de nómina `>= 0`.
+- **SQL (sin ejecutar):** `backend/sql/migration_hso13_importes_no_negativos.sql` (después de `migration_hso_fase1_integridad.sql`). Probada local: idempotente y rollback limpio.
+- **Archivos:** `routers/nominas.py`, `tests/test_hso13_unicidad.py`, `tests/conftest.py`.
+- **Resultado:** OK — 94 passed.
+
+### 07/10/2026 — Auditoría Fase 1A: HSO-02, HSO-05, HSO-08 (cierre)
+
+- **Qué:** Revisión de la Fase 1A sobre lo ya hecho en Fase 1. Añadido: año de la serie Verifactu en hora de Madrid (`generar_numero_serie`); tests de serie en Nochevieja, cantidad 1000 → 422 y pagos parciales que suman exacto. `generar_huella` sin cambios (HSO-10 aparte).
+- **Archivos:** `services/verifactu_engine.py`, `tests/test_hso02_cobro_concurrente.py`, `tests/test_hso05_cantidad_lineas.py`, `tests/test_hso08_sobrepago.py`, `tests/test_smoke.py`.
+- **Resultado:** OK — 64 passed. Pendiente: ejecutar `migration_hso_fase1_integridad.sql` en Supabase tras las consultas de duplicados.
+
+### 07/10/2026 — Auditoría Fase 1: cobro, Verifactu, pagos y permisos TPV (HSO-02/04/05/08/13/16)
+
+- **Qué:** Cada hallazgo con test que fallaba antes del arreglo (`backend/tests/test_hso*.py`). Informe de auditoría guardado en `docs/AUDITORIA_HORECASO.md`.
+  - HSO-02: `FOR UPDATE` del ticket en cobro, pagos y líneas (`_require_ticket_tpv_access(..., for_update=True)`); `pg_advisory_xact_lock` por tenant en `crear_registro_verifactu` + rechazo si el ticket ya tiene registro; huella anterior y `verificar-cadena` ordenadas por `fecha_hora_generacion`.
+  - HSO-05: `cantidad` 1..999 en `AddLineaRequest` + CHECK en BD.
+  - HSO-08: sobrepago → 400 salvo efectivo; en efectivo se guarda el pendiente y se devuelve `cambio`.
+  - HSO-13: UNIQUE cierres de caja (outlet, fecha) y nóminas (empleado, mes, año) con 409/400 en carrera.
+  - HSO-04: `get_ticket`, líneas y `/cobrar` con roles de sala + tenant/outlet; `get_mesa` filtrado por tenant/outlet.
+  - HSO-16: `/dashboard/director` admin/director/jefe_sala; `/dashboard/cierre-dia` y `/verifactu/*` admin/director.
+- **SQL (sin ejecutar en Supabase):** `backend/sql/migration_hso_fase1_integridad.sql` (pre-check de duplicados, UNIQUE, CHECK, trigger de inmutabilidad, rollback al final). Los tests la aplican sobre la BD local.
+- **Archivos:** `routers/tpv/{tpv_shared,tpv_cobrar,tpv_pagos,tpv_lineas,tpv_schemas,tpv_tickets_detalle,tpv_cierre_caja}.py`, `services/verifactu_engine.py`, `routers/{verifactu,dashboard,mesas_list,nominas}.py`, `tests/conftest.py`.
+- **Resultado:** OK — 61 passed (tests de concurrencia repetidos 4 veces, estables). Pendiente: ejecutar la migración en Supabase y mostrar `cambio` en el frontend.
+
+### 07/10/2026 — Infraestructura de tests backend (pytest)
+
+- **Qué:** No había tests. Nueva suite pytest + pytest-asyncio + httpx contra BD PostgreSQL local de prueba; guarda que aborta si `TEST_DATABASE_URL` falta o apunta a Supabase/remoto.
+- **Archivos:** `backend/pytest.ini`, `backend/requirements-dev.txt`, `backend/tests/` (`conftest.py`, `db_guard.py`, `schema.sql` desde catálogo Supabase, `factories.py`, `auth_helpers.py`, `local_pg.py`, `test_infra.py`, `test_smoke.py`), `docker-compose.test.yml`, `.gitignore` (`backend/.pgtest/`), `docs/TESTING.md`.
+- **BD local:** Docker (`docker-compose.test.yml`) o `pgserver` sin Docker (`tests/local_pg.py`).
+- **Resultado:** OK — 17 passed (humo login → abrir mesa → línea → cobrar con Verifactu). Sin arreglar bugs.
+
+### 06/10/2026 — Auditoría Fase 0: RLS Supabase (HSO-01) y credenciales (HSO-03)
+
+- **Evidencia previa:** backend conecta como `postgres.<ref>` vía Supavisor (pooler :6543) = rol `postgres`, `rolbypassrls=true`, owner de las 45 tablas. 41 tablas sin RLS y `anon`/`authenticated` con ALL. Ningún código usa `/rest/v1` ni supabase-js.
+- **SQL (sin ejecutar):** `backend/sql/migration_hso01_rls_revoke_anon.sql` (RLS + REVOKE + default privileges, rollback comentado), `backend/sql/verify_hso01_rls.sql`, `backend/sql/ops_hso03_cuentas_demo.sql` (desactivar admin@test.com / admin@prueba.com, rotar superadmin).
+- **Scripts:** `generate_test_hashes.py` sin contraseñas en claro (env `HORECASO_PWD_*` o aleatoria); nuevo `scripts/hash_password.py` (getpass).
+- **Pendiente manual:** ejecutar los SQL en Supabase, rotar `SECRET_KEY_AUTH` en Render, limpiar contraseñas en docs/README/LoginPage (ver informe).
+- **Resultado:** OK código; pendiente ejecución en BD.
+
+### 06/10/2026 — Reportes: ver en pantalla + PDF
+
+- **Qué:** Todos los PDF del módulo Reportes tienen hermano JSON `/datos` y UI «Ver en pantalla» + «Generar PDF». Fiscal 303 ya era vista JSON.
+- **BE:** `/reportes/.../datos` en nómina, inventario, cierre-caja, ventas, cuadrante, rentabilidad-platos, comparativa-proveedores, APPCC (`reportes.py` + `reportes_dif_*`).
+- **FE:** `ReportesPreviewTable.jsx`; Operativos / Ventas / RRHH / Proveedores con preview (tabla md+, cards móvil). Helpers en `api.js`.
+- **Fuera:** Acuerdo comercial superadmin (ya formulario+PDF); TPV térmica.
+- **Resultado:** OK código.
+
+### 06/10/2026 — Audit logs tenant (mesas, productos, usuarios)
+
+- **Qué:** Helper `services/audit_log.py` escribe `platform_logs` + `tenant_audit_log` (fail-safe). Enganchado en create/update/delete mesa, producto y create/patch usuario admin.
+- **Ver en:** Logs plataforma (superadmin). Sin TPV/cobros (ruido).
+- **Resultado:** OK código.
+
+### 06/10/2026 — Aportación voluntaria en acuerdo de piloto
+
+- **Qué:** Precio `aportacion_voluntaria` (piloto gratis + aportación opcional); cláusula 6 reformulada en PDF y MD; selector en superadmin.
+- **SQL:** `migration_acuerdos_precio_voluntaria.sql` (CHECK + VARCHAR 40).
+- **Resultado:** OK.
+
+### 06/10/2026 — PDF acuerdo: quitar nota de alta
+
+- **Qué:** Eliminada nota amarilla sobre alta formal/autónomo del PDF; NIF proveedor vacío → «—».
+- **Archivo:** `backend/services/pdf_acuerdo_piloto.py`. Aviso sin NIF solo en UI superadmin.
+- **Resultado:** OK.
+
+### 06/10/2026 — Acuerdo comercial en superadmin (PDF piloto)
+
+- **Qué:** Pantalla solo `superadmin` «Acuerdo comercial»: plantilla proveedor (NIF opcional), borradores por cliente, generar PDF ReportLab.
+- **SQL:** `acuerdo_proveedor_defaults` + `acuerdos_piloto` (`migration_acuerdos_piloto.sql`, aplicada en Supabase).
+- **BE:** `superadmin_acuerdos.py` + `pdf_acuerdo_piloto.py`; FE: `AcuerdoComercialPage.jsx`, nav sidebar.
+- **Resultado:** OK código + migración.
+
+### 06/10/2026 — Contrato uso SaaS, gestoría y Verifactu (docs)
+
+- **Qué:** Capítulo 11 en `MANUAL_CLIENTE_HORECASO.md` (contrato SaaS, cómo pasar ventas al contador, 3 capas Verifactu, frase honesta piloto). Plantilla `docs/ACUERDO_PILOTO_HORECASO.md` para 3 restaurantes.
+- **Aclaración:** registro interno SHA/huella ≠ envío AEAT ni “acreditado Hacienda”; obligaciones RRSIF anunciadas hacia ~oct 2028 (confirmar norma/asesor).
+- **Resultado:** OK documentación.
+
+### 06/10/2026 — Manual comercial para cliente (MANUAL_CLIENTE_HORECASO.md)
+
+- **Qué:** Guía larga en lenguaje de negocio (sin jerga técnica): menú principal, perfiles, día tipo, cadena del plato (PVP sugerido, semáforo, gastos operativos vs escandallo), caja/división/Verifactu, capítulo por cada módulo del hub, FAQ y glosario.
+- **Archivo:** `docs/MANUAL_CLIENTE_HORECASO.md` (complementa `docs/MANUAL_USUARIO_HORECASO.md`).
+- **Resultado:** OK documentación.
+
+### 06/10/2026 — SKU automático desde el nombre (Inventario)
+
+- **Sin migración BD:** columna `articulos.sku` ya existía.
+- **FE:** al crear artículo, SKU se genera del nombre (Leche→LCH, Leche de almendras→LCHA); dígitos del nombre si hay; unicidad `-2`/`-3`; editable a mano; botón Generar.
+- **Resultado:** OK código.
+
+### 06/10/2026 — Unidades claras en tabla ingredientes (kg/g · l/ml)
+
+- **Problema:** la columna Unidad parecía solo «kg»; líquidos (leche) no se entendían.
+- **FE/BE:** aliases litro/lt/gramo; selector con etiquetas; fila vacía muestra «—»; hint didáctico.
+- **Uso:** Inventario leche en `l` → en receta elegir `l` o `ml` (ej. 200 ml).
+- **Resultado:** OK código.
+
+### 06/10/2026 — Ingredientes: tabla editable + import Excel/CSV
+
+- **Problema:** añadir ingredientes uno a uno con `<select>` enorme era tedioso.
+- **FE:** `IngredientesGridEditor` (filas + búsqueda nombre/SKU) + parse `xlsx` en navegador, vista previa, plantilla CSV.
+- **BE:** `POST /admin/recetas/{id}/ingredientes/bulk` (hasta 200 líneas, una transacción).
+- **Integrado en:** creación y edición en Elaboraciones; sección detalle de receta.
+- **Resultado:** OK código.
+
+### 06/10/2026 — Elaboraciones: pantalla blanca (BUG-022)
+
+- **Síntoma:** `/admin/recetas/elaboraciones` root vacío; `/admin/recetas` OK.
+- **Causa:** `searchParams`/`setSearchParams` sin declarar `useSearchParams()`.
+- **Fix:** hook añadido en `ElaboracionesPage.jsx`.
+- **Resultado:** OK; página con formulario + lista (8 recetas en demo).
+
+### 06/10/2026 — Recetas: empty state (no más “pantalla en blanco”)
+
+- **Causa:** lista vacía si no hay platos con «tiene receta»; texto mínimo parecía blanco.
+- **UI:** card «Aún no hay platos con receta» + CTAs Carta / Nueva receta / Elaboraciones; error API repetido en empty + feedback 10 s.
+- **Resultado:** OK; F5 `/admin/recetas`.
+
+### 06/10/2026 — Escandallo: merma % y editar cantidad
+
+- **Confirmado:** coste de plato = módulo Recetas (inventario × cantidades).
+- **BE:** `PUT /admin/recetas/{id}/ingredientes/{ingrediente_id}` (cantidad, merma, unidad).
+- **FE:** tabla de ingredientes editable + merma al añadir; copy «Coste de esta receta».
+- **Smoke dueño:** hub → Recetas → Elaboraciones → plato con 2–3 artículos con precio en Inventario.
+- **Resultado:** OK código.
+
+### 06/10/2026 — Placeholder login genérico
+
+- **Usuarios:** `placeholder` de usuario de login `luisana` → `empleado`.
+- **Docs/BE:** ejemplos alineados (`empleado@kairos.com`).
+- **Resultado:** OK.
+
+### 06/10/2026 — Copy Previsión mermas + label superadmin
+
+- **Dashboard:** disclaimer en lenguaje de restaurante; sin Groq ni jerga.
+- **Superadmin:** check `predicciones` → label «Previsión mermas» (sigue off por defecto).
+- **Resultado:** OK; Kairos con predicciones off = solo Resumen en Dashboard.
+
+### 06/10/2026 — Dashboard: clip scroll + Previsión mermas
+
+- **UI:** quitado h1 «Dashboard» duplicado, tabs sin `sticky`, sin doble padding (usa padding de AppLayout).
+- **Tab:** «Predicciones IA» → «Previsión mermas»; disclaimer: estadística sobre histórico de mermas, no Groq/ventas.
+- **Resultado:** OK código; F5 Dashboard y scroll en ambas pestañas.
+
+### 06/10/2026 — Sala básica + alerta de reserva
+
+- **Gestión Sala:** quitada forma de mesa; zonas solo Interior / Terraza / Barra; PUT mesas sin `forma`.
+- **Reservas:** crear/editar/cambiar estado sincroniza `mesas.estado=reservada` si hay pendiente/confirmada **hoy** (Madrid); al cancelar/no_show/sentada sin activas → `libre` (no pisa ticket abierto).
+- **GET /mesas:** estado efectivo con reserva del día + `reserva_hora` / `reserva_nombre` / `reserva_personas`.
+- **Sala:** click en mesa reservada → alerta con hora y cliente (no abre TPV).
+- **Resultado:** OK código; probar: reserva hoy con mesa → Sala muestra Reservada → click alerta → cancelar → libre.
+
+### 06/10/2026 — Header hub flush al top
+
+- **AppLayout:** en `/menu`, `main` pasa a `px-4 pb-4 pt-0 md:px-8 md:pb-8` (sin padding superior) para que el sticky no deje franja con cards.
+- **MenuHubPage:** header ya `sticky top-0` + fondo opaco + full-bleed horizontal — sin cambios.
+- **Resultado:** OK código; F5 `/menu` — header pegado arriba; scroll sin cards entrecortadas.
+
+### 06/10/2026 — Centrado vertical header `/menu`
+
+- **MenuHubPage:** `pt-1 pb-3` → `py-3` + `min-h-16 items-center`; logo fijo `h-12` (sin `sm:h-14`); título `text-2xl` (sin `sm:text-3xl`); bloques izq/der con `items-center` y `leading-tight`.
+- **Revisión:** ModuleTopBar / TPV / KDS ya con `h-header-safe` + grid `items-center` — sin cambios.
+- **Resultado:** OK código; F5 en `/menu` — logo, marca y Salir en la misma línea media.
+
+### 05/10/2026 — Headers alineados (hub táctil)
+
+- **ModuleTopBar:** grid 3 columnas simétricas; título centrado; Atrás / ⋯.
+- **Páginas AppLayout:** sin h1 duplicado; quedan acciones y subtítulos.
+- **TPV / KDS:** mismo patrón de barra; KDS con fila de estado debajo.
+- **Resultado:** OK código; F5 y revisar Menú → módulo → Atrás.
+
+### 05/10/2026 — PDF TOTAL CAJA + hub táctil
+
+- **PDF:** BUG-021 — «TOTAL CAJA» e importe solapados; `pdf_cierre_caja` pasa a 2 filas con altura suficiente.
+- **Nav:** hub `/menu` a pantalla completa (grid táctil) + headbar «Atrás» en módulos; sustituye sidebar fijo. Home post-login → `/menu`. KDS «Atrás» → `/menu`. TPV sigue volviendo a Sala.
+- **Resultado:** OK código; regenerar PDF cierre y probar hub en tablet/PC.
+
+### 05/10/2026 — Cierre de caja del día + ticket de control
+
+- **Backend:** `GET /api/tpv/cierre-caja/preview` y `POST /api/tpv/cierre-caja` (`tpv_cierre_caja.py`). Totales Decimal desde `ticket_pagos` (+ cobro simple sin pagos); día en Europe/Madrid; roles admin/director/jefe_sala; 409 si ya cerrado; respuesta con `cerrado_por_nombre` + `tenant_print`.
+- **Frontend:** pantalla `/cierre-caja` (`CierreCajaPage`), nav módulo `tpv`, API helpers, `CierreCajaPrintView` + botón Imprimir.
+- **Print agent:** `tipo: 'cierre'` con desglose de métodos, cerrado por, tickets/medio.
+- **Smoke Kairos (checklist):**
+  1. Cobros del día (efectivo/tarjeta/etc.) en el outlet del admin.
+  2. Sidebar → **Cierre de caja** → preview con desglose.
+  3. **Cerrar caja** → estado «ya cerrada» + nombre del usuario.
+  4. **Imprimir ticket** → cabecera local + CIERRE DE CAJA + desglose + Powered by HorecaSO (agente o window.print).
+  5. Opcional: PDF cierre en Reportes si hay fila.
+- **Resultado:** OK código; smoke manual pendiente en Kairos.
+- **Fix 05/10 (Not Found):** uvicorn se quedó sin rutas nuevas tras reload fallido; reinicio + mensaje FE claro si preview 404. Bug extra: `_hoy_madrid` sin `SELECT` → 500; corregido.
+
+### 05/10/2026 — Ticket profesional + comanda en panel TPV
+
+- **Ticket cliente:** cabecera con razón social/nombre, NIF, dirección, CP/ciudad, teléfono (`tenant_print` en `GET /tpv/tickets/{id}`); pie «¡Gracias por su compra!» + «Le esperamos pronto» + Powered by HorecaSO. **Sin notas de línea** (solo comanda cocina).
+- **Comanda:** local + mesa + líneas; pie HorecaSO; sin bloque fiscal.
+- **UX:** botón **Comanda cocina** en el panel del ticket (sin abrir cobro). Print agent alineado.
+- **Smoke Kairos (checklist):**
+  1. Superadmin: módulos Sala + TPV + Carta + KDS; rellenar NIF/dirección/razón social del local.
+  2. Mesa 1 → TPV → productos con notas → Comanda cocina (panel).
+  3. Ticket cliente (cobro) → datos fiscales + cierre cálido.
+  4. Cobro simple → mesa LIBRE.
+  5. KDS recibe/cierra líneas según flujo.
+- **Resultado:** OK código; completar datos tenant + smoke manual.
+
+### 05/10/2026 — Ticket/comanda: nombre del local
+
+- **Cambio:** cabecera impresa usa `tenants.nombre` (p. ej. kairos) en lugar de solo «HorecaSO».
+- **Cómo:** `/auth/perfil` → `tenant_nombre`; `GET /tpv/tickets/{id}` también incluye `tenant_nombre` (no depende solo del perfil en caché); TPV prioriza ticket → user → HorecaSO.
+- **Resultado:** OK; reiniciar backend y recargar TPV.
+
+### 05/10/2026 — Mesa número en TPV + estado ocupada
+
+- **Bugs:** TPV «Mesa —»; sala mostraba LIBRE con ticket abierto (desync BD).
+- **Causas:** `GET /tpv/tickets/{id}` sin `mesa_numero`; `mesas.estado` desalineado del ticket.
+- **Fix:** `mesa_numero` + heal ocupada en get_ticket; listado mesas con estado efectivo; PATCH libre bloqueado si hay ticket abierto; fallback FE desde abiertos.
+- **Resultado:** OK código; recargar TPV/Sala para ver Mesa 1 y OCUPADA.
+
+### 05/10/2026 — Impresión TPV: Mesa N + botones claros
+
+- **Bug:** comanda/ticket imprimían trozo de UUID (`mesaId.slice(0,8)`) en lugar del número.
+- **Fix:** `ticket.mesa_numero` como `mesaLabel` en cabecera e impresión (comanda y ticket).
+- **UX:** botones «Comanda cocina» / «Ticket cliente» con subtítulos en CobroModal.
+- **Resultado:** OK código.
+
+### 05/10/2026 — Modal Carta scroll (Nuevo producto)
+
+- **Bug:** modal Nuevo/Editar producto se cortaba; no se veían Cancelar/Guardar.
+- **Causa:** `CartaModal` sin `max-h` ni `overflow-y-auto`.
+- **Fix:** overlay `items-start sm:items-center` + panel `max-h-[min(90vh,calc(100dvh-2rem))] overflow-y-auto` (Producto, Categoría, Alérgenos).
+- **Resultado:** OK código.
+
+### 05/10/2026 — Sidebar respeta módulos del tenant
+
+- **Bug:** Admin Kairos veía todo el menú aunque solo Sala estuviera activo en superadmin.
+- **Causas:** (1) `AuthContext` marcaba `isLoading=false` antes de `/auth/perfil` → sidebar con `user` de localStorage sin `modulos` (filtro permisivo mostraba todo). (2) Dashboard/Usuarios sin clave `modulo`.
+- **Fix:** esperar perfil antes de montar app; helper `isModuloActivo`; Dashboard→`reportes`, Usuarios→`sala`; `ModuloRoute` en rutas; `get_perfil` parsea JSON string.
+- **Resultado:** OK código; re-login admin Kairos para ver menú filtrado.
+
+### 05/10/2026 — Fix FastAPI empty path create_mesa
+
+- **Error:** `Prefix and path cannot be both empty` al arrancar uvicorn tras `@router.post("")` en sub-router sin prefix.
+- **Fix:** handler `create_mesa_handler` + `POST /` en mutations; alias `POST ""` en router padre `mesas.py` (como el GET).
+- **Resultado:** import `main:app` OK.
+
+### 05/10/2026 — Demo superadmin + fix 405 crear mesa
+
+- **Login DEV:** Acceso rápido con `superadmin@horecaso.com` / `<ver gestor de contraseñas>` (icono Crown).
+- **Mesas:** `POST /api/mesas` y `POST /api/mesas/` → mismo handler (evita Method Not Allowed al crear desde Gestión Sala).
+- **FE:** mensaje claro si aún llega 405.
+- **Resultado:** OK código.
+
+### 05/10/2026 — Fix blanco al guardar módulos + editar datos local
+
+- **Crash React:** `detail` array/objeto en mensajes de error al guardar módulos → `apiErrorMessage`; checkboxes y reload no vacían la ficha.
+- **Edición:** formulario **Datos del local** con nombre, NIF, dirección, teléfono, email, slug, plan, etc. (corrige errores del alta sin borrar).
+- **Backend:** `_tenant_row_public` normaliza `modulos` string JSON → dict.
+- **Resultado:** OK código.
+
+### 05/10/2026 — Fix crear local + desactivar tenant
+
+- **Desactivar 500:** `patch_tenant_activo` pasaba dict a `platform_logs.detalle` jsonb sin `json.dumps` → ahora serializado.
+- **Crear:** quitada transacción anidada en `create_tenant` (usa la de `get_db`); modal con error sticky junto a botones + scroll + campos * obligatorios.
+- **Eliminar locales:** política soft-delete — Desactivar bloquea acceso, no borra histórico (copy en modal).
+- **Resultado:** OK código; smoke crear/desactivar en UI pendiente del usuario.
+
+### 05/10/2026 — Login limpio + home superadmin (dueño)
+
+- **UI:** quitado tip ejemplo `luisana@kairos.com`; se mantiene marca HorecaSO / ERP Hostelería y Acceso rápido demo (DEV) a propósito.
+- **Redirect:** tras login (y `/` / `/mesas`) el rol `superadmin` va a `/superadmin/tenants`; resto a `/mesas`.
+- **Auth:** `login()` devuelve el perfil para decidir la home.
+- **Resultado:** OK en código; entrar como dueño con `superadmin@horecaso.com` (manual, sin botón demo).
+
+### 05/10/2026 — Fix API colgada :8000 (login timeout)
+
+- **Síntoma:** login timeout 45s; health no respondía pese a puerto LISTENING + CLOSE_WAIT.
+- **Causas:** worker uvicorn zombie; `_pool.acquire()` sin timeout; `SyntaxError` en `reportes.py` (línea `) tenant = {`) bloqueaba reinicio.
+- **Cambios:** `database.py` `acquire(timeout=10)`; `/api/health` con `asyncio.wait_for` 8s; login try/except limpio; fix syntax PDF cierre; quitada instrumentación debug FE/BE.
+- **Verificado:** `GET /api/health` → 200 en ~0.7s; `POST /api/auth/login` admin@prueba.com → 200 + JWT.
+
+### 05/10/2026 — Fix login “Entrando…” infinito (post alta local)
+
+- **Síntoma:** botón login girando sin mensaje de error.
+- **Causas:** (1) `POST /turnos/fichaje-entrada` **await** tras login bloqueaba si la API no respondía; (2) axios **sin timeout**; (3) token caducado + refresh perfil fallido dejaba sesión inconsistente; (4) interceptor 401 redirigía en `/login`.
+- **Cambios:** `AuthContext.jsx` — fichaje en background; limpiar sesión si perfil 401/403/404; `api.js` timeout 45s + no redirect 401 en login; `LoginPage` mensaje timeout + spinner mientras `isLoading`; `auth.py` try/except en `/perfil`.
+- **Resultado:** OK código; si falla, comprobar **uvicorn :8000** o URL `VITE_API_URL` / Render despertando.
+
+### 05/10/2026 — Roadmap paso a paso (impresora + bugs + venta + Railway prep)
+
+- **Paso 0 impresión:** TPV usa `printViaAgentOrBrowser` (agente `:9173` → fallback `window.print`); checklist Epson `docs/CHECKLIST_EPSON_PRINT.md`; `tools/print_agent/requirements.txt`.
+- **Paso 1 alta local:** ya OK (email_slug + Crear local + módulos) — sesión previa.
+- **Paso 2 bugs UX:** salas por nombre (`GET /api/admin/outlets`); nota línea TPV (`PATCH …/lineas/{id}` + UI); KDS botón volver + `user.rol` + copy vacío; PDF cierre mensajes claros + fallback outlet; Predicciones solo si `modulos.predicciones`.
+- **Paso 3 sin-prueba:** login sin botones demo en producción (`import.meta.env.DEV`); copy predicciones sin seed SQL; aviso Render free retirado del login.
+- **Paso 4 Railway:** `backend/Dockerfile` + `railway.toml` + `docs/CHECKLIST_RAILWAY.md` (deploy cuenta Railway = acción del usuario).
+- **Resultado:** código/docs OK; smoke Epson físico y deploy Railway pendientes de entorno del usuario.
+
+### 05/10/2026 — Superadmin alta local + emails @slug.com + módulos menú
+
+- **BD:** columna `tenants.email_slug` UNIQUE NOT NULL (`backend/sql/migration_tenants_email_slug.sql`); aplicada en Supabase (backfill demo → `tenant-demo`, `restaurante-prueba`).
+- **API:** `POST/PATCH/GET` superadmin tenants con `email_slug`; alta admin con `admin_localpart` → `{local}@{slug}.com`; `/auth/perfil` expone `email_slug`; `POST/PATCH /api/admin/usuarios` fuerza sufijo del tenant.
+- **UI superadmin:** botón **Crear local** (`CreateTenantModal`) con fiscal + slug + checklist módulos; ficha tenant edita slug y toggles módulos.
+- **UI Usuarios:** input solo parte local + sufijo fijo `@{email_slug}.com`.
+- **Nav:** `NAV_ITEMS` principales ligados a claves `tenants.modulos` (sala, tpv, inventario, kds, etc.).
+- **Resultado:** OK en código + migración remota; smoke crear Kairos pendiente en UI local.
 
 ### 05/10/2026 — Plan piloto casa (Build completo Pasos 3–7 + docs)
 
@@ -29,7 +383,7 @@ Criterio: existencia de routers/páginas/API en el código leído; sin asumir qu
 | Auth / Login | ✅ | ✅ | `routers/auth.py`, `AuthContext.jsx`, JWT con `role` y `negocio_id` (nullable si `tenant_id` NULL en fila). |
 | Mesas / Sala | ✅ | ✅ | `routers/mesas.py` + `pages/sala/MesasPage.jsx`, `admin/sala/GestionSalaPage.jsx`. |
 | TPV | ✅ | ✅ | Paquete `routers/tpv/` (`tpv.py`, `tpv_cobro.py`, …); `TPVPage.jsx`. **No existe** `backend/routers/tpv.py` suelto. |
-| Verifactu | ✅ | ⏳ | `verifactu_router` en `main.py`; UI específica no listada en `App.jsx` como ruta dedicada (consulta vía otros flujos/reportes según producto). |
+| Verifactu | ✅ registro interno · ❌ envío AEAT · ❌ huella validada | ⏳ | `verifactu_router` en `main.py`; registro interno al cobrar; UI específica no listada en `App.jsx` como ruta dedicada (consulta vía reportes/API). Sin remisión AEAT ni spec de huella validada (HSO-10). |
 | Carta / Admin carta | ✅ | ✅ | `carta.py`, `admin_carta/`, `pages/admin/carta/CartaPage.jsx`. |
 | KDS | ✅ | ✅ | `routers/kds/kds.py`, `kds_estados.py`, `kds_shared.py`. **No existe** `backend/routers/kds.py` suelto. Refinamiento **25/03/2026:** vista por rol (cocina / barra / completa para camarero y gestión), API enriquecida, chips Cocina·Barra y “Ya terminado” en UI — ver §8. |
 | Recetas / Escandallos | ✅ | ✅ | `recetas/` + `RecetasPage.jsx` (producto evita término “escandallo” en UI). **27/03/2026 (tarde):** conversión de unidades (kg/g, l/ml) y validación por familia en coste; `recetas_unidades.py`; sidebar **Recetas** y **Costes** separados; página `CostesPage.jsx` (`/admin/costes`); API `GET/POST/DELETE /api/admin/gastos-operativos` + SQL `migration_gastos_operativos.sql` (ejecutar en Supabase para persistir gastos fijos). **27/03/2026 (noche):** si el artículo tiene **calibración útil** en inventario, el coste de ingrediente en semáforo/detalle usa **coste unitario efectivo** (regla de tres); ver §8 y [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) (MEJ-008). |
@@ -144,6 +498,9 @@ Solo se listan archivos presentes en `backend/sql/` y referencias en documentaci
 | `backend/sql/migration_kds_barra_destino.sql` | `destino_kds`, columnas barra en líneas, rol barra. **BUG-008** marcado resuelto en `BUGS_Y_SOLUCIONES.md` tras aplicación en Supabase (25/03/2026). |
 | `backend/sql/migration_fase_b.sql` | Fase B: CHECK `rol`, `tenant_id` nullable, `platform_logs`, `tenant_audit_log`, `usuario_permisos`, superadmin seed, tenant prueba. Cabecera: ejecutar tras `generate_test_hashes.py` y pegar hashes. |
 | `backend/sql/migration_gastos_operativos.sql` | Tabla `gastos_operativos` (gastos fijos mensuales por tenant). **Requerida** para que `POST /api/admin/gastos-operativos` persista datos; sin ejecutarla, la API responde 503 con mensaje orientativo. |
+| `backend/sql/migration_hso11_stock_schema.sql` | HSO-11: origen/delta en movimientos, CHECK no negativos, índice FIFO parcial. **No ejecutada en Supabase** (solo tests locales). |
+| `backend/sql/migration_hso11_datos_lotes.sql` | HSO-11: alinea lotes a `stock_actual` (copia + rollback). **No ejecutada en Supabase**. |
+| `backend/sql/migration_hso14_indices.sql` | HSO-14: índices de tráfico con `CREATE INDEX CONCURRENTLY` (fuera de transacción). **No ejecutada en Supabase**. |
 
 **No encontrado en `backend/sql/`:** `seed_restauranteprueba.sql` como archivo separado (el PRD Fase B lo menciona; el seed de prueba está **integrado** en `migration_fase_b.sql` según ese archivo).
 

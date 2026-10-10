@@ -43,7 +43,7 @@ async def add_ticket_pago(
     try:
         async with get_db() as conn:
             ticket_row = await _require_ticket_tpv_access(
-                conn, ticket_id, current_user["sub"]
+                conn, ticket_id, current_user["sub"], for_update=True
             )
             if ticket_row["estado"] != "abierto":
                 raise HTTPException(
@@ -63,6 +63,27 @@ async def add_ticket_pago(
             ticket_total = Decimal(str(ticket_row["total"])).quantize(
                 Decimal("0.01"), ROUND_HALF_UP
             )
+
+            pendiente_previo = ticket_total - await _sum_pagos_ticket(conn, ticket_id)
+            if pendiente_previo <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El ticket no tiene importe pendiente",
+                )
+            cambio = Decimal("0.00")
+            if importe > pendiente_previo:
+                if body.metodo_pago != "efectivo":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            "El importe supera el pendiente "
+                            f"({pendiente_previo:.2f} €). Solo en efectivo se admite cambio."
+                        ),
+                    )
+                cambio = (importe - pendiente_previo).quantize(
+                    Decimal("0.01"), ROUND_HALF_UP
+                )
+                importe = pendiente_previo
 
             pago_row = await conn.fetchrow(
                 """
@@ -108,6 +129,7 @@ async def add_ticket_pago(
             "total_pagado": _decimal_respuesta_dinero(total_pagado),
             "total_ticket": _decimal_respuesta_dinero(ticket_total),
             "pendiente": _decimal_respuesta_dinero(pendiente),
+            "cambio": _decimal_respuesta_dinero(cambio),
             "completado": completado,
             "metodo_pago": body.metodo_pago,
         }
@@ -191,7 +213,7 @@ async def delete_ticket_pago(
     try:
         async with get_db() as conn:
             ticket_row = await _require_ticket_tpv_access(
-                conn, ticket_id, current_user["sub"]
+                conn, ticket_id, current_user["sub"], for_update=True
             )
             if ticket_row["estado"] != "abierto":
                 raise HTTPException(

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getFiscalTrimestre } from '../../services/api'
+import { getFiscalTrimestre } from '../../../services/api'
 
 export default function ReportesFiscal() {
   const now = new Date()
@@ -32,7 +32,7 @@ export default function ReportesFiscal() {
     <div className="space-y-4">
       <p className="text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
         Resumen trimestral para gestoría (Modelo 303 light): bases y cuotas de
-        IVA de ventas Verifactu.
+        IVA de ventas.
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm text-[#6b7280] dark:text-[#8b90a7]">

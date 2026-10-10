@@ -4,7 +4,6 @@ Inventario: movimientos e inventario físico.
 
 import logging
 from datetime import date, datetime, time, timezone
-from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
 
@@ -12,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth.dependencies import require_roles
 from database import get_db
+from services import stock
 
 from .inventario_movimientos_schemas import (
     InventarioFisicoRequest,
@@ -21,7 +21,6 @@ from .inventario_shared import (
     ROLES_LECTURA,
     ROLES_MOVIMIENTOS,
     _fetch_usuario,
-    _insert_movimiento,
     _serialize_coste_json,
     _serialize_stock_qty,
 )
@@ -37,7 +36,7 @@ async def crear_movimiento(
     current_user: dict = Depends(require_roles(ROLES_MOVIMIENTOS)),
 ):
     """
-    Registra movimiento y actualiza stock en la misma transacción.
+    Registra movimiento y actualiza stock en la misma transacción (services/stock.py).
     """
     try:
         async with get_db() as conn:
@@ -46,100 +45,59 @@ async def crear_movimiento(
                 raise HTTPException(status_code=403, detail="Usuario sin tenant")
 
             tenant_id = UUID(str(urow["tenant_id"]))
-            usuario_id = UUID(current_user["sub"])
-            outlet_id = UUID(str(urow["outlet_id"])) if urow["outlet_id"] else None
+            comun = {
+                "tenant_id": tenant_id,
+                "outlet_id": await stock.outlet_operativo(conn, tenant_id, urow["outlet_id"]),
+                "usuario_id": UUID(current_user["sub"]),
+                "articulo_id": UUID(body.articulo_id),
+                "motivo": body.motivo,
+            }
 
-            art = await conn.fetchrow(
-                """
-                SELECT id, nombre, stock_actual, coste_unitario
-                FROM articulos
-                WHERE id = $1 AND tenant_id = $2
-                FOR UPDATE
-                """,
-                UUID(body.articulo_id),
-                tenant_id,
-            )
-            if not art:
-                raise HTTPException(status_code=404, detail="Artículo no encontrado")
-
-            stock_ant = Decimal(
-                str(art["stock_actual"] if art["stock_actual"] is not None else 0)
-            )
-            tipo = body.tipo
-            cant = body.cantidad
-            stock_nuevo = stock_ant
-
-            if tipo == "entrada":
-                stock_nuevo = stock_ant + cant
-                await conn.execute(
-                    "UPDATE articulos SET stock_actual = $1 WHERE id = $2 AND tenant_id = $3",
-                    stock_nuevo,
-                    art["id"],
-                    tenant_id,
+            if body.tipo == "entrada":
+                res = await stock.registrar_entrada(
+                    conn,
+                    **comun,
+                    cantidad=body.cantidad,
+                    coste_unitario=body.coste_unitario,
+                    fecha_caducidad=body.fecha_caducidad,
+                    numero_lote=body.numero_lote,
                 )
-                if body.coste_unitario is not None:
-                    await conn.execute(
-                        """
-                        UPDATE articulos SET coste_unitario = $1
-                        WHERE id = $2 AND tenant_id = $3
-                        """,
-                        body.coste_unitario,
-                        art["id"],
-                        tenant_id,
-                    )
-                mov_coste = body.coste_unitario
-            elif tipo in ("salida", "merma"):
-                if stock_ant < cant:
-                    raise HTTPException(status_code=400, detail="Stock insuficiente")
-                stock_nuevo = stock_ant - cant
-                await conn.execute(
-                    "UPDATE articulos SET stock_actual = $1 WHERE id = $2 AND tenant_id = $3",
-                    stock_nuevo,
-                    art["id"],
-                    tenant_id,
+            elif body.tipo in stock.TIPOS_SALIDA:
+                res = await stock.registrar_salida(
+                    conn, **comun, cantidad=body.cantidad, tipo=body.tipo
                 )
-                mov_coste = body.coste_unitario
-            else:  # ajuste
-                stock_nuevo = cant
-                await conn.execute(
-                    "UPDATE articulos SET stock_actual = $1 WHERE id = $2 AND tenant_id = $3",
-                    stock_nuevo,
-                    art["id"],
-                    tenant_id,
+            else:
+                res = await stock.registrar_ajuste(
+                    conn,
+                    **comun,
+                    cantidad_real=body.cantidad,
+                    coste_unitario=body.coste_unitario,
                 )
-                mov_coste = body.coste_unitario
-
-            mid = await _insert_movimiento(
-                conn,
-                art["id"],
-                outlet_id,
-                usuario_id,
-                tipo,
-                cant,
-                mov_coste,
-                body.motivo,
-                None,
-            )
 
         logger.info(
-            "Movimiento stock %s artículo=%s tipo=%s cant=%s",
-            mid,
-            art["id"],
-            tipo,
-            cant,
+            "Movimiento stock %s artículo=%s tipo=%s delta=%s",
+            res.movimiento_id,
+            res.articulo_id,
+            res.tipo,
+            res.delta,
         )
 
         return {
-            "movimiento_id": str(mid),
-            "articulo_id": str(art["id"]),
-            "nombre_articulo": art["nombre"],
-            "stock_anterior": _serialize_stock_qty(stock_ant),
-            "stock_nuevo": _serialize_stock_qty(stock_nuevo),
-            "tipo": tipo,
-            "cantidad": _serialize_stock_qty(cant),
+            "movimiento_id": str(res.movimiento_id) if res.movimiento_id else None,
+            "articulo_id": str(res.articulo_id),
+            "nombre_articulo": res.nombre,
+            "stock_anterior": _serialize_stock_qty(res.stock_anterior),
+            "stock_nuevo": _serialize_stock_qty(res.stock_nuevo),
+            "tipo": res.tipo,
+            "cantidad": _serialize_stock_qty(res.cantidad),
+            "delta": _serialize_stock_qty(res.delta),
+            "coste_unitario": _serialize_coste_json(res.coste_unitario),
+            "lotes_afectados": res.lotes_afectados,
         }
     except HTTPException:
         raise
+    except stock.StockError as e:
+        raise stock.a_http(e)
     except Exception as e:
         logger.error("Error en crear_movimiento: %s", e)
         raise HTTPException(status_code=500, detail="Error interno")
@@ -189,7 +147,7 @@ async def list_movimientos(
             limit_ph = len(args)
 
             sql = (
-                "SELECT m.id, m.articulo_id, m.tipo, m.cantidad, m.coste_unitario, "
+                "SELECT m.id, m.articulo_id, m.tipo, m.cantidad, m.delta, m.coste_unitario, "
                 "m.motivo, m.created_at, a.nombre AS articulo_nombre, "
                 "u.nombre AS usuario_nombre "
                 "FROM movimientos_stock m "
@@ -211,6 +169,7 @@ async def list_movimientos(
                 "cantidad": _serialize_stock_qty(r["cantidad"])
                 if r["cantidad"] is not None
                 else 0.0,
+                "delta": _serialize_stock_qty(r["delta"]) if r["delta"] is not None else None,
                 "coste_unitario": _serialize_coste_json(r.get("coste_unitario")),
                 "motivo": r["motivo"],
                 "usuario_nombre": r["usuario_nombre"],
@@ -244,59 +203,35 @@ async def inventario_fisico(
 
             tenant_id = UUID(str(urow["tenant_id"]))
             usuario_id = UUID(current_user["sub"])
-            outlet_id = UUID(str(urow["outlet_id"])) if urow["outlet_id"] else None
+            outlet_id = await stock.outlet_operativo(conn, tenant_id, urow["outlet_id"])
 
             actualizados: list[dict] = []
 
             for item in body.articulos:
                 aid = UUID(item.articulo_id)
-                art = await conn.fetchrow(
-                    """
-                    SELECT id, nombre, stock_actual
-                    FROM articulos
-                    WHERE id = $1 AND tenant_id = $2
-                    FOR UPDATE
-                    """,
-                    aid,
-                    tenant_id,
-                )
-                if not art:
+                try:
+                    res = await stock.registrar_ajuste(
+                        conn,
+                        tenant_id=tenant_id,
+                        outlet_id=outlet_id,
+                        usuario_id=usuario_id,
+                        articulo_id=aid,
+                        cantidad_real=item.cantidad_real,
+                        motivo="inventario_fisico",
+                    )
+                except stock.ArticuloNoEncontrado:
                     raise HTTPException(
                         status_code=404,
                         detail="Artículo no encontrado: " + str(item.articulo_id),
                     )
 
-                stock_ant = Decimal(
-                    str(art["stock_actual"] if art["stock_actual"] is not None else 0)
-                )
-                cant_real = item.cantidad_real
-                stock_nuevo = cant_real
-
-                await conn.execute(
-                    "UPDATE articulos SET stock_actual = $1 WHERE id = $2 AND tenant_id = $3",
-                    stock_nuevo,
-                    aid,
-                    tenant_id,
-                )
-
-                await _insert_movimiento(
-                    conn,
-                    aid,
-                    outlet_id,
-                    usuario_id,
-                    "ajuste",
-                    cant_real,
-                    None,
-                    "inventario_fisico",
-                    None,
-                )
-
                 actualizados.append(
                     {
                         "articulo_id": str(aid),
-                        "nombre": art["nombre"],
-                        "stock_anterior": _serialize_stock_qty(stock_ant),
-                        "stock_nuevo": _serialize_stock_qty(stock_nuevo),
+                        "nombre": res.nombre,
+                        "stock_anterior": _serialize_stock_qty(res.stock_anterior),
+                        "stock_nuevo": _serialize_stock_qty(res.stock_nuevo),
+                        "diferencia": _serialize_stock_qty(res.delta),
                     }
                 )
 
@@ -312,6 +247,8 @@ async def inventario_fisico(
         }
     except HTTPException:
         raise
+    except stock.StockError as e:
+        raise stock.a_http(e)
     except Exception as e:
         logger.error("Error en inventario_fisico: %s", e)
         raise HTTPException(status_code=500, detail="Error interno")

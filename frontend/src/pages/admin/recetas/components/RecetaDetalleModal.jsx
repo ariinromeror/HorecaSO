@@ -14,14 +14,13 @@ export default function RecetaDetalleModal({
   recetaDetalle,
   modalError,
   loadingDetalle,
-  formIngrediente,
-  setFormIngrediente,
   articulos,
-  onSelectArticulo,
   reloadCoste,
-  onAddIngrediente,
+  onBulkAddIngredientes,
+  onUpdateIngrediente,
   onDeleteIngrediente,
-  loadingAddIngrediente,
+  savingBulk,
+  savingIngredienteId,
   instruccionesDraft,
   setInstruccionesDraft,
   savingInstrucciones,
@@ -155,14 +154,13 @@ export default function RecetaDetalleModal({
           <>
             <RecetaDetalleIngredientesSection
               recetaDetalle={recetaDetalle}
-              formIngrediente={formIngrediente}
-              setFormIngrediente={setFormIngrediente}
               articulos={articulos}
-              onSelectArticulo={onSelectArticulo}
               onReloadCoste={reloadCoste}
-              onAddIngrediente={onAddIngrediente}
+              onBulkAddIngredientes={onBulkAddIngredientes}
+              onUpdateIngrediente={onUpdateIngrediente}
               onDeleteIngrediente={onDeleteIngrediente}
-              loadingAddIngrediente={loadingAddIngrediente}
+              savingBulk={savingBulk}
+              savingIngredienteId={savingIngredienteId}
             />
 
             <div>

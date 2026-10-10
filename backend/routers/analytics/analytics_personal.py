@@ -5,12 +5,12 @@ Analytics — coste de personal.
 from __future__ import annotations
 
 import logging
-from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from auth.dependencies import require_roles
 from database import get_db
+from services.fechas import hoy_madrid
 
 from .analytics_shared import (
     ROLES_ANALYTICS,
@@ -39,7 +39,7 @@ async def get_coste_personal(
     current_user: dict = Depends(require_roles(ROLES_ANALYTICS)),
 ):
     user_uuid = _uid(current_user)
-    today = date.today()
+    today = hoy_madrid()
     m = mes if mes is not None else today.month
     y = anio if anio is not None else today.year
     try:
@@ -70,8 +70,8 @@ async def get_coste_personal(
                 FROM tickets t
                 WHERE t.outlet_id = $1
                   AND t.estado = 'cobrado'
-                  AND EXTRACT(MONTH FROM t.cobrado_at)::int = $2
-                  AND EXTRACT(YEAR FROM t.cobrado_at)::int = $3
+                  AND EXTRACT(MONTH FROM t.cobrado_at AT TIME ZONE 'Europe/Madrid')::int = $2
+                  AND EXTRACT(YEAR FROM t.cobrado_at AT TIME ZONE 'Europe/Madrid')::int = $3
                 """,
                 outlet_id,
                 m,

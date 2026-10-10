@@ -4,44 +4,57 @@ import {
   AlertTriangle,
   BriefcaseBusiness,
   ChefHat,
+  Crown,
   HandPlatter,
   Loader2,
   Moon,
   ShieldCheck,
   Sun,
-  Zap,
 } from 'lucide-react'
 import ProjectInfoModal from '../components/ProjectInfoModal'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
-/** Cuentas demo del tenant "Restaurante Prueba" (seed Fase B). */
-const DEMO_ACCOUNTS = [
-  {
-    rol: 'admin',
-    label: 'Entrar como Administrador',
-    email: 'admin@prueba.com',
-    password: 'Admin1234!',
-    Icon: ShieldCheck,
-  },
-  {
-    rol: 'camarero',
-    label: 'Entrar como Camarero',
-    email: 'camarero@prueba.com',
-    password: 'Camarero1234!',
-    Icon: HandPlatter,
-  },
-  {
-    rol: 'cocina',
-    label: 'Entrar como Cocinero',
-    email: 'cocina@prueba.com',
-    password: 'Cocina1234!',
-    Icon: ChefHat,
-  },
-]
+/** Cuentas demo solo en desarrollo local (Vite DEV). No se muestran en venta/producción. */
+const DEMO_ACCOUNTS = import.meta.env.DEV
+  ? [
+      {
+        rol: 'superadmin',
+        label: 'Entrar como Superadmin',
+        email: 'superadmin@horecaso.com',
+        password: 'SuperAdmin2024!',
+        Icon: Crown,
+      },
+      {
+        rol: 'admin',
+        label: 'Entrar como Administrador',
+        email: 'admin@prueba.com',
+        password: 'Admin1234!',
+        Icon: ShieldCheck,
+      },
+      {
+        rol: 'camarero',
+        label: 'Entrar como Camarero',
+        email: 'camarero@prueba.com',
+        password: 'Camarero1234!',
+        Icon: HandPlatter,
+      },
+      {
+        rol: 'cocina',
+        label: 'Entrar como Cocinero',
+        email: 'cocina@prueba.com',
+        password: 'Cocina1234!',
+        Icon: ChefHat,
+      },
+    ]
+  : []
+
+function homePathForUser(user) {
+  return user?.rol === 'superadmin' ? '/superadmin/tenants' : '/menu'
+}
 
 export default function LoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth()
+  const { login, isAuthenticated, isLoading, user } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
@@ -54,17 +67,20 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      navigate('/mesas', { replace: true })
+      navigate(homePathForUser(user), { replace: true })
     }
-  }, [isAuthenticated, isLoading, navigate])
+  }, [isAuthenticated, isLoading, user, navigate])
 
   const extractError = (e) => {
+    if (e.code === 'ECONNABORTED' || e.message?.includes('timeout')) {
+      return 'La API tardó demasiado. ¿Está arrancado el backend (uvicorn en :8000)?'
+    }
     const status = e.response?.status
     if (!e.response) {
-      return 'No hay respuesta del servidor. Puede estar arrancando (Render free: 30–60 s). Reintenta en un momento.'
+      return 'No hay respuesta del servidor. Comprueba la conexión o que la API esté arrancada.'
     }
     if (status === 502 || status === 503 || status === 504) {
-      return 'El servidor está arrancando o no disponible (Render). Espera ~1 minuto y vuelve a intentarlo.'
+      return 'El servidor no está disponible ahora. Espera un momento y vuelve a intentarlo.'
     }
     const detail = e.response?.data?.detail
     return typeof detail === 'string'
@@ -82,8 +98,8 @@ export default function LoginPage() {
     }
     setLoading(true)
     try {
-      await login(email.trim(), password)
-      navigate('/mesas', { replace: true })
+      const userData = await login(email.trim(), password)
+      navigate(homePathForUser(userData), { replace: true })
     } catch (e) {
       setError(extractError(e))
     } finally {
@@ -97,8 +113,8 @@ export default function LoginPage() {
     setPassword(account.password)
     setDemoLoading(account.rol)
     try {
-      await login(account.email, account.password)
-      navigate('/mesas', { replace: true })
+      const userData = await login(account.email, account.password)
+      navigate(homePathForUser(userData), { replace: true })
     } catch (e) {
       setError(extractError(e))
     } finally {
@@ -110,6 +126,18 @@ export default function LoginPage() {
     'w-full rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] px-4 py-3 text-[15px] text-[#111827] placeholder-[#9ca3af] focus:border-amber-500 focus:outline-none dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0] dark:placeholder-[#5a5f7a]'
 
   const anyLoading = loading || demoLoading !== null
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9] dark:bg-[#0f1117]">
+        <Loader2
+          className="h-10 w-10 animate-spin text-amber-500"
+          strokeWidth={1.5}
+          aria-label="Cargando sesión"
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f4f6f9] p-4 dark:bg-[#0f1117]">
@@ -213,57 +241,57 @@ export default function LoginPage() {
           )}
         </button>
 
-        <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-[#e2e5ed] dark:bg-[#2e3347]" />
-          <span className="text-xs uppercase tracking-wide text-[#9ca3af] dark:text-[#5a5f7a]">
-            o
-          </span>
-          <div className="h-px flex-1 bg-[#e2e5ed] dark:bg-[#2e3347]" />
-        </div>
+        {DEMO_ACCOUNTS.length > 0 ? (
+          <>
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-[#e2e5ed] dark:bg-[#2e3347]" />
+              <span className="text-xs uppercase tracking-wide text-[#9ca3af] dark:text-[#5a5f7a]">
+                o
+              </span>
+              <div className="h-px flex-1 bg-[#e2e5ed] dark:bg-[#2e3347]" />
+            </div>
 
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 dark:bg-amber-500/10">
-          <div className="mb-3 flex items-center justify-center gap-2">
-            <BriefcaseBusiness
-              size={16}
-              strokeWidth={1.5}
-              className="text-amber-500"
-            />
-            <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-              Acceso de Prueba para Reclutadores
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {DEMO_ACCOUNTS.map((account) => (
-              <button
-                key={account.rol}
-                type="button"
-                onClick={() => handleDemoLogin(account)}
-                disabled={anyLoading}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] text-[15px] font-medium text-[#111827] transition-colors hover:border-amber-500 hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]"
-              >
-                {demoLoading === account.rol ? (
-                  <Loader2
-                    size={18}
-                    strokeWidth={2}
-                    className="shrink-0 animate-spin text-amber-500"
-                    aria-hidden
-                  />
-                ) : (
-                  <account.Icon
-                    size={18}
-                    strokeWidth={1.5}
-                    className="shrink-0 text-amber-500"
-                  />
-                )}
-                <span>{account.label}</span>
-              </button>
-            ))}
-          </div>
-          <p className="mt-3 text-center text-xs text-[#9ca3af] dark:text-[#5a5f7a]">
-            Entorno demo con datos de ejemplo. Cada rol muestra una vista
-            distinta del sistema.
-          </p>
-        </div>
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 dark:bg-amber-500/10">
+              <div className="mb-3 flex items-center justify-center gap-2">
+                <BriefcaseBusiness
+                  size={16}
+                  strokeWidth={1.5}
+                  className="text-amber-500"
+                />
+                <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                  Acceso rápido (solo desarrollo)
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {DEMO_ACCOUNTS.map((account) => (
+                  <button
+                    key={account.rol}
+                    type="button"
+                    onClick={() => handleDemoLogin(account)}
+                    disabled={anyLoading}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-[#e2e5ed] bg-[#f0f2f5] text-[15px] font-medium text-[#111827] transition-colors hover:border-amber-500 hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#2e3347] dark:bg-[#222536] dark:text-[#e8eaf0]"
+                  >
+                    {demoLoading === account.rol ? (
+                      <Loader2
+                        size={18}
+                        strokeWidth={2}
+                        className="shrink-0 animate-spin text-amber-500"
+                        aria-hidden
+                      />
+                    ) : (
+                      <account.Icon
+                        size={18}
+                        strokeWidth={1.5}
+                        className="shrink-0 text-amber-500"
+                      />
+                    )}
+                    <span>{account.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : null}
 
         <button
           type="button"
@@ -272,21 +300,6 @@ export default function LoginPage() {
         >
           Ver más sobre este proyecto
         </button>
-
-        <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#111827] p-3 text-[#e8eaf0] dark:bg-[#0f1117]">
-          <Zap
-            size={16}
-            strokeWidth={1.5}
-            className="mt-0.5 shrink-0 text-amber-500"
-          />
-          <div>
-            <p className="text-xs font-semibold">Primera vez que accedes</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed opacity-90">
-              El API está en Render (plan free). El primer inicio puede tardar
-              30–60 s. Si falla el login, espera un momento y reintenta.
-            </p>
-          </div>
-        </div>
       </div>
 
       <ProjectInfoModal

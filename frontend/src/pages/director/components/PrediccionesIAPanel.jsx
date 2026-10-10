@@ -146,12 +146,8 @@ export default function PrediccionesIAPanel() {
               Sin mermas registradas todavía
             </p>
             <p className="mt-1 text-sm text-[#6b7280] dark:text-[#8b90a7]">
-              Registra movimientos de tipo merma en Inventario, o ejecuta en
-              Supabase el script{' '}
-              <code className="rounded bg-black/10 px-1 py-0.5 text-xs dark:bg-white/10">
-                backend/sql/seed_predicciones_mermas_demo.sql
-              </code>{' '}
-              para cargar datos de demostración.
+              Registra movimientos de tipo merma en Inventario. Cuando haya
+              histórico, aquí verás la previsión de los próximos días.
             </p>
           </div>
         </div>
