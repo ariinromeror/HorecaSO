@@ -30,3 +30,8 @@ Thumbs.db
 TEST_CREDENTIALS.md
 backend/.pgtest/
 .pytest_cache/
+
+# Local archives / debug / audit dumps
+*.zip
+debug-*.log
+npm-audit-*.json
