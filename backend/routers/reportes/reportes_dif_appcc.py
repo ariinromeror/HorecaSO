@@ -59,11 +59,13 @@ def register_reportes_dif_appcc(router: APIRouter) -> None:
             d0, d1 = d1, d0
         try:
             async with get_db() as conn:
-                oid = await _outlet_id(conn, uid)
+                tenant_id = _tenant_id(current_user)
+                oid = await _outlet_id(conn, uid, tenant_id)
                 rows = await conn.fetch(
                     """
                     SELECT ra.*, u.nombre AS responsable
                     FROM registros_appcc ra
+                    JOIN outlets o ON o.id = ra.outlet_id AND o.tenant_id = $4
                     JOIN usuarios u ON ra.usuario_id = u.id
                     WHERE ra.outlet_id = $1
                       AND (ra.created_at AT TIME ZONE 'Europe/Madrid')::date BETWEEN $2 AND $3
@@ -72,6 +74,7 @@ def register_reportes_dif_appcc(router: APIRouter) -> None:
                     oid,
                     d0,
                     d1,
+                    tenant_id,
                 )
             filas = []
             for r in rows:
@@ -110,11 +113,12 @@ def register_reportes_dif_appcc(router: APIRouter) -> None:
             d0, d1 = d1, d0
         try:
             async with get_db() as conn:
-                oid = await _outlet_id(conn, uid)
+                oid = await _outlet_id(conn, uid, tenant_id)
                 rows = await conn.fetch(
                     """
                     SELECT ra.*, u.nombre AS responsable
                     FROM registros_appcc ra
+                    JOIN outlets o ON o.id = ra.outlet_id AND o.tenant_id = $4
                     JOIN usuarios u ON ra.usuario_id = u.id
                     WHERE ra.outlet_id = $1
                       AND (ra.created_at AT TIME ZONE 'Europe/Madrid')::date BETWEEN $2 AND $3
@@ -123,6 +127,7 @@ def register_reportes_dif_appcc(router: APIRouter) -> None:
                     oid,
                     d0,
                     d1,
+                    tenant_id,
                 )
                 trow = await conn.fetchrow(
                     "SELECT nombre, nif FROM tenants WHERE id = $1",
