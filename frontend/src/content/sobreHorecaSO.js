@@ -1,6 +1,7 @@
 /**
  * Contenido bilingüe para ProjectInfoModal (Login).
  * Estructura alineada con InfoCampus ERP.
+ * Copy público: sin rutas de código, tablas, modelos ni versiones.
  */
 
 export const PROJECT_INFO = {
@@ -12,13 +13,13 @@ export const PROJECT_INFO = {
     sobre: {
       resumenTitulo: 'Resumen General',
       resumen:
-        'ERP multitenant de alta complejidad para la hostelería española. Gestiona nóminas, stock real e IA en un entorno SaaS profesional. Incluye registro interno de ventas por cobro, con huella encadenada para trazabilidad. Envío a la AEAT: no disponible todavía.',
+        'ERP multitenant de alta complejidad para la hostelería española. Gestiona nóminas, stock real e IA en un entorno SaaS profesional. Incluye registro interno de ventas por cobro, con huella encadenada para trazabilidad. Envío a la AEAT: sin envío todavía.',
       puntosTitulo: 'Puntos Clave — Por qué destaca',
       puntosClave: [
-        'Multitenancy Estricto: Aislamiento total de datos por tenant_id mediante PostgreSQL RLS (Supabase) y RBAC con JWT (8 roles).',
-        'Registro interno de ventas por cobro, con huella encadenada para trazabilidad. Envío a la AEAT: no disponible todavía.',
+        'Arquitectura multi-restaurante con control de acceso por rol y base de datos en la nube.',
+        'Registro interno de ventas por cobro, con huella encadenada para trazabilidad. Envío a la AEAT: sin envío todavía.',
         'Lógica de Inventario: Gestión de stock por lotes FIFO, escandallos con cálculo automático de mermas y motor de nóminas español.',
-        'IA en Producción: Escaneo de facturas con Groq Vision y modelos de predicción de desperdicio.',
+        'IA en Producción: Escaneo de facturas y modelos de predicción de desperdicio.',
       ],
       modulosTitulo: 'Módulos por Rol',
       modulosPorRol: [
@@ -45,7 +46,7 @@ export const PROJECT_INFO = {
         {
           rol: 'Camarero',
           features:
-            'TPV rápido, gestión de mesas, comandas electrónicas y tickets.',
+            'TPV rápido, gestión de mesas, comandas electrónicas y cobros.',
         },
         {
           rol: 'Recepcionista',
@@ -59,7 +60,8 @@ export const PROJECT_INFO = {
         },
         {
           rol: 'Personal',
-          features: 'Fichaje horario, turnos e histórico de nóminas.',
+          features:
+            'Fichaje horario, planificación de jornada e histórico de nóminas.',
         },
       ],
       desarrolladorTitulo: 'Desarrollador',
@@ -67,21 +69,21 @@ export const PROJECT_INFO = {
     readme: {
       arquitecturaTitulo: 'Arquitectura',
       arquitectura: [
-        'Backend: FastAPI (Python 3.11+) asíncrono.',
-        'Frontend: React 19 + Vite + Tailwind CSS 4.',
-        'Base de Datos: PostgreSQL 15 con seguridad RLS a nivel de fila.',
-        'IA: Groq API (llama-3.3-70b-versatile).',
+        'Arquitectura multi-restaurante con control de acceso por rol y base de datos en la nube.',
+        'Interfaz web moderna para sala, cocina y dirección.',
+        'Datos aislados por establecimiento con permisos según el perfil de cada usuario.',
+        'Asistencia por IA para tareas operativas como el escaneo de documentos.',
       ],
-      estructuraTitulo: 'Estructura de Archivos Backend',
+      estructuraTitulo: 'Capacidades del sistema',
       estructuraBackend: [
-        'routers/verifactu.py: listado y exportación de registros internos.',
-        'services/verifactu_engine.py: huella SHA-256 encadenada al cobro.',
-        'services/stock.py: stock por lotes FIFO y mermas.',
-        'auth/dependencies.py: aislamiento de tenants y RBAC.',
+        'Registro interno de ventas con trazabilidad encadenada (sin envío a la AEAT).',
+        'Stock por lotes FIFO, mermas y escandallos.',
+        'TPV, mesas, KDS, inventario, proveedores, reservas y nóminas.',
+        'Aislamiento entre restaurantes y control de acceso por rol.',
       ],
-      tablasTitulo: 'Tablas de Base de Datos',
+      tablasTitulo: 'Datos y seguridad',
       tablasBD: [
-        'tenants, usuarios, productos, tickets, ticket_lineas, ticket_pagos, verifactu_registros, lotes_inventario, recetas, turnos.',
+        'Información del negocio, carta, ventas, inventario y personal protegida por aislamiento multi-restaurante.',
       ],
     },
   },
@@ -93,13 +95,13 @@ export const PROJECT_INFO = {
     sobre: {
       resumenTitulo: 'General Summary',
       resumen:
-        'High-complexity multitenant ERP for Spanish hospitality. Manages payroll, real stock and AI in a professional SaaS environment. Includes an internal sales ledger per payment, with SHA-256 chained records for traceability. AEAT submission: not available yet.',
+        'High-complexity multitenant ERP for Spanish hospitality. Manages payroll, real stock and AI in a professional SaaS environment. Includes an internal sales ledger per payment, with chained records for traceability. AEAT submission: not available yet (no AEAT remittance).',
       puntosTitulo: 'Key Points — Why it stands out',
       puntosClave: [
-        'Strict Multitenancy: Total data isolation per tenant_id via PostgreSQL RLS (Supabase) and RBAC with JWT (8 roles).',
-        'Internal sales ledger per payment, with SHA-256 chained records for traceability. AEAT submission: not available yet.',
+        'Multi-restaurant architecture with role-based access control and cloud database.',
+        'Internal sales ledger per payment, with chained records for traceability. AEAT submission: not available yet (no AEAT remittance).',
         'Inventory Logic: FIFO batch stock management, recipe costing with automatic waste calculation and Spanish payroll engine.',
-        'AI in Production: Invoice scanning with Groq Vision and waste prediction models.',
+        'AI in Production: Invoice scanning and waste prediction models.',
       ],
       modulosTitulo: 'Modules by Role',
       modulosPorRol: [
@@ -125,7 +127,7 @@ export const PROJECT_INFO = {
         {
           rol: 'Waiter',
           features:
-            'Fast POS, table management, electronic orders and tickets.',
+            'Fast POS, table management, electronic orders and checkout.',
         },
         {
           rol: 'Receptionist',
@@ -139,7 +141,7 @@ export const PROJECT_INFO = {
         },
         {
           rol: 'Staff',
-          features: 'Time clock, shifts and payroll history.',
+          features: 'Time clock, shift planning and payroll history.',
         },
       ],
       desarrolladorTitulo: 'Developer',
@@ -147,21 +149,21 @@ export const PROJECT_INFO = {
     readme: {
       arquitecturaTitulo: 'Architecture',
       arquitectura: [
-        'Backend: Async FastAPI (Python 3.11+).',
-        'Frontend: React 19 + Vite + Tailwind CSS 4.',
-        'Database: PostgreSQL 15 with row-level RLS security.',
-        'AI: Groq API (llama-3.3-70b-versatile).',
+        'Multi-restaurant architecture with role-based access control and cloud database.',
+        'Modern web interface for front of house, kitchen and management.',
+        'Data isolated per venue with permissions according to each user profile.',
+        'AI assistance for operational tasks such as document scanning.',
       ],
-      estructuraTitulo: 'Backend File Structure',
+      estructuraTitulo: 'System capabilities',
       estructuraBackend: [
-        'routers/verifactu.py: list and export of internal fiscal records.',
-        'services/verifactu_engine.py: SHA-256 chained hash at payment.',
-        'services/stock.py: FIFO lot stock and waste.',
-        'auth/dependencies.py: tenant isolation and RBAC.',
+        'Internal sales ledger with chained traceability (no AEAT remittance).',
+        'FIFO lot stock, waste tracking and recipe costing.',
+        'POS, tables, kitchen display, inventory, suppliers, reservations and payroll.',
+        'Isolation between restaurants and role-based access control.',
       ],
-      tablasTitulo: 'Database Tables',
+      tablasTitulo: 'Data and security',
       tablasBD: [
-        'tenants, usuarios, productos, tickets, ticket_lineas, ticket_pagos, verifactu_registros, lotes_inventario, recetas, turnos.',
+        'Business, menu, sales, inventory, staff and work-schedule data protected by multi-restaurant isolation.',
       ],
     },
   },

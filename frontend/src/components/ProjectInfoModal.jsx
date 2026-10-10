@@ -172,8 +172,8 @@ function ReadmeTab({ content }) {
         <ul className="space-y-1.5 text-[15px] text-[#6b7280] dark:text-[#8b90a7]">
           {readme.estructuraBackend.map((item) => (
             <li key={item} className="flex gap-2">
-              <span className="font-mono text-amber-500">-</span>
-              <span className="font-mono text-[14px]">{item}</span>
+              <span className="text-amber-500">•</span>
+              <span>{item}</span>
             </li>
           ))}
         </ul>
@@ -187,7 +187,7 @@ function ReadmeTab({ content }) {
           {readme.tablasBD.map((item) => (
             <li key={item} className="flex gap-2">
               <span className="text-amber-500">•</span>
-              <span className="font-mono text-[14px]">{item}</span>
+              <span>{item}</span>
             </li>
           ))}
         </ul>
