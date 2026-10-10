@@ -44,24 +44,26 @@ def _serialize_ventas_payload(filas, resumen, desde: str, hasta: str) -> dict:
 
 
 async def _build_ventas(conn, uid, tenant_id, d0: date, d1: date):
-    oid = await _outlet_id(conn, uid)
+    oid = await _outlet_id(conn, uid, tenant_id)
     rows = await conn.fetch(
         """
         SELECT (cobrado_at AT TIME ZONE 'Europe/Madrid')::date AS fecha,
             COUNT(*)::bigint AS tickets,
             SUM(total) AS ventas,
             SUM(COALESCE(total_iva, 0)) AS iva
-        FROM tickets
-        WHERE outlet_id = $1
-          AND cobrado_at IS NOT NULL
-          AND (cobrado_at AT TIME ZONE 'Europe/Madrid')::date BETWEEN $2 AND $3
-          AND estado = 'cobrado'
+        FROM tickets t
+        JOIN outlets o ON o.id = t.outlet_id AND o.tenant_id = $4
+        WHERE t.outlet_id = $1
+          AND t.cobrado_at IS NOT NULL
+          AND (t.cobrado_at AT TIME ZONE 'Europe/Madrid')::date BETWEEN $2 AND $3
+          AND t.estado = 'cobrado'
         GROUP BY 1
         ORDER BY fecha
         """,
         oid,
         d0,
         d1,
+        tenant_id,
     )
     trow = await conn.fetchrow(
         "SELECT nombre, nif FROM tenants WHERE id = $1",

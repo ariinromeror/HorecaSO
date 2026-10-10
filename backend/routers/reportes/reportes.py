@@ -51,9 +51,24 @@ async def _outlet_id(conn, user_id: UUID, tenant_id: UUID | None = None) -> UUID
         "SELECT outlet_id, tenant_id FROM usuarios WHERE id = $1",
         user_id,
     )
-    if row and row["outlet_id"]:
-        return row["outlet_id"]
     tid = tenant_id or (row["tenant_id"] if row else None)
+    if row and row["outlet_id"]:
+        if not tid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Usuario sin tenant asignado",
+            )
+        ok = await conn.fetchval(
+            "SELECT 1 FROM outlets WHERE id = $1 AND tenant_id = $2",
+            row["outlet_id"],
+            tid,
+        )
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Outlet no encontrado",
+            )
+        return row["outlet_id"]
     if tid:
         fallback = await conn.fetchval(
             """
@@ -271,11 +286,14 @@ async def reporte_cierre_caja_datos(
             oid = await _outlet_id(conn, uid, tenant_id)
             row = await conn.fetchrow(
                 """
-                SELECT * FROM cierres_caja
-                WHERE outlet_id = $1 AND fecha = $2
+                SELECT c.*
+                FROM cierres_caja c
+                JOIN outlets o ON o.id = c.outlet_id AND o.tenant_id = $3
+                WHERE c.outlet_id = $1 AND c.fecha = $2
                 """,
                 oid,
                 f,
+                tenant_id,
             )
         if not row:
             raise HTTPException(
@@ -323,11 +341,14 @@ async def reporte_cierre_caja(
             oid = await _outlet_id(conn, uid, tenant_id)
             row = await conn.fetchrow(
                 """
-                SELECT * FROM cierres_caja
-                WHERE outlet_id = $1 AND fecha = $2
+                SELECT c.*
+                FROM cierres_caja c
+                JOIN outlets o ON o.id = c.outlet_id AND o.tenant_id = $3
+                WHERE c.outlet_id = $1 AND c.fecha = $2
                 """,
                 oid,
                 f,
+                tenant_id,
             )
             trow = await conn.fetchrow(
                 "SELECT nombre, nif FROM tenants WHERE id = $1",

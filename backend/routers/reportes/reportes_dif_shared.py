@@ -39,15 +39,35 @@ def _tenant_id(cu: dict) -> UUID:
     return UUID(str(tid))
 
 
-async def _outlet_id(conn, user_id: UUID) -> UUID:
+async def _outlet_id(conn, user_id: UUID, tenant_id: UUID | None = None) -> UUID:
+    """
+    Outlet del usuario. Si se pasa tenant_id (o se lee de usuarios),
+    exige que el outlet pertenezca a ese tenant (404 si no).
+    """
     row = await conn.fetchrow(
-        "SELECT outlet_id FROM usuarios WHERE id = $1",
+        "SELECT outlet_id, tenant_id FROM usuarios WHERE id = $1",
         user_id,
     )
     if not row or not row["outlet_id"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Usuario sin outlet asignado",
+        )
+    tid = tenant_id or row["tenant_id"]
+    if not tid:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario sin tenant asignado",
+        )
+    ok = await conn.fetchval(
+        "SELECT 1 FROM outlets WHERE id = $1 AND tenant_id = $2",
+        row["outlet_id"],
+        tid,
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Outlet no encontrado",
         )
     return row["outlet_id"]
 
