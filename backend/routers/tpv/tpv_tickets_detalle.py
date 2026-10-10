@@ -25,31 +25,33 @@ async def get_ticket(
     ticket_id: UUID,
     current_user: dict = Depends(require_roles(list(ROLES_TICKET_DETALLE))),
 ):
-    """Devuelve ticket con sus líneas y mesa_numero. HTTP 404 si no existe."""
+    """Devuelve ticket con sus líneas y mesa_numero. Solo lectura. HTTP 404 si no existe o no es del tenant."""
     try:
         async with get_db() as conn:
-            ticket_row = await _require_ticket_tpv_access(
-                conn, ticket_id, current_user["sub"]
-            )
+            try:
+                ticket_row = await _require_ticket_tpv_access(
+                    conn, ticket_id, current_user["sub"]
+                )
+            except HTTPException as e:
+                # Cross-tenant / outlet: no revelar existencia → 404
+                if e.status_code == status.HTTP_403_FORBIDDEN and e.detail == (
+                    "No puede acceder a este ticket"
+                ):
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Ticket no encontrado",
+                    ) from e
+                raise
 
             mesa_numero = None
             tenant_print = None
             if ticket_row.get("mesa_id"):
                 m = await conn.fetchrow(
-                    "SELECT numero, estado FROM mesas WHERE id = $1",
+                    "SELECT numero FROM mesas WHERE id = $1",
                     ticket_row["mesa_id"],
                 )
                 if m:
                     mesa_numero = m["numero"]
-                    # Heal: ticket abierto con mesa libre → marcar ocupada
-                    if (
-                        ticket_row["estado"] == "abierto"
-                        and m["estado"] == "libre"
-                    ):
-                        await conn.execute(
-                            "UPDATE mesas SET estado = 'ocupada' WHERE id = $1",
-                            ticket_row["mesa_id"],
-                        )
 
             if ticket_row.get("outlet_id"):
                 tn = await conn.fetchrow(

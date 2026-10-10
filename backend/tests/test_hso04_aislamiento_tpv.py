@@ -14,7 +14,7 @@ async def test_get_ticket_otro_tenant_denegado_sin_escritura(client, seed, db):
         headers=auth_headers(seed.a.usuarios["camarero"]),
     )
 
-    assert r.status_code == 403, r.text
+    assert r.status_code == 404, r.text
     assert "B22222222" not in r.text
     assert await db.fetchval(
         "SELECT estado FROM mesas WHERE id = $1", b.mesa_ocupada_id
