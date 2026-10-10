@@ -29,6 +29,7 @@ ROLES_KDS_ESCRITURA = [
 
 
 async def _get_user_outlet(conn, user_id: str) -> str | None:
+    """Compat: solo outlet_id. Preferir _require_outlet_tenant."""
     row = await conn.fetchrow(
         "SELECT outlet_id FROM usuarios WHERE id = $1",
         UUID(user_id),
@@ -36,6 +37,40 @@ async def _get_user_outlet(conn, user_id: str) -> str | None:
     if not row or not row["outlet_id"]:
         return None
     return str(row["outlet_id"])
+
+
+async def _require_outlet_tenant(conn, user_id: str) -> tuple[UUID, UUID]:
+    """
+    Outlet y tenant del usuario; el outlet debe pertenecer a ese tenant.
+    HTTP 400 sin outlet; 404 si el outlet no es del tenant.
+    """
+    row = await conn.fetchrow(
+        "SELECT outlet_id, tenant_id FROM usuarios WHERE id = $1",
+        UUID(user_id),
+    )
+    if not row or not row["outlet_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Usuario sin outlet asignado",
+        )
+    if not row["tenant_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario sin tenant asignado",
+        )
+    outlet_id = row["outlet_id"]
+    tenant_id = row["tenant_id"]
+    ok = await conn.fetchval(
+        "SELECT 1 FROM outlets WHERE id = $1 AND tenant_id = $2",
+        outlet_id,
+        tenant_id,
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Outlet no encontrado",
+        )
+    return outlet_id, tenant_id
 
 
 def _kds_vista_for_role(role: str | None) -> Literal["cocina", "barra", "completa"]:

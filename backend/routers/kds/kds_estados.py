@@ -17,7 +17,7 @@ from .kds_shared import (
     ROLES_KDS_ESCRITURA,
     ROLES_KDS_LECTURA,
     _assert_patch_role_destino,
-    _get_user_outlet,
+    _require_outlet_tenant,
     _resolve_vista,
 )
 
@@ -58,12 +58,9 @@ async def patch_linea_estado(
     """Actualiza estado KDS de la línea (columna cocina o barra según producto)."""
     try:
         async with get_db() as conn:
-            outlet_id = await _get_user_outlet(conn, current_user["sub"])
-            if not outlet_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Usuario sin outlet asignado",
-                )
+            outlet_id, tenant_id = await _require_outlet_tenant(
+                conn, current_user["sub"]
+            )
 
             row = await conn.fetchrow(
                 """
@@ -73,12 +70,14 @@ async def patch_linea_estado(
                        m.numero AS mesa_numero
                 FROM ticket_lineas tl
                 JOIN tickets t ON tl.ticket_id = t.id
+                JOIN outlets o ON o.id = t.outlet_id AND o.tenant_id = $3
                 JOIN productos p ON tl.producto_id = p.id
                 LEFT JOIN mesas m ON t.mesa_id = m.id
                 WHERE tl.id = $1 AND t.outlet_id = $2
                 """,
                 linea_id,
-                UUID(outlet_id),
+                outlet_id,
+                tenant_id,
             )
             if not row:
                 raise HTTPException(
@@ -142,7 +141,7 @@ async def patch_linea_estado(
 
 
 async def _estadisticas_counts(
-    conn, oid: UUID, desde: date, vista: str
+    conn, oid: UUID, tenant_id: UUID, desde: date, vista: str
 ) -> tuple[dict[str, int], int]:
     """Cuentas por estado y comandas activas para una vista KDS."""
     rows_estado = await conn.fetch(
@@ -157,6 +156,7 @@ async def _estadisticas_counts(
         COUNT(*)::int AS cnt
         FROM ticket_lineas tl
         JOIN tickets t ON tl.ticket_id = t.id
+        JOIN outlets o ON o.id = t.outlet_id AND o.tenant_id = $4
         JOIN productos p ON tl.producto_id = p.id
         WHERE t.outlet_id = $1
           AND t.created_at::date >= $2
@@ -181,6 +181,7 @@ async def _estadisticas_counts(
         oid,
         desde,
         vista,
+        tenant_id,
     )
 
     counts = {"pendiente": 0, "preparando": 0, "listo": 0, "servido": 0}
@@ -194,6 +195,7 @@ async def _estadisticas_counts(
         SELECT COUNT(DISTINCT tl.ticket_id)::int
         FROM ticket_lineas tl
         JOIN tickets t ON tl.ticket_id = t.id
+        JOIN outlets o ON o.id = t.outlet_id AND o.tenant_id = $4
         JOIN productos p ON tl.producto_id = p.id
         WHERE t.outlet_id = $1
           AND t.estado = 'abierto'
@@ -224,6 +226,7 @@ async def _estadisticas_counts(
         oid,
         desde,
         vista,
+        tenant_id,
     )
 
     return counts, int(comandas_activas or 0)
@@ -238,25 +241,25 @@ async def get_estadisticas(
     """Métricas KDS para el outlet desde una fecha (por defecto hoy)."""
     try:
         async with get_db() as conn:
-            outlet_id = await _get_user_outlet(conn, current_user["sub"])
-            if not outlet_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Usuario sin outlet asignado",
-                )
-
-            oid = UUID(outlet_id)
+            oid, tenant_id = await _require_outlet_tenant(
+                conn, current_user["sub"]
+            )
             v = _resolve_vista(current_user, vista)
 
             if v == "completa":
-                ca, _ = await _estadisticas_counts(conn, oid, desde, "cocina")
-                cb, _ = await _estadisticas_counts(conn, oid, desde, "barra")
+                ca, _ = await _estadisticas_counts(
+                    conn, oid, tenant_id, desde, "cocina"
+                )
+                cb, _ = await _estadisticas_counts(
+                    conn, oid, tenant_id, desde, "barra"
+                )
                 counts = {k: ca[k] + cb[k] for k in ca}
                 comandas_activas = await conn.fetchval(
                     """
                     SELECT COUNT(DISTINCT tl.ticket_id)::int
                     FROM ticket_lineas tl
                     JOIN tickets t ON tl.ticket_id = t.id
+                    JOIN outlets o ON o.id = t.outlet_id AND o.tenant_id = $3
                     JOIN productos p ON tl.producto_id = p.id
                     WHERE t.outlet_id = $1
                       AND t.estado = 'abierto'
@@ -273,11 +276,12 @@ async def get_estadisticas(
                     """,
                     oid,
                     desde,
+                    tenant_id,
                 )
                 comandas_activas = int(comandas_activas or 0)
             else:
                 counts, comandas_activas = await _estadisticas_counts(
-                    conn, oid, desde, v
+                    conn, oid, tenant_id, desde, v
                 )
 
             top = await conn.fetchrow(
@@ -285,6 +289,7 @@ async def get_estadisticas(
                 SELECT p.nombre, SUM(tl.cantidad)::int AS total_cant
                 FROM ticket_lineas tl
                 JOIN tickets t ON tl.ticket_id = t.id
+                JOIN outlets o ON o.id = t.outlet_id AND o.tenant_id = $3
                 JOIN productos p ON tl.producto_id = p.id
                 WHERE t.outlet_id = $1
                   AND t.estado = 'cobrado'
@@ -295,6 +300,7 @@ async def get_estadisticas(
                 """,
                 oid,
                 desde,
+                tenant_id,
             )
 
         producto_mas = None

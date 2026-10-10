@@ -14,8 +14,8 @@ from .kds_shared import (
     ROLES_KDS_LECTURA,
     _alerta_comanda,
     _alerta_linea,
-    _get_user_outlet,
     _minutos_espera,
+    _require_outlet_tenant,
     _resolve_vista,
 )
 
@@ -60,6 +60,7 @@ _SQL_COMANDAS_BASE = """
                     ))) / 60 AS minutos_espera
                 FROM ticket_lineas tl
                 JOIN tickets t ON tl.ticket_id = t.id
+                JOIN outlets o ON o.id = t.outlet_id AND o.tenant_id = $4
                 JOIN productos p ON tl.producto_id = p.id
                 LEFT JOIN mesas m ON t.mesa_id = m.id
                 WHERE t.outlet_id = $1
@@ -145,12 +146,9 @@ async def get_comandas(
     """Líneas KDS agrupadas por ticket (cocina, barra o vista completa)."""
     try:
         async with get_db() as conn:
-            outlet_id = await _get_user_outlet(conn, current_user["sub"])
-            if not outlet_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Usuario sin outlet asignado",
-                )
+            outlet_id, tenant_id = await _require_outlet_tenant(
+                conn, current_user["sub"]
+            )
 
             v = _resolve_vista(current_user, vista)
             inc = incluir_servidos
@@ -158,9 +156,10 @@ async def get_comandas(
                 inc = v == "completa"
             rows = await conn.fetch(
                 _SQL_COMANDAS_BASE,
-                UUID(outlet_id),
+                outlet_id,
                 v,
                 inc,
+                tenant_id,
             )
 
         by_ticket: dict = {}
