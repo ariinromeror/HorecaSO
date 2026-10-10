@@ -708,7 +708,7 @@ async def get_receta_coste(
     current_user: dict = Depends(require_roles(ROLES_RECETAS_COCINA)),
 ):
     """
-    Calcular coste en tiempo real.
+    Calcular coste en tiempo real (solo lectura; no persiste en BD).
     coste = suma(cantidad_bruta * coste_unitario)
     cantidad_bruta = cantidad_neta / (1 - porcentaje_merma/100)
     margen = (precio_venta - coste) / precio_venta * 100
@@ -726,7 +726,8 @@ async def get_receta_coste(
 
             es_elaboracion = receta.get("producto_id") is None
             precio_venta = Decimal(str(receta["precio_venta"] or 0))
-            coste_total, no_costeados = await _actualizar_coste_receta(conn, id)
+            # Solo lectura: no persistir coste/margen ni actualizar articulos.
+            coste_total, no_costeados = _costear_ingredientes(ingredientes)
             margen, semaforo = _margen_y_semaforo(
                 es_elaboracion, precio_venta, coste_total
             )
