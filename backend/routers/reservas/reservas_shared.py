@@ -44,14 +44,30 @@ def _uid(current_user: dict) -> UUID:
 
 
 async def _outlet_id_usuario(conn, user_id: UUID) -> UUID:
+    """Outlet del usuario; debe pertenecer a su tenant (404 si no)."""
     row = await conn.fetchrow(
-        "SELECT outlet_id FROM usuarios WHERE id = $1",
+        "SELECT outlet_id, tenant_id FROM usuarios WHERE id = $1",
         user_id,
     )
     if not row or not row["outlet_id"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Usuario sin outlet asignado",
+        )
+    if not row["tenant_id"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Usuario sin tenant asignado",
+        )
+    ok = await conn.fetchval(
+        "SELECT 1 FROM outlets WHERE id = $1 AND tenant_id = $2",
+        row["outlet_id"],
+        row["tenant_id"],
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Outlet no encontrado",
         )
     return row["outlet_id"]
 

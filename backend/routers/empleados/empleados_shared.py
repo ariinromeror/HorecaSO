@@ -47,6 +47,7 @@ def _tenant_id(current_user: dict) -> UUID:
 
 
 async def _usuario_tenant_outlet(conn, user_id: UUID) -> tuple[UUID, UUID | None]:
+    """Tenant y outlet del usuario; si hay outlet, debe pertenecer al tenant (404)."""
     row = await conn.fetchrow(
         "SELECT tenant_id, outlet_id FROM usuarios WHERE id = $1",
         user_id,
@@ -56,7 +57,20 @@ async def _usuario_tenant_outlet(conn, user_id: UUID) -> tuple[UUID, UUID | None
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usuario sin tenant asignado",
         )
-    return row["tenant_id"], row["outlet_id"]
+    tenant_id = row["tenant_id"]
+    outlet_id = row["outlet_id"]
+    if outlet_id is not None:
+        ok = await conn.fetchval(
+            "SELECT 1 FROM outlets WHERE id = $1 AND tenant_id = $2",
+            outlet_id,
+            tenant_id,
+        )
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Outlet no encontrado",
+            )
+    return tenant_id, outlet_id
 
 
 async def _fetch_empleado_con_usuario(
