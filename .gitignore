@@ -35,3 +35,5 @@ backend/.pgtest/
 *.zip
 debug-*.log
 npm-audit-*.json
+# Credenciales de prueba locales (no versionar)
+docs/CREDENCIALES_PRUEBA.MD

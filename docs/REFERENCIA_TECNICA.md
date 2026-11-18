@@ -744,7 +744,7 @@ Las migraciones se aplican **manualmente** en Supabase SQL Editor. No hay runner
 | Outlet demo | `00000000-0000-0000-0000-000000000002` |
 | Tenant Restaurante Prueba (Fase B) | `11111111-1111-1111-1111-111111111111` |
 
-Credenciales: [`CREDENCIALES_PRUEBA.MD`](CREDENCIALES_PRUEBA.MD).
+Credenciales: `CREDENCIALES_PRUEBA.MD` (archivo local, no versionado).
 
 ---
 
@@ -942,7 +942,7 @@ La navegaciÃ³n se define en [`frontend/src/components/layout/constants/navConf
 | [docs/BITACORA_HORECASO.md](BITACORA_HORECASO.md) | Historial de implementaciÃ³n |
 | [docs/BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) | Bugs documentados |
 | [docs/MANUAL_USUARIO_HORECASO.md](MANUAL_USUARIO_HORECASO.md) | Manual de usuario |
-| [docs/CREDENCIALES_PRUEBA.MD](CREDENCIALES_PRUEBA.MD) | Usuarios de desarrollo |
+| `docs/CREDENCIALES_PRUEBA.MD` (local, no versionado) | Usuarios de desarrollo |
 
 ---
 
