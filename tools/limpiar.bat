@@ -30,4 +30,4 @@ pause
 
 Desde la terminal de VSCode lo ejecutas así:
 ```
-.\limpiar.bat
+.\tools\limpiar.bat

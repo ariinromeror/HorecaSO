@@ -636,7 +636,7 @@ Orden sugerido **solo desde el estado del repo** (sin romper flujos actuales):
 
 ### 11/06/2026 — **Pulido para reclutadores: logo, login demo, docs/, predicción ML**
 
-- **Logo:** `imagenlogo.png` (raíz) → `frontend/public/` como `favicon.png`, `apple-touch-icon.png`, `pwa-192/512.png`, `logo.png`; `index.html` y `vite.config.js` actualizados; `favicon.svg` eliminado; logo visible en LoginPage.
+- **Logo:** `docs/assets/logo-original.png` (antes `imagenlogo.png` en la raíz) → `frontend/public/` como `favicon.png`, `apple-touch-icon.png`, `pwa-192/512.png`, `logo.png`; `index.html` y `vite.config.js` actualizados; `favicon.svg` eliminado; logo visible en LoginPage.
 - **Login:** sección «Acceso de Prueba para Reclutadores» en `LoginPage.jsx` — 3 botones (admin/camarero/cocina, cuentas `@prueba.com`) con autologin.
 - **Docs:** raíz limpia (solo `README.md`); resto movido a `docs/`; `docs/archivo/`, `frontend/README.md` y `SCHEMA_BASE_DATOS.md.new` eliminados; enlaces del README actualizados; nuevo índice `docs/README.md`.
 - **ML:** `services/ml_predicciones.py` (baseline: media móvil ponderada + tendencia + estacionalidad semanal, Decimal puro) + `routers/analytics/analytics_predicciones.py` → `GET /api/dashboard/prediccion-mermas` (roles admin/director/almacen) sobre `movimientos_stock` tipo merma; registrado en `main.py`.
