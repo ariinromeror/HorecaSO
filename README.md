@@ -105,7 +105,7 @@ The login page includes a **one-click demo access** section — no credentials n
 | **Database driver** | asyncpg | Raw async SQL, no ORM |
 | **Frontend** | React 19 · Vite | SPA with role-guarded routes |
 | **Styling** | Tailwind CSS 4 · lucide-react | Design tokens, dark/light mode everywhere |
-| **Database** | PostgreSQL 15 via Supabase | 42 tables, pgbouncer-compatible pool |
+| **Database** | PostgreSQL 15 via Supabase | 45 tables, pgbouncer-compatible pool |
 | **Auth** | JWT (python-jose) · bcrypt | RBAC with 8 roles, role factory dependency |
 | **PDFs** | ReportLab | 8 server-side report generators |
 | **AI** | Groq API (vision + llama3) | Invoice scanning · ML waste forecast service |
@@ -123,7 +123,7 @@ HorecaSO/
 │   │   ├── jwt_handler.py         # Token creation & decoding (nullable tenant claims)
 │   │   └── schemas.py             # Auth Pydantic models
 │   │
-│   ├── routers/                   # 39 registered routers · 97 files
+│   ├── routers/                   # 40 registered routers · see routers/
 │   │   ├── auth.py                # Login, profile, token verify
 │   │   ├── mesas.py               # Table map CRUD & states
 │   │   ├── tpv/                   # Tickets, lines, split payments, checkout
@@ -437,12 +437,14 @@ Set `VITE_API_URL` to your Render backend URL. `vercel.json` handles SPA rewrite
 
 | Metric | Count |
 |--------|-------|
-| Backend Python files | 122 |
-| Lines of Python (backend) | ~13,700 |
-| API routers registered | 39 (97 router modules) |
-| Frontend JSX components | 122 |
-| Lines of JSX (frontend) | ~18,500 |
-| PostgreSQL tables | 42 |
+| Backend Python files | 134 |
+| Lines of Python (backend, excl. tests) | ~20,000 |
+| API routers registered | 40 `include_router` calls |
+| REST endpoints (route decorators) | 165 |
+| Frontend JSX files | 134 |
+| Lines of JSX (frontend) | ~23,500 |
+| PostgreSQL tables | 45 (per `backend/tests/schema.sql`) |
+| Backend tests (pytest) | 31 files · 172 test functions |
 | User roles | 8 |
 | PDF report generators | 8 |
 
@@ -462,7 +464,7 @@ Set `VITE_API_URL` to your Render backend URL. `vercel.json` handles SPA rewrite
 | Security — JWT, RBAC, rate limiting, security headers | ✅ Complete |
 | PWA — installable, iOS safe-area support | ✅ Complete |
 | Deployment — Render + Vercel + Supabase | ✅ Live |
-| Automated tests | ⚠️ Pending |
+| Automated tests | ✅ pytest integration suite (31 files, 172 test functions) — **no CI pipeline yet**, run locally per [docs/TESTING.md](docs/TESTING.md) |
 
 ---
 
@@ -474,7 +476,7 @@ The exhaustive technical documentation lives in [`docs/`](docs/README.md):
 |----------|---------|
 | [REFERENCIA_TECNICA.md](docs/REFERENCIA_TECNICA.md) | **Full technical README** — every endpoint, table, env var and script |
 | [ARQUITECTURA_HORECASO.md](docs/ARQUITECTURA_HORECASO.md) | Router ↔ frontend map |
-| [SCHEMA_BASE_DATOS.md](docs/SCHEMA_BASE_DATOS.md) | All 42 PostgreSQL tables |
+| [SCHEMA_BASE_DATOS.md](docs/SCHEMA_BASE_DATOS.md) | All PostgreSQL tables (45 in the test schema) |
 | [GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md) | Deployment, security & tenant guide |
 | [MANUAL_USUARIO_HORECASO.md](docs/MANUAL_USUARIO_HORECASO.md) | End-user manual |
 
