@@ -37,3 +37,19 @@ debug-*.log
 npm-audit-*.json
 # Credenciales de prueba locales (no versionar)
 docs/CREDENCIALES_PRUEBA.MD
+
+# Notas de trabajo personales (no se versionan)
+BITACORA*.md
+docs/BITACORA*.md
+docs/LINKEDIN_TEXTOS.md
+docs/PLAN_*.md
+docs/STEP_*.md
+docs/PRD_*.md
+docs/AUDITORIA_*.md
+docs/BUGS_Y_SOLUCIONES.md
+docs/ACUERDO_*.md
+docs/CHECKLIST_*.md
+
+# Herramientas de otros editores
+.cursor/
+.cursorrules
