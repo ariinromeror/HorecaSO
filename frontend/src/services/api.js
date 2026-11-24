@@ -47,6 +47,7 @@ api.interceptors.response.use(
     const method = String(error.config?.method || '').toLowerCase()
     const isLoginRequest =
       reqUrl.includes('/auth/login') ||
+      reqUrl.includes('/auth/demo/') ||
       (method === 'post' && reqUrl.endsWith('/login'))
     if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('horecaso_token')
@@ -65,6 +66,11 @@ api.interceptors.response.use(
 
 export function login(email, password) {
   return api.post('/auth/login', { email, password })
+}
+
+// Acceso de demostración: el servidor emite la sesión, el navegador no conoce ninguna clave.
+export function loginDemo(rol) {
+  return api.post(`/auth/demo/${rol}`)
 }
 
 export function getPerfil() {

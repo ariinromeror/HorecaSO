@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from auth.dependencies import get_current_user
 from auth.schemas import LoginRequest, TokenResponse
 from auth.jwt_handler import create_access_token
+from config import settings
 from database import get_db
 from passlib.context import CryptContext
 from rate_limit import LOGIN_LIMIT_POR_IP, check_login_por_cuenta, limiter
@@ -110,6 +111,65 @@ async def login(request: Request, login_data: LoginRequest):
         user_id=str(row["id"]),
         role=rol,
         negocio_id=negocio_id_resp,
+    )
+
+
+# Cuentas del tenant de prueba (migration_fase_b.sql). No tienen contraseña
+# utilizable: neon_apply.py les pone un hash aleatorio descartado, así que solo
+# se entra por este endpoint.
+DEMO_EMAILS = {
+    "admin": "admin@prueba.com",
+    "camarero": "camarero@prueba.com",
+    "cocina": "cocina@prueba.com",
+}
+DEMO_LIMIT_POR_IP = "20/minute"
+
+
+@router.post("/demo/{rol}", response_model=TokenResponse)
+@limiter.limit(DEMO_LIMIT_POR_IP)
+async def login_demo(request: Request, rol: str):
+    """Acceso de demostración sin contraseña. 404 si DEMO_MODE está apagado."""
+    if not settings.DEMO_MODE or rol not in DEMO_EMAILS:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
+
+    try:
+        async with get_db() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT u.id, u.tenant_id, u.rol, t.activo AS tenant_activo
+                FROM usuarios u
+                JOIN tenants t ON t.id = u.tenant_id
+                WHERE u.email = $1 AND u.rol = $2 AND u.activo = true
+                """,
+                DEMO_EMAILS[rol],
+                rol,
+            )
+    except Exception as e:
+        logger.error("Error en login demo: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno"
+        ) from e
+
+    if not row or row["tenant_activo"] is False:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
+
+    negocio_id = str(row["tenant_id"])
+    access_token = create_access_token(
+        {
+            "sub": str(row["id"]),
+            "user_id": str(row["id"]),
+            "role": row["rol"],
+            "negocio_id": negocio_id,
+            "demo": True,
+        }
+    )
+    logger.info("Login demo: %s", rol)
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user_id=str(row["id"]),
+        role=row["rol"],
+        negocio_id=negocio_id,
     )
 
 
