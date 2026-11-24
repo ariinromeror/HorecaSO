@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "http://localhost:5173"
     ENVIRONMENT: str = "development"
     GROQ_API_KEY: str = ""
+    # Acceso demo de un clic (POST /api/auth/demo/{rol}). Apagado por defecto.
+    DEMO_MODE: bool = False
     APP_NAME: str = "HorecaSO"
     APP_VERSION: str = "1.0.0"
 

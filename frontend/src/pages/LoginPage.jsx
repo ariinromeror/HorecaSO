@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   BriefcaseBusiness,
   ChefHat,
-  Crown,
   HandPlatter,
   Loader2,
   Moon,
@@ -16,42 +15,17 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 
 /**
- * Acceso rápido solo en Vite DEV y solo si hay VITE_DEMO_* en
- * .env.development.local. Producción: DEV=false → array vacío (no se renderiza).
+ * Acceso de demostración. Solo se muestra con VITE_DEMO_MODE=true (o en Vite DEV).
+ * No lleva emails ni contraseñas: el backend (POST /api/auth/demo/{rol}) emite la
+ * sesión y solo responde si el servidor tiene DEMO_MODE=true.
  */
 function buildDemoAccounts() {
-  if (!import.meta.env.DEV) return []
-  const specs = [
-    {
-      rol: 'superadmin',
-      label: 'Entrar como Superadmin',
-      email: import.meta.env.VITE_DEMO_SUPERADMIN_EMAIL,
-      password: import.meta.env.VITE_DEMO_SUPERADMIN_PASSWORD,
-      Icon: Crown,
-    },
-    {
-      rol: 'admin',
-      label: 'Entrar como Administrador',
-      email: import.meta.env.VITE_DEMO_ADMIN_EMAIL,
-      password: import.meta.env.VITE_DEMO_ADMIN_PASSWORD,
-      Icon: ShieldCheck,
-    },
-    {
-      rol: 'camarero',
-      label: 'Entrar como Camarero',
-      email: import.meta.env.VITE_DEMO_CAMARERO_EMAIL,
-      password: import.meta.env.VITE_DEMO_CAMARERO_PASSWORD,
-      Icon: HandPlatter,
-    },
-    {
-      rol: 'cocina',
-      label: 'Entrar como Cocinero',
-      email: import.meta.env.VITE_DEMO_COCINA_EMAIL,
-      password: import.meta.env.VITE_DEMO_COCINA_PASSWORD,
-      Icon: ChefHat,
-    },
+  if (!import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE !== 'true') return []
+  return [
+    { rol: 'admin', label: 'Entrar como Administrador', Icon: ShieldCheck },
+    { rol: 'camarero', label: 'Entrar como Camarero', Icon: HandPlatter },
+    { rol: 'cocina', label: 'Entrar como Cocinero', Icon: ChefHat },
   ]
-  return specs.filter((a) => Boolean(a.email && a.password))
 }
 
 const DEMO_ACCOUNTS = buildDemoAccounts()
@@ -61,7 +35,7 @@ function homePathForUser(user) {
 }
 
 export default function LoginPage() {
-  const { login, isAuthenticated, isLoading, user } = useAuth()
+  const { login, loginDemo, isAuthenticated, isLoading, user } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
@@ -116,11 +90,9 @@ export default function LoginPage() {
 
   const handleDemoLogin = async (account) => {
     setError('')
-    setEmail(account.email)
-    setPassword(account.password)
     setDemoLoading(account.rol)
     try {
-      const userData = await login(account.email, account.password)
+      const userData = await loginDemo(account.rol)
       navigate(homePathForUser(userData), { replace: true })
     } catch (e) {
       setError(extractError(e))
@@ -266,9 +238,12 @@ export default function LoginPage() {
                   className="text-amber-500"
                 />
                 <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                  Acceso rápido (solo desarrollo)
+                  Acceso de demostración
                 </span>
               </div>
+              <p className="mb-3 text-center text-xs text-[#6b7280] dark:text-[#8b90a8]">
+                Datos ficticios. Si el servidor estaba dormido, la primera entrada puede tardar hasta un minuto.
+              </p>
               <div className="flex flex-col gap-2">
                 {DEMO_ACCOUNTS.map((account) => (
                   <button
