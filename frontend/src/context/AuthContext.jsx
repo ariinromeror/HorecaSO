@@ -5,7 +5,7 @@ import {
   useEffect,
   useState,
 } from 'react'
-import { getPerfil, login as apiLogin } from '../services/api'
+import { getPerfil, login as apiLogin, loginDemo as apiLoginDemo } from '../services/api'
 import api from '../services/api'
 
 const ROLES_FICHAJE_AUTO = [
@@ -128,10 +128,8 @@ export function AuthProvider({ children }) {
       })
   }
 
-  const login = useCallback(
-    async (email, password) => {
-      const res = await apiLogin(email, password)
-      const accessToken = res.data.access_token
+  const iniciarSesion = useCallback(
+    async (accessToken) => {
       localStorage.setItem('horecaso_token', accessToken)
       setToken(accessToken)
 
@@ -145,12 +143,29 @@ export function AuthProvider({ children }) {
     [applyPerfil]
   )
 
+  const login = useCallback(
+    async (email, password) => {
+      const res = await apiLogin(email, password)
+      return iniciarSesion(res.data.access_token)
+    },
+    [iniciarSesion]
+  )
+
+  const loginDemo = useCallback(
+    async (rol) => {
+      const res = await apiLoginDemo(rol)
+      return iniciarSesion(res.data.access_token)
+    },
+    [iniciarSesion]
+  )
+
   const value = {
     user,
     token,
     isAuthenticated,
     isLoading,
     login,
+    loginDemo,
     logout,
     refreshProfile,
   }
