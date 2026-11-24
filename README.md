@@ -381,7 +381,7 @@ App available at: `http://localhost:5173` — the Vite dev proxy forwards `/api`
 
 ### Database
 
-Run the SQL migrations from `backend/sql/` in the Supabase SQL Editor (see [docs/GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md) for the exact order and seeds).
+Run the SQL scripts in `backend/sql/` in the Supabase SQL Editor. Files starting with `seed_` only add demo data.
 
 ### Environment Variables
 
@@ -477,7 +477,6 @@ The exhaustive technical documentation lives in [`docs/`](docs/README.md):
 | [REFERENCIA_TECNICA.md](docs/REFERENCIA_TECNICA.md) | **Full technical README** — every endpoint, table, env var and script |
 | [ARQUITECTURA_HORECASO.md](docs/ARQUITECTURA_HORECASO.md) | Router ↔ frontend map |
 | [SCHEMA_BASE_DATOS.md](docs/SCHEMA_BASE_DATOS.md) | All PostgreSQL tables (45 in the test schema) |
-| [GUIA_PRODUCCION_COMPLETA.md](docs/GUIA_PRODUCCION_COMPLETA.md) | Deployment, security & tenant guide |
 | [MANUAL_USUARIO_HORECASO.md](docs/MANUAL_USUARIO_HORECASO.md) | End-user manual |
 
 ---
