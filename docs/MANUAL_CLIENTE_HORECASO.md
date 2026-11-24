@@ -798,7 +798,7 @@ No es lo mismo que “os regalan el código del programa”. Lo que necesitáis 
 - Qué hace el sistema al cobrar (registro interno) y qué **aún no** hace (envío automático completo a la Agencia Tributaria).
 - Confidencialidad, soporte y cómo terminar el acuerdo.
 
-Para un piloto de varios restaurantes conviene un **acuerdo escrito corto** (firmado o aceptado por correo). Cuando el servicio se cobre de forma habitual, las mismas ideas pasan a ser las **condiciones de uso** del producto. La plantilla de referencia del proyecto está en el documento **Acuerdo de piloto HorecaSO** (`docs/ACUERDO_PILOTO_HORECASO.md`).
+Para un piloto de varios restaurantes conviene un **acuerdo escrito corto** (firmado o aceptado por correo). Cuando el servicio se cobre de forma habitual, las mismas ideas pasan a ser las **condiciones de uso** del producto.
 
 ### Cómo pasar las ventas al contador
 

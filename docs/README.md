@@ -8,4 +8,3 @@ Documentación interna del proyecto. El punto de entrada para desarrolladores nu
 | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) | Referencia de las 42 tablas PostgreSQL (columnas, FKs) |
 | [ARQUITECTURA_HORECASO.md](ARQUITECTURA_HORECASO.md) | Mapa técnico: routers FastAPI ↔ frontend React |
 | [MANUAL_USUARIO_HORECASO.md](MANUAL_USUARIO_HORECASO.md) | Manual de usuario final |
-| [CREDENCIALES_PRUEBA.MD](CREDENCIALES_PRUEBA.MD) | Usuarios demo (solo desarrollo — no usar en producción) |
