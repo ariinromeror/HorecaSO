@@ -8,12 +8,11 @@
 ![Python](https://img.shields.io/badge/Python_3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS_4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
 
 **Full-stack multi-tenant ERP for the Spanish hospitality industry (restaurants & bars)**
 
-**Live on Render · Vercel · Supabase — Installable as PWA**
+**Public demo on Render · Vercel · Neon (fictitious data) — Installable as PWA**
 
 [🌐 Live Demo](https://horeca-so.vercel.app/login) · [⚙️ API Health](https://horecaso.onrender.com/api/health) · [📚 Technical Reference](docs/REFERENCIA_TECNICA.md)
 
@@ -58,32 +57,34 @@ The system is **multi-tenant**: one application instance serves multiple restaur
 - **PDF reporting** — payroll slips, inventory, cash closing, schedules, dish profitability via ReportLab
 - **JWT + RBAC** — every endpoint protected with a `require_roles()` dependency factory
 - **PWA** — installable on iOS and Android, with iOS safe-area support
-- **Deployed to production** — Render (backend) + Vercel (frontend) + Supabase (PostgreSQL)
+- **Deployed to production** — Render (backend) + Vercel (frontend) + Neon (PostgreSQL)
 
 ---
 
 ## 📸 Screenshots
 
-### Login & Mobile
-| Login (recruiter demo access) | Mobile | Table Map |
-|-------------------------------|--------|-----------|
-| ![Login — demo access for recruiters](docs/screenshots/01-login-demo.png) | ![Mobile view](docs/screenshots/02-mobile-mesas.png) | ![Table map](docs/screenshots/03-table-map.png) |
+> The public demo runs with **fictitious data** only. Screenshots below were taken from it (`docs/screenshots/v2/`).
+
+### Login & Table Map
+| Login with one-click demo access | Table map (Sala) |
+|----------------------------------|------------------|
+| ![Login with demo access](docs/screenshots/v2/login.png) | ![Table map](docs/screenshots/v2/adm-sala.png) |
 
 ### Operations
-| POS — split billing | Kitchen Display (KDS) |
-|---------------------|------------------------|
-| ![POS with split billing](docs/screenshots/04-tpv-split-billing.png) | ![Kitchen Display System](docs/screenshots/05-kds.png) |
+| POS (TPV) — table with an open order | Kitchen Display (KDS) — the same order arrives |
+|--------------------------------------|------------------------------------------------|
+| ![POS with an open order](docs/screenshots/v2/adm-tpv.png) | ![Kitchen Display System with pending order](docs/screenshots/v2/adm-kds.png) |
 
-### Management
-| Director Dashboard | AI Predictions Panel |
-|--------------------|----------------------|
-| ![Director dashboard](docs/screenshots/06-dashboard.png) | ![AI waste predictions](docs/screenshots/07-predicciones-ia.png) |
+### Management & Mobile
+| Dashboard | Inventory | Waiter on mobile (390 px) |
+|-----------|-----------|---------------------------|
+| ![Dashboard](docs/screenshots/v2/adm-dashboard.png) | ![Inventory](docs/screenshots/v2/adm-inventario.png) | ![Waiter home on mobile](docs/screenshots/v2/mob-camarero.png) |
 
 ---
 
 ## 🧪 Demo Access for Recruiters
 
-The login page includes a **one-click demo access** section — no credentials needed. Pick a role and you're in:
+The demo is **public and uses fictitious data only**. Anyone can edit it, so its state may change. The login page includes a **one-click demo access** section — no credentials needed. Pick a role and you're in:
 
 | Button | Role | What you'll see |
 |--------|------|-----------------|
@@ -105,12 +106,12 @@ The login page includes a **one-click demo access** section — no credentials n
 | **Database driver** | asyncpg | Raw async SQL, no ORM |
 | **Frontend** | React 19 · Vite | SPA with role-guarded routes |
 | **Styling** | Tailwind CSS 4 · lucide-react | Design tokens, dark/light mode everywhere |
-| **Database** | PostgreSQL 15 via Supabase | 45 tables, pgbouncer-compatible pool |
+| **Database** | PostgreSQL (Neon in the public demo) | 45 tables, pgbouncer-compatible pool |
 | **Auth** | JWT (python-jose) · bcrypt | RBAC with 8 roles, role factory dependency |
 | **PDFs** | ReportLab | 8 server-side report generators |
 | **AI** | Groq API (vision + llama3) | Invoice scanning · ML waste forecast service |
 | **Rate limiting** | SlowAPI | Global limiter |
-| **Deployment** | Render · Vercel · Supabase | Production config, PWA service worker |
+| **Deployment** | Render · Vercel · Neon | Production config, PWA service worker |
 
 ### Project Structure
 
@@ -463,7 +464,7 @@ Set `VITE_API_URL` to your Render backend URL. `vercel.json` handles SPA rewrite
 | Multi-tenant SaaS + superadmin platform panel | ✅ Complete |
 | Security — JWT, RBAC, rate limiting, security headers | ✅ Complete |
 | PWA — installable, iOS safe-area support | ✅ Complete |
-| Deployment — Render + Vercel + Supabase | ✅ Live |
+| Deployment — Render + Vercel + Neon (public demo) | ✅ Live |
 | Automated tests | ✅ pytest integration suite (31 files, 172 test functions) — **no CI pipeline yet**, run locally per [docs/TESTING.md](docs/TESTING.md) |
 
 ---
@@ -495,6 +496,6 @@ Autodidact developer. HorecaSO is a production-deployed, multi-tenant ERP built 
 
 <div align="center">
 
-Built with FastAPI · React · PostgreSQL · deployed on Render + Vercel + Supabase
+Built with FastAPI · React · PostgreSQL · deployed on Render + Vercel + Neon
 
 </div>
