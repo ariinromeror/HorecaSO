@@ -11,7 +11,7 @@ apuntar a Supabase destruiría producción. Reglas:
 """
 
 import os
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 FORBIDDEN_MARKERS = ("supabase", "pooler", "render.com", "railway", "neon.tech", "amazonaws")
@@ -56,7 +56,10 @@ def assert_safe_test_database_url(url: str, env_database_url: str | None = None)
         for h in os.environ.get("HORECASO_TEST_DB_HOSTS", "").split(",")
         if h.strip()
     }
-    if host not in LOCAL_HOSTS | extra_hosts:
+    # Socket Unix (p. ej. pgserver en Linux): ?host=/ruta/al/socket. Siempre es local.
+    socket_dir = (parse_qs(p.query).get("host") or [""])[0]
+    es_socket_local = host == "" and socket_dir.startswith("/")
+    if host not in LOCAL_HOSTS | extra_hosts and not es_socket_local:
         raise UnsafeTestDatabase(
             f"Host '{host}' no permitido para tests. Permitidos: {sorted(LOCAL_HOSTS | extra_hosts)} "
             "(añade hosts de CI con HORECASO_TEST_DB_HOSTS)."

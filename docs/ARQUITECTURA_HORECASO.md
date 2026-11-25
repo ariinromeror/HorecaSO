@@ -1,15 +1,10 @@
 # HorecaSO — Radiografía / mapa del proyecto
 
-Documento técnico de **arquitectura y cableado** entre capas. No sustituye al [PRD_HorecaSO.md](PRD_HorecaSO.md) (esquema SQL completo) ni al [STEP_HORECASO.md](STEP_HORECASO.md) (estado funcional y fases).
+Documento técnico de **arquitectura y cableado** entre capas. Para el esquema de tablas, ver [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md).
 
 | Documento | Uso |
 |-----------|-----|
-| [STEP_HORECASO.md](STEP_HORECASO.md) | Qué está hecho, fases, APIs resumidas, deploy |
-| [BITACORA_HORECASO.md](BITACORA_HORECASO.md) | Estado del repo inspeccionado (routers, rutas, SQL en disco) |
 | [SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) | Referencia de tablas Supabase |
-| [PRD_HorecaSO.md](PRD_HorecaSO.md) | Tablas, reglas de negocio, Verifactu |
-| [BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) | Bugs y fixes detallados |
-| [.cursorrules](.cursorrules) | Convenciones de código obligatorias |
 
 **Mantenimiento:** actualizar este archivo cuando se añada un router FastAPI, una ruta React relevante, o una migración SQL que cambie flujos críticos.
 
@@ -40,9 +35,9 @@ flowchart LR
   Pool --> PG
 ```
 
-- **Frontend:** `VITE_API_URL` en build (p. ej. `https://<backend>.onrender.com/api`). Si es relativo, en dev suele apuntar al proxy `/api`. Ver [frontend/src/services/api.js](frontend/src/services/api.js).
-- **Backend:** [backend/config.py](backend/config.py) — `DATABASE_URL`, `SECRET_KEY_AUTH`, `ALLOWED_ORIGINS` (CORS), claves Groq/SendGrid cuando apliquen.
-- **BD:** pool con `statement_cache_size=0` por pgbouncer — [backend/database.py](backend/database.py).
+- **Frontend:** `VITE_API_URL` en build (p. ej. `https://<backend>.onrender.com/api`). Si es relativo, en dev suele apuntar al proxy `/api`. Ver [frontend/src/services/api.js](../frontend/src/services/api.js).
+- **Backend:** [backend/config.py](../backend/config.py) — `DATABASE_URL`, `SECRET_KEY_AUTH`, `ALLOWED_ORIGINS` (CORS), claves Groq/SendGrid cuando apliquen.
+- **BD:** pool con `statement_cache_size=0` por pgbouncer — [backend/database.py](../backend/database.py).
 
 ---
 
@@ -85,20 +80,15 @@ HorecaSO/
 │   │   ├── services/api.js  # Axios + helpers por endpoint
 │   │   └── utils/           # p. ej. textSanitize
 │   └── vite.config.js
-├── STEP_HORECASO.md
-├── BITACORA_HORECASO.md
 ├── SCHEMA_BASE_DATOS.md
-├── PRD_HorecaSO.md
-├── BUGS_Y_SOLUCIONES.md
-├── ARQUITECTURA_HORECASO.md # Este archivo
-└── .cursorrules
+└── ARQUITECTURA_HORECASO.md # Este archivo
 ```
 
 ---
 
 ## 3. Backend — registro de routers y prefijos HTTP
 
-En [backend/main.py](backend/main.py) se hace `include_router(...)`. Algunos routers ya traen prefijo `/api/...`; otros se montan con `prefix="/api"` adicional. La **ruta completa** es la que importa para OpenAPI y pruebas.
+En [backend/main.py](../backend/main.py) se hace `include_router(...)`. Algunos routers ya traen prefijo `/api/...`; otros se montan con `prefix="/api"` adicional. La **ruta completa** es la que importa para OpenAPI y pruebas.
 
 | Router (archivo) | Prefijo en `main` | Prefijo en `APIRouter` | Ruta base efectiva (ejemplos) |
 |------------------|-------------------|-------------------------|-------------------------------|
@@ -132,13 +122,13 @@ En [backend/main.py](backend/main.py) se hace `include_router(...)`. Algunos rou
 
 ### 4.1 Conexión a PostgreSQL
 
-- [backend/database.py](backend/database.py): `init_connection_pool` en el `lifespan` de FastAPI; `get_db()` es un context manager async que obtiene conexión del pool y hace **commit/rollback** según excepciones.
+- [backend/database.py](../backend/database.py): `init_connection_pool` en el `lifespan` de FastAPI; `get_db()` es un context manager async que obtiene conexión del pool y hace **commit/rollback** según excepciones.
 - **Reglas:** SQL con placeholders `$1, $2`; dinero con `Decimal`; `statement_cache_size=0`.
 
 ### 4.2 Autenticación JWT
 
-- **Emisión:** [backend/routers/auth.py](backend/routers/auth.py) — tras login, `create_access_token` ([jwt_handler.py](backend/auth/jwt_handler.py)) con claims típicos: `sub`, `user_id`, `role` (rol de `usuarios.rol`), `negocio_id` (UUID tenant).
-- **Consumo:** [backend/auth/dependencies.py](backend/auth/dependencies.py) — `HTTPBearer` → `verify_token` → `get_current_user`.
+- **Emisión:** [backend/routers/auth.py](../backend/routers/auth.py) — tras login, `create_access_token` ([jwt_handler.py](../backend/auth/jwt_handler.py)) con claims típicos: `sub`, `user_id`, `role` (rol de `usuarios.rol`), `negocio_id` (UUID tenant).
+- **Consumo:** [backend/auth/dependencies.py](../backend/auth/dependencies.py) — `HTTPBearer` → `verify_token` → `get_current_user`.
 - **RBAC:** `Depends(require_roles([...]))` — compara `current_user["role"]` con la lista permitida.
 
 Los endpoints deben **filtrar por tenant** (y outlet si aplica) usando `negocio_id` / consultas a `usuarios` según el patrón de cada router.
@@ -149,20 +139,20 @@ No son routers; los importan routers u otros servicios.
 
 | Servicio | Uso principal |
 |----------|----------------|
-| [verifactu_engine.py](backend/services/verifactu_engine.py) | `crear_registro_verifactu` desde [tpv.py](backend/routers/tpv.py); `generar_huella` en [verifactu.py](backend/routers/verifactu.py) |
-| [pdf_nomina.py](backend/services/pdf_nomina.py) | [reportes.py](backend/routers/reportes.py) |
-| [pdf_inventario.py](backend/services/pdf_inventario.py) | reportes.py |
-| [pdf_reportes.py](backend/services/pdf_reportes.py) | Cierre caja, ventas periodo (reportes.py + reportes_diferenciales) |
-| [pdf_diferenciales.py](backend/services/pdf_diferenciales.py) | Cuadrante, rentabilidad platos BCG |
-| [pdf_diferenciales_2.py](backend/services/pdf_diferenciales_2.py) | APPCC, comparativa proveedores |
-| [pdf_generator.py](backend/services/pdf_generator.py) | Base/utilidades PDF según uso actual |
+| [verifactu_engine.py](../backend/services/verifactu_engine.py) | `crear_registro_verifactu` desde [tpv.py](../backend/routers/tpv/); `generar_huella` en [verifactu.py](../backend/routers/verifactu.py) |
+| [pdf_nomina.py](../backend/services/pdf_nomina.py) | [reportes.py](../backend/routers/reportes/) |
+| [pdf_inventario.py](../backend/services/pdf_inventario.py) | reportes.py |
+| [pdf_reportes.py](../backend/services/pdf_reportes.py) | Cierre caja, ventas periodo (reportes.py + reportes_diferenciales) |
+| [pdf_diferenciales.py](../backend/services/pdf_diferenciales.py) | Cuadrante, rentabilidad platos BCG |
+| [pdf_diferenciales_2.py](../backend/services/pdf_diferenciales_2.py) | APPCC, comparativa proveedores |
+| [pdf_generator.py](../backend/services/pdf_generator.py) | Base/utilidades PDF según uso actual |
 
-**IA facturas:** Groq vision en [proveedores_shared.py](backend/routers/proveedores/proveedores_shared.py) + [facturas_proveedor_escaneo.py](backend/routers/proveedores/facturas_proveedor_escaneo.py) (no hay `services/ia_facturas.py` obligatorio).
+**IA facturas:** Groq vision en [proveedores_shared.py](../backend/routers/proveedores/proveedores_shared.py) + [facturas_proveedor_escaneo.py](../backend/routers/proveedores/facturas_proveedor_escaneo.py) (no hay `services/ia_facturas.py` obligatorio).
 
 ### 4.4 Migraciones SQL locales
 
-- [backend/sql/migration_kds_barra_destino.sql](backend/sql/migration_kds_barra_destino.sql) — `destino_kds`, columnas barra en líneas, rol `barra`: aplicar manualmente en Supabase si el entorno aún no las tiene.
-- [backend/sql/migration_fase_b.sql](backend/sql/migration_fase_b.sql) — Fase B: CHECK `rol`, `superadmin`, tablas `platform_logs` / `tenant_audit_log` / `usuario_permisos`, seed tenant prueba: **en repo**; ejecutar en Supabase cuando proceda (hashes: [backend/scripts/generate_test_hashes.py](backend/scripts/generate_test_hashes.py)).
+- [backend/sql/migration_kds_barra_destino.sql](../backend/sql/migration_kds_barra_destino.sql) — `destino_kds`, columnas barra en líneas, rol `barra`: aplicar manualmente en Supabase si el entorno aún no las tiene.
+- [backend/sql/migration_fase_b.sql](../backend/sql/migration_fase_b.sql) — Fase B: CHECK `rol`, `superadmin`, tablas `platform_logs` / `tenant_audit_log` / `usuario_permisos`, seed tenant prueba: **en repo**; ejecutar en Supabase cuando proceda (hashes: [backend/scripts/generate_test_hashes.py](../backend/scripts/generate_test_hashes.py)).
 
 ---
 
@@ -170,13 +160,13 @@ No son routers; los importan routers u otros servicios.
 
 ### 5.1 Arranque
 
-1. [frontend/src/main.jsx](frontend/src/main.jsx) monta [App.jsx](frontend/src/App.jsx) en `#root`.
-2. [App.jsx](frontend/src/App.jsx) envuelve con `ThemeProvider` → `AuthProvider` → `BrowserRouter` → `Routes`.
+1. [frontend/src/main.jsx](../frontend/src/main.jsx) monta [App.jsx](../frontend/src/App.jsx) en `#root`.
+2. [App.jsx](../frontend/src/App.jsx) envuelve con `ThemeProvider` → `AuthProvider` → `BrowserRouter` → `Routes`.
 
 ### 5.2 Autenticación en cliente
 
-- [frontend/src/context/AuthContext.jsx](frontend/src/context/AuthContext.jsx): guarda JWT en `localStorage` (`horecaso_token`), expone usuario, login/logout; opcionalmente fichaje entrada tras login si hay `empleado_id` y preferencia.
-- [frontend/src/services/api.js](frontend/src/services/api.js): interceptor añade `Authorization: Bearer`; en **401** borra token y redirige a `/login`.
+- [frontend/src/context/AuthContext.jsx](../frontend/src/context/AuthContext.jsx): guarda JWT en `localStorage` (`horecaso_token`), expone usuario, login/logout; opcionalmente fichaje entrada tras login si hay `empleado_id` y preferencia.
+- [frontend/src/services/api.js](../frontend/src/services/api.js): interceptor añade `Authorization: Bearer`; en **401** borra token y redirige a `/login`.
 
 ### 5.3 Rutas y layout
 
@@ -185,7 +175,7 @@ No son routers; los importan routers u otros servicios.
 | `/login` | Público | Sin shell |
 | `/kds` | Roles cocina, barra, sala, admin, director, camarero, jefe_sala | **Sin** `AppLayout` (pantalla completa) |
 | `/tpv/:mesaId` | Autenticado | Sin sidebar (TPV foco) |
-| Resto bajo `/mesas`, `/dashboard`, `/admin/*`, … | `PrivateRoute` + anidados por rol | [AppLayout.jsx](frontend/src/components/layout/AppLayout.jsx) + [Sidebar.jsx](frontend/src/components/layout/Sidebar.jsx) + [SidebarNav.jsx](frontend/src/components/layout/SidebarNav.jsx) / [navConfig.js](frontend/src/components/layout/constants/navConfig.js) |
+| Resto bajo `/mesas`, `/dashboard`, `/admin/*`, … | `PrivateRoute` + anidados por rol | [AppLayout.jsx](../frontend/src/components/layout/AppLayout.jsx) + [Sidebar.jsx](../frontend/src/components/layout/Sidebar.jsx) + [SidebarNav.jsx](../frontend/src/components/layout/SidebarNav.jsx) / [navConfig.js](../frontend/src/components/layout/constants/navConfig.js) |
 
 Wrappers típicos en `App.jsx`: `AdminDirectorRoute`, `AdminDirectorJefeSalaRoute`, `AdminDirectorCocinaRoute`, `InventarioRoute`, `ProveedoresRoute`.
 
@@ -242,7 +232,7 @@ flowchart LR
 ```
 
 - Respuestas `Response` con `application/pdf` y `Content-Disposition`.
-- Frontend [ReportesPage](frontend/src/pages/reportes/ReportesPage.jsx) suele descargar/visualizar vía `fetch` + blob (ver utilidades del módulo reportes).
+- Frontend [ReportesPage](../frontend/src/pages/reportes/ReportesPage.jsx) suele descargar/visualizar vía `fetch` + blob (ver utilidades del módulo reportes).
 
 ---
 
@@ -291,7 +281,7 @@ Detalle de columnas: **PRD** y esquema real en Supabase.
 
 ## 9. Convenciones que cruzan todo el proyecto
 
-- **Dinero:** `Decimal` en Python; en JSON de salida a veces float cuantizado — ver `.cursorrules`.
+- **Dinero:** `Decimal` en Python; en JSON de salida a veces float cuantizado.
 - **Errores:** `HTTPException` + `logger.error` en except genéricos; no filtrar datos sin `tenant_id`.
 - **Frontend:** tema oscuro/claro, Tailwind, componentes shared en `components/shared/`.
 - **Tiempo real:** polling ~30s donde aplica (KDS, Venta Live), no WebSocket en plan gratuito Render.

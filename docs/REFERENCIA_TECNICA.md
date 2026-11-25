@@ -211,15 +211,8 @@ HorecaSO/
 â”‚       â””â”€â”€ utils/
 â”‚
 â”œâ”€â”€ docs/                             # DocumentaciÃ³n archivada
-â”œâ”€â”€ .cursorrules                      # Convenciones obligatorias del proyecto
 â”œâ”€â”€ SCHEMA_BASE_DATOS.md              # Referencia de 42 tablas PostgreSQL
-â”œâ”€â”€ ARQUITECTURA_HORECASO.md            # Mapa routers â†” frontend
-â”œâ”€â”€ GUIA_PRODUCCION_COMPLETA.md       # Deploy, seguridad, tenants
-â”œâ”€â”€ BITACORA_HORECASO.md              # Registro de trabajo por sesiÃ³n
-â”œâ”€â”€ BUGS_Y_SOLUCIONES.md              # Bugs reproducibles documentados
-â”œâ”€â”€ STEP_HORECASO.md                  # Estado global del proyecto por mÃ³dulo
-â”œâ”€â”€ PRD_HorecaSO.md                   # EspecificaciÃ³n de producto
-â””â”€â”€ CREDENCIALES_PRUEBA.MD            # Usuarios de desarrollo (no producciÃ³n)
+â””â”€â”€ ARQUITECTURA_HORECASO.md            # Mapa routers â†” frontend
 ```
 
 ---
@@ -770,11 +763,7 @@ curl http://localhost:8000/api/health
 
 ### Smoke tests post-deploy
 
-Documentados en [`GUIA_PRODUCCION_COMPLETA.md`](GUIA_PRODUCCION_COMPLETA.md) Â§1.2 y Â§2.3: login, mesas con JWT, aislamiento tenant, superadmin sin acceso a datos de negocio, KDS 200, `/docs` â†’ 404 en producciÃ³n.
-
-### Registro de bugs
-
-Fallos reproducibles en [`BUGS_Y_SOLUCIONES.md`](BUGS_Y_SOLUCIONES.md).
+Comprobaciones: login, mesas con JWT, aislamiento tenant, superadmin sin acceso a datos de negocio, KDS 200, `/docs` â†’ 404 en producciÃ³n.
 
 ---
 
@@ -829,15 +818,13 @@ APP_VERSION=1.0.0
 6. Superadmin de producciÃ³n creado manualmente en SQL (no usar seed).
 7. Smoke tests: health, login, TPV â†’ cobro â†’ fila en `verifactu_registros`.
 
-GuÃ­a completa: [`GUIA_PRODUCCION_COMPLETA.md`](GUIA_PRODUCCION_COMPLETA.md).
-
 ---
 
 ## 14. ContribuciÃ³n
 
 ### Convenciones obligatorias
 
-Leer y seguir [`.cursorrules`](../.cursorrules) antes de contribuir. Resumen:
+Convenciones principales:
 
 **Backend:**
 - SQL con placeholders `$1, $2` â€” nunca f-strings con valores de usuario.
@@ -860,16 +847,12 @@ Leer y seguir [`.cursorrules`](../.cursorrules) antes de contribuir. Resumen:
 1. Crear rama desde `main` para tu cambio.
 2. Implementar siguiendo patrones existentes en el router/pÃ¡gina mÃ¡s cercano.
 3. Verificar `python -c "from main import create_app; create_app()"` y `npm run build`.
-4. Documentar trabajo relevante en [`docs/BITACORA_HORECASO.md`](BITACORA_HORECASO.md).
-5. Si aparece un bug reproducible, registrarlo en [`docs/BUGS_Y_SOLUCIONES.md`](BUGS_Y_SOLUCIONES.md).
-6. Abrir pull request con descripciÃ³n del cambio y plan de prueba manual.
+4. Abrir pull request con descripciÃ³n del cambio y plan de prueba manual.
 
 ### DocumentaciÃ³n viva
 
 | Documento | CuÃ¡ndo actualizar |
 |-----------|-------------------|
-| `BITACORA_HORECASO.md` | Tras cada bloque de trabajo relevante |
-| `STEP_HORECASO.md` | Cambios de roadmap o estado de fase |
 | `ARQUITECTURA_HORECASO.md` | Nuevo router, ruta React o migraciÃ³n crÃ­tica |
 | `SCHEMA_BASE_DATOS.md` | Cambios de esquema en Supabase |
 
@@ -934,13 +917,8 @@ La navegaciÃ³n se define en [`frontend/src/components/layout/constants/navConf
 
 | Documento | Contenido |
 |-----------|-----------|
-| [docs/GUIA_PRODUCCION_COMPLETA.md](GUIA_PRODUCCION_COMPLETA.md) | Deploy, seguridad, tenants, smoke tests |
 | [docs/SCHEMA_BASE_DATOS.md](SCHEMA_BASE_DATOS.md) | 42 tablas, columnas, FKs |
 | [docs/ARQUITECTURA_HORECASO.md](ARQUITECTURA_HORECASO.md) | Mapa tÃ©cnico routers â†” frontend |
-| [docs/STEP_HORECASO.md](STEP_HORECASO.md) | Estado del proyecto por mÃ³dulo |
-| [docs/PRD_HorecaSO.md](PRD_HorecaSO.md) | EspecificaciÃ³n de producto |
-| [docs/BITACORA_HORECASO.md](BITACORA_HORECASO.md) | Historial de implementaciÃ³n |
-| [docs/BUGS_Y_SOLUCIONES.md](BUGS_Y_SOLUCIONES.md) | Bugs documentados |
 | [docs/MANUAL_USUARIO_HORECASO.md](MANUAL_USUARIO_HORECASO.md) | Manual de usuario |
 | `docs/CREDENCIALES_PRUEBA.MD` (local, no versionado) | Usuarios de desarrollo |
 

@@ -1,0 +1,19 @@
+name: keepalive
+
+# Hace ping a la API en Render (plan gratuito) para que no se duerma.
+# Render duerme el servicio tras ~15 min sin tráfico.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/health
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 https://horecaso.onrender.com/api/health)
+          echo "Health: $code"
+          test "$code" = "200"
