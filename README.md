@@ -80,6 +80,17 @@ The system is **multi-tenant**: one application instance serves multiple restaur
 |-----------|-----------|---------------------------|
 | ![Dashboard](docs/screenshots/v2/adm-dashboard.png) | ![Inventory](docs/screenshots/v2/adm-inventario.png) | ![Waiter home on mobile](docs/screenshots/v2/mob-camarero.png) |
 
+### Back office (fictitious data)
+| Reservations | Waste log (mermas) |
+|--------------|--------------------|
+| ![Reservations](docs/screenshots/v2/adm-reservas.png) | ![Waste log](docs/screenshots/v2/adm-mermas.png) |
+| Bookings of the day and upcoming days, with status and party size. | Recorded waste with quantity, reason and cost. |
+
+| Cash closing | Staff schedule (cuadrante) |
+|--------------|----------------------------|
+| ![Cash closing](docs/screenshots/v2/adm-cierre-de-caja.png) | ![Staff schedule](docs/screenshots/v2/adm-cuadrante.png) |
+| Daily closing: expected vs. counted cash. | Weekly shift schedule per employee. |
+
 ---
 
 ## 🧪 Demo Access for Recruiters

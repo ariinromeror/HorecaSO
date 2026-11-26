@@ -94,6 +94,7 @@ async def main() -> int:
             "seed_demo_tenant_prueba_abcd.sql",
             "seed_despensa_articulos_prueba.sql",
             "seed_predicciones_mermas_demo.sql",
+            "migration_hso11_stock_schema.sql",  # delta y origen de lotes (idempotente)
         ):
             await _ejecutar(conn, nombre, _leer(nombre))
 

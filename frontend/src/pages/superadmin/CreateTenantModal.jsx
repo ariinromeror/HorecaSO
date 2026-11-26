@@ -189,7 +189,7 @@ export default function CreateTenantModal({ onClose, onCreated }) {
                   value={form.nombre}
                   onChange={(e) => setField('nombre', e.target.value)}
                   className={inputClass}
-                  placeholder="Kairos"
+                  placeholder="Restaurante Prueba"
                 />
               </label>
               <label className="flex flex-col sm:col-span-2">
@@ -203,7 +203,7 @@ export default function CreateTenantModal({ onClose, onCreated }) {
                     setField('email_slug', e.target.value)
                   }}
                   className={inputClass}
-                  placeholder="kairos"
+                  placeholder="rest-prueba"
                 />
               </label>
               <label className="flex flex-col">

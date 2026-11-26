@@ -1,4 +1,4 @@
-import { Calendar, Package, Plus, TrendingDown } from 'lucide-react'
+import { Calendar, Package, Plus, Trash2, TrendingDown } from 'lucide-react'
 import StatCard from '../../components/shared/StatCard'
 import MermaModal from './components/MermaModal'
 import MermasList from './components/MermasList'
